@@ -1,3 +1,15 @@
+# Session Boot (MANDATORY)
+
+**Every session MUST begin with these two actions before doing anything else:**
+
+1. **Load context**: Execute the `/session-start` protocol — read `.claude/memory/activeContext.md`, `progress.md`, `conventions.md`, `projectContext.md` (or fall back to `tasks/handoff.md`, `tasks/todo.md`, `tasks/lessons.md`). Check `git status`, `git branch`, and recent commits. Synthesize and present a brief summary to the user.
+
+2. **Enter plan mode**: After presenting the session summary, enter plan mode. Stay in plan mode until the user provides a task and approves a plan. Do NOT begin implementation without an approved plan.
+
+This applies to every new session — CLI, desktop app, and IDE. No exceptions. If the user's first message is a task, load context silently and present the plan for that task (combining steps 1 and 2). If the user's first message is a greeting or question, load context first and then respond.
+
+---
+
 # User Preferences
 
 ## Scope Rules
