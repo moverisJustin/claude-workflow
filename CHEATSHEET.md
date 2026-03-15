@@ -12,6 +12,8 @@ Quick reference for all slash commands, specialist agents, and modes.
 | `/verify-all` | Run tests, types, lint, build — full verification suite |
 | `/test-and-fix` | Run tests, analyze failures, fix, repeat until green |
 | `/security-scan` | SAST, dependency CVEs, secrets detection, OWASP checks |
+| `/task-branch <name>` | Create feature branch with task context for cross-machine handoff |
+| `/task-done` | Complete task: verify, create PR, clean up task-context.md |
 | `/commit-push-pr` | Stage, commit, push, create PR — full git workflow |
 | `/quick-commit` | Fast local commit with auto-generated message (no push) |
 | `/undo` | Revert the last Claude-made change safely |
@@ -62,6 +64,9 @@ Quick reference for all slash commands, specialist agents, and modes.
 **Start of day:**
 `/session-start` (runs automatically on new sessions)
 
+**New task:**
+`/task-branch feature/auth` then start building
+
 **Complex task:**
 `/boris implement user authentication`
 
@@ -73,6 +78,9 @@ Quick reference for all slash commands, specialist agents, and modes.
 
 **Something broke:**
 `/mode debug` → investigate → `/mode code` → fix
+
+**Task complete:**
+`/task-done` (verify, PR, cleanup)
 
 **End of day:**
 `/session-end`
@@ -95,6 +103,24 @@ Each project gets a `.claude/memory/` directory with persistent context:
 | `conventions.md` | Project-specific lessons and rules |
 
 Initialize with `/memory-init`. Context loads automatically via `/session-start`.
+
+## Task Context (Branch-Specific)
+
+Each feature branch can carry its own task context in `.claude/task-context.md`:
+
+| Field | Purpose |
+|---|---|
+| Branch | Name, creation date, base commit |
+| Objective | What this branch exists to accomplish |
+| Plan | Checklist of steps |
+| Decisions | Key decisions with rationale |
+| Progress | Done / In Progress / Blocked |
+| Notes | Context for someone picking this up cold |
+
+- Created by `/task-branch` or `/fix-issue`
+- Auto-loaded by `/session-start`, auto-saved by `/session-end`
+- Committed to git for cross-machine handoff (`git pull` on the branch)
+- Removed when branch merges to main (via `/task-done`)
 
 ## Lesson Syncing
 

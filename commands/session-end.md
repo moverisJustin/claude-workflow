@@ -64,6 +64,24 @@ Analyze this session and document:
 - Note new files created
 - Flag deleted files
 
+### 2.5. Update Task Context (if on feature branch)
+
+If `.claude/task-context.md` exists on this branch:
+
+**Update `.claude/task-context.md`:**
+- Update Progress section (mark completed items, add new ones)
+- Add any new Decisions made this session
+- Update Notes with context for next session
+- Do NOT change the Objective or Plan structure
+
+**Commit task-context.md update:**
+```bash
+git add .claude/task-context.md
+git commit -m "chore: update task context - session end"
+```
+
+This ensures cross-machine handoff works: just `git pull` on the branch.
+
 ### Legacy Support
 If this project has `tasks/` files alongside or instead of Memory Bank:
 - Also update `tasks/handoff.md` with current state
@@ -140,6 +158,8 @@ Memory Bank Updated:
 - activeContext.md - Current state saved
 - progress.md - Tasks updated
 - sessionHistory.md - Summary added
+
+Task Context: [Updated on branch / Not applicable (on main)]
 
 Work Status:
 [All committed / Stashed for later / WIP commit created]

@@ -71,6 +71,12 @@ Create a clear plan before ANY implementation:
 ### Phase 3: Execution
 Once plan is approved:
 
+0. **Create task branch** (if not already on one):
+   - If on main and this is a non-trivial task, create a feature branch first
+   - Use naming convention: `feature/`, `fix/`, or `task/` + descriptive slug
+   - Initialize `.claude/task-context.md` with the plan from Phase 2
+   - Skip this step if already on a feature branch or if this is initial project setup (< 5 commits)
+
 1. **Delegate strategically** - Use Task tool to invoke specialist agents
 2. **Maintain context** - Pass relevant info between agents
 3. **Track progress** - Update user on status
@@ -96,7 +102,7 @@ Before considering anything "done":
 ### Phase 5: Ship & Learn
 After verification passes:
 
-1. **Commit and PR** - Use `/commit-push-pr` workflow
+1. **Commit and PR** - Use `/task-done` for branch completion, or `/commit-push-pr` for intermediate commits
 2. **Update CLAUDE.md** - If we learned something new
 3. **Report completion** - Summary of what was done
 

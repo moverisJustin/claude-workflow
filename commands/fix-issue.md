@@ -46,6 +46,23 @@ git checkout main && git pull origin main
 git checkout -b "issue-$ISSUE_NUM-$SLUG"
 ```
 
+### 2.5. Initialize Task Context
+
+After creating the branch, initialize `.claude/task-context.md`:
+
+```bash
+mkdir -p .claude
+# Create task-context.md with:
+# - Branch name and base SHA
+# - Issue number and title as Objective
+# - Acceptance criteria from issue as Plan items
+# - Issue body summary in Notes
+git add .claude/task-context.md
+git commit -m "chore: initialize task context for issue #$ISSUE_NUM"
+```
+
+Pre-populate the Objective from the issue title and the Plan from any acceptance criteria or checkboxes found in the issue body.
+
 ### 3. Plan Implementation
 
 Create a plan before coding:

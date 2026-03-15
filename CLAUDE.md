@@ -34,6 +34,8 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 /review-changes      # Pre-commit code review
 
 # Git Workflow
+/task-branch <name>  # Create feature branch + task context
+/task-done           # Complete task: verify, PR, cleanup
 /commit-push-pr      # Full git workflow with PR
 /quick-commit        # Fast local commit
 /undo                # Revert last Claude change
@@ -111,7 +113,17 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - Never force-push to main/master
 - Always verify push target with `git remote -v` before pushing
 
-## 8. Mode System
+## 8. Branch Strategy (Feature-Branch-by-Default)
+- ALL work happens on feature branches, NOT main
+- Exception: initial build phase of a new project (< 5 commits) may use main
+- Every feature branch gets `.claude/task-context.md` (committed, not gitignored)
+- `/task-branch <name>` to start, `/task-done` to finish
+- Cross-machine handoff: just `git pull` on the branch
+- When branch merges to main, task-context.md is removed
+- `/fix-issue` auto-creates task context from issue details
+- Branch naming: `feature/`, `fix/`, `task/` prefixes
+
+## 9. Mode System
 - `/mode architect` — read-only design mode (no file edits)
 - `/mode code` — full development (default)
 - `/mode debug` — investigation, limited writes
@@ -129,6 +141,14 @@ Per-project memory at `.claude/memory/`:
 - `decisionLog.md` — Architecture decisions with rationale
 - `conventions.md` — Learned patterns and mistakes (replaces tasks/lessons.md)
 - `sessionHistory.md` — Rolling session summaries
+
+### Task Context (Branch-Specific)
+- `.claude/task-context.md` — Per-branch task state (objective, plan, decisions, progress)
+- Committed to git for cross-machine handoff
+- Auto-loaded by `/session-start` when present
+- Auto-updated by `/session-end` when on a feature branch
+- Removed when branch merges to main
+- Complements Memory Bank: Memory Bank = project-level, task-context = branch-level
 
 **Setup**: Run `/memory-init` in any project to create the structure.
 **Usage**: `/session-start` at beginning, `/session-end` at end.

@@ -18,6 +18,9 @@ description: Start a new session by loading Memory Bank context, checking projec
 ### Recent Session
 !`cat .claude/memory/sessionHistory.md 2>/dev/null | head -40 || echo "No session history"`
 
+### Task Context (Branch-Specific)
+!`cat .claude/task-context.md 2>/dev/null | head -50 || echo ""`
+
 ## Project Status
 
 !`pwd`
@@ -46,6 +49,7 @@ From Memory Bank, understand:
 - **Last Session**: What was being worked on?
 - **Current Focus**: From activeContext.md
 - **Pending Items**: From progress.md
+- **Task Context**: If `.claude/task-context.md` exists, this branch has a specific task. Load its objective, plan, progress, and decisions. This takes priority over activeContext.md for understanding "what to work on."
 
 ### Legacy Support
 If this project uses `tasks/` instead of `.claude/memory/`:
@@ -63,6 +67,7 @@ Memory Bank Loaded
 Project: [Name from projectContext]
 Last Session: [Date and summary from sessionHistory]
 Last Working On: [From activeContext]
+Task Branch: [Name + objective from task-context.md, or "None (on main)"]
 Pending Tasks: [Count from progress]
 Current Branch: [Git branch]
 Uncommitted Changes: [Yes/No]
@@ -80,6 +85,8 @@ Mark session start:
 ### 4. Suggest Next Actions
 
 Based on context:
+- If on a task branch with task-context.md: continue the task plan
+- If on main with no active task: suggest creating a task branch (`/task-branch <name>`)
 - Continue last session's work?
 - Address pending items?
 - Review open issues?

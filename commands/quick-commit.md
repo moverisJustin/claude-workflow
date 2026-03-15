@@ -5,8 +5,16 @@ description: Fast commit - stage all changes and commit with a descriptive messa
 # Changes
 !`git status --short`
 !`git diff --stat`
+!`git branch --show-current 2>/dev/null`
+!`git rev-list --count HEAD 2>/dev/null || echo "0"`
 
 ---
+
+## Branch Check
+
+If on main/master AND more than 5 commits exist, warn:
+"You're on main. Consider `/task-branch <name>` first. Continue anyway?"
+Wait for confirmation before proceeding.
 
 ## Quick Commit
 

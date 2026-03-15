@@ -188,13 +188,49 @@ create_feature_branch() {
   git checkout main
   git pull origin main
   git checkout -b "feature/$NAME"
-  echo "🌿 Created branch: feature/$NAME"
+  echo "Created branch: feature/$NAME"
+}
+
+# Create task branch with context (used by /task-branch)
+create_task_branch() {
+  NAME=$1
+  TYPE=${2:-"task"}  # feature, fix, or task
+  git checkout main
+  git pull origin main
+  git checkout -b "$TYPE/$NAME"
+
+  # Initialize task-context.md
+  mkdir -p .claude
+  # [create task-context.md from template]
+  git add .claude/task-context.md
+  git commit -m "chore: initialize task context for $TYPE/$NAME"
+  echo "Created branch: $TYPE/$NAME with task context"
+}
+
+# Warn if working on main past initial build phase
+warn_if_main() {
+  BRANCH=$(git branch --show-current)
+  COMMIT_COUNT=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+  if [[ "$BRANCH" == "main" || "$BRANCH" == "master" ]] && [ "$COMMIT_COUNT" -gt 5 ]; then
+    echo "WARNING: Working on $BRANCH with $COMMIT_COUNT commits."
+    echo "Consider creating a task branch: /task-branch <name>"
+    return 1
+  fi
+  return 0
+}
+
+# Clean up task-context.md after merge
+cleanup_task_context() {
+  if [ -f .claude/task-context.md ]; then
+    git rm .claude/task-context.md
+    git commit -m "chore: remove task context after merge"
+  fi
 }
 
 # Safe delete merged branches
 cleanup_branches() {
   git branch --merged main | grep -v "main\|master" | xargs -r git branch -d
-  echo "🧹 Deleted merged branches"
+  echo "Deleted merged branches"
 }
 ```
 

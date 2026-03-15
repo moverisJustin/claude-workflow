@@ -10,6 +10,23 @@ description: Complete git workflow - stage changes, commit with conventional mes
 
 ---
 
+## 0. Branch Check
+
+!`git branch --show-current 2>/dev/null`
+!`git rev-list --count HEAD 2>/dev/null || echo "0"`
+
+**If on main/master:**
+- If fewer than 5 commits: this is initial build phase -- proceed with a note.
+- If 5+ commits: **WARN** the user:
+  ```
+  WARNING: You are committing directly to main.
+  Recommended: Create a task branch first with /task-branch <name>
+  Continue on main anyway? (Only for hotfixes or initial setup)
+  ```
+  Wait for user confirmation before proceeding on main.
+
+---
+
 Based on the changes above, execute the full git workflow:
 
 ## 1. Stage Changes
