@@ -5,7 +5,7 @@ Personal Claude Code workflow configuration based on [claude-boris v2.0](https:/
 ## What's Included
 
 - **15 specialist agents** -- boris (orchestrator), code-architect, code-simplifier, test-writer, verify-app, pr-reviewer, doc-generator, ci-integrator, issue-tracker, git-guardian, memory-bank, mode-controller, security-auditor, audit-logger, oncall-guide
-- **22 slash commands** -- `/boris`, `/session-start`, `/session-end`, `/verify-all`, `/test-and-fix`, `/security-scan`, `/commit-push-pr`, `/quick-commit`, `/undo`, `/checkpoint`, `/rollback`, `/mode`, `/fix-issue`, `/ci-loop`, `/context`, `/memory-init`, `/update-claude-md`, `/first-principles`, `/review-changes`, `/task-branch`, `/task-done`, `/anythingelse`
+- **23 slash commands** -- `/boris`, `/session-start`, `/session-end`, `/verify-all`, `/test-and-fix`, `/security-scan`, `/commit-push-pr`, `/quick-commit`, `/undo`, `/checkpoint`, `/rollback`, `/mode`, `/fix-issue`, `/ci-loop`, `/context`, `/memory-init`, `/handoff`, `/update-claude-md`, `/first-principles`, `/review-changes`, `/task-branch`, `/task-done`, `/anythingelse`
 - **1 skill** -- boris-workflow methodology
 - **Settings** -- wildcard permissions, Prettier hook (JS/TS only), audit logging, deny list for dangerous ops
 - **CLAUDE.md** -- global instructions with quick reference, workflow rules, and synced Learned Patterns
@@ -105,6 +105,7 @@ Restores from the most recent backup created by `install.sh`.
 | `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
 | `/context` | Show context window usage and Memory Bank status |
 | `/memory-init` | Initialize Memory Bank for a new project |
+| `/handoff` | Cognitive briefing — saves mental model, failed approaches, resume prompt |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
 | `/first-principles` | Break down a complex problem from fundamentals |
 | `/review-changes` | Review uncommitted changes before committing |
@@ -149,6 +150,7 @@ Restores from the most recent backup created by `install.sh`.
 - **Before merging:** `/verify-all` → `/review-changes` → `/commit-push-pr`
 - **Something broke:** `/mode debug` → investigate → `/mode code` → fix
 - **Task complete:** `/task-done` (verify, PR, cleanup)
+- **Context getting full:** `/handoff` (auto-suggested at 60%, auto-runs at 75%)
 - **End of day:** `/session-end`
 - **Oops:** `/undo` or `/rollback`
 

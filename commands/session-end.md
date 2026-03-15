@@ -64,6 +64,21 @@ Analyze this session and document:
 - Note new files created
 - Flag deleted files
 
+### 2.3. Generate Cognitive Briefing
+
+Before saving to Memory Bank, generate a cognitive briefing (same format as `/handoff`):
+
+**Resume Prompt** (3-5 sentences):
+Write a single paragraph that a fresh session could read to instantly reconstruct the full mental model. Include: what we're building, where we are, current approach, immediate next step.
+
+**Failed Approaches** (if any this session):
+Document what was tried and didn't work, so the next session doesn't retry it.
+
+**Active Hypotheses** (if exploring something):
+What theories are being tested, evidence for/against, next validation step.
+
+This cognitive briefing goes into `.claude/memory/activeContext.md` as part of step 3.
+
 ### 2.5. Update Task Context (if on feature branch)
 
 If `.claude/task-context.md` exists on this branch:

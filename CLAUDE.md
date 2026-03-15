@@ -45,6 +45,7 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 # Context & Memory
 /context             # Check context usage
 /memory-init         # Initialize Memory Bank for project
+/handoff             # Cognitive briefing for seamless session handoff
 
 # Mode System
 /mode [mode]         # Switch modes (architect/code/debug/review/audit)
@@ -123,7 +124,15 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - `/fix-issue` auto-creates task context from issue details
 - Branch naming: `feature/`, `fix/`, `task/` prefixes
 
-## 9. Mode System
+## 9. Context Guardian (Proactive Rescue)
+- **At ~60% context usage**: Proactively tell the user: "Context is getting full. Want me to run `/handoff` to save cognitive state?"
+- **At ~75% context usage**: Auto-run `/handoff` without asking. Save the cognitive briefing to activeContext.md and task-context.md. Then tell the user context is preserved.
+- **Before any `/session-end`**: Generate the cognitive briefing (resume prompt, mental model, failed approaches, active hypotheses) as part of the session-end flow
+- **Priority**: If context is critically low, saving the handoff briefing is MORE important than finishing the current subtask. A lost mental model costs more than a half-finished function.
+- The cognitive briefing captures THINKING (why, how, what failed) not just DOING (which files changed)
+- `/handoff` can be run manually at any time for an immediate cognitive snapshot
+
+## 10. Mode System
 - `/mode architect` — read-only design mode (no file edits)
 - `/mode code` — full development (default)
 - `/mode debug` — investigation, limited writes

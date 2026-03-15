@@ -24,6 +24,7 @@ Quick reference for all slash commands, specialist agents, and modes.
 | `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
 | `/context` | Show context window usage and Memory Bank status |
 | `/memory-init` | Initialize Memory Bank for a new project |
+| `/handoff` | Cognitive briefing — saves mental model, failed approaches, resume prompt |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
 | `/first-principles` | Break down a complex problem from fundamentals |
 | `/review-changes` | Review uncommitted changes before committing |
@@ -81,6 +82,9 @@ Quick reference for all slash commands, specialist agents, and modes.
 
 **Task complete:**
 `/task-done` (verify, PR, cleanup)
+
+**Context getting full:**
+`/handoff` (auto-suggested at 60%, auto-runs at 75%)
 
 **End of day:**
 `/session-end`
