@@ -13,7 +13,7 @@ description: Complete git workflow - stage changes, commit with conventional mes
 ## 0. Branch Check
 
 !`git branch --show-current 2>/dev/null`
-!`git rev-list --count HEAD 2>/dev/null || echo "0"`
+!`git rev-list --count HEAD 2>/dev/null`
 
 **If on main/master:**
 - If fewer than 5 commits: this is initial build phase -- proceed with a note.

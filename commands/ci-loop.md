@@ -8,7 +8,7 @@ description: Push code, wait for CI, parse failures, auto-fix, and iterate until
 
 !`git status --short`
 !`git branch --show-current`
-!`gh run list --limit 3 2>/dev/null || echo "gh CLI not configured"`
+!`gh run list --limit 3 2>/dev/null`
 
 ---
 

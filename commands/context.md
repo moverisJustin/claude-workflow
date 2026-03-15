@@ -7,16 +7,16 @@ description: Show context window usage, Memory Bank status, and recommendations 
 ## Memory Bank Status
 
 ### Files Present
-!`ls -la .claude/memory/ 2>/dev/null || echo "No Memory Bank - run /memory-init"`
+!`ls -la .claude/memory/ 2>/dev/null`
 
 ### File Sizes
-!`wc -l .claude/memory/*.md 2>/dev/null || echo ""`
+!`wc -l .claude/memory/*.md 2>/dev/null`
 
 ### Last Updated
-!`ls -lt .claude/memory/*.md 2>/dev/null | head -5 || echo ""`
+!`ls -lt .claude/memory/*.md 2>/dev/null | head -5`
 
 ## Session History Size
-!`wc -l .claude/memory/sessionHistory.md 2>/dev/null || echo "No session history"`
+!`wc -l .claude/memory/sessionHistory.md 2>/dev/null`
 
 ## Git Context
 

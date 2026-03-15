@@ -7,14 +7,14 @@ description: End session by saving Memory Bank state, creating session summary, 
 ## Current State
 
 ### Uncommitted Changes
-!`git status --short 2>/dev/null || echo "Not a git repo"`
+!`git status --short 2>/dev/null`
 !`git diff --stat 2>/dev/null | tail -10`
 
 ### Commits This Session
 !`git log --oneline --since="8 hours ago" 2>/dev/null | head -10`
 
 ### Files Modified Recently
-!`git diff --name-only HEAD~5 2>/dev/null | head -15 || echo ""`
+!`git diff --name-only HEAD~5 2>/dev/null | head -15`
 
 ---
 

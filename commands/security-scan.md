@@ -7,31 +7,31 @@ description: Run comprehensive security scan - SAST, dependency vulnerabilities,
 ## Scanning...
 
 ### Dependency Vulnerabilities
-!`npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities | to_entries | map(select(.value > 0)) | .[] | "\(.key): \(.value)"' 2>/dev/null || npm audit 2>/dev/null | head -30 || echo "Run npm install first"`
+!`npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities | to_entries | map(select(.value > 0)) | .[] | "\(.key): \(.value)"' 2>/dev/null`
 
 ### Outdated Packages
-!`npm outdated 2>/dev/null | head -15 || echo ""`
+!`npm outdated 2>/dev/null | head -15`
 
 ### Hardcoded Secrets Check
-!`grep -rn --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" -E "(password|secret|api_key|apikey|token)['\"]?\s*[:=]\s*['\"][a-zA-Z0-9+/=]{8,}" src/ 2>/dev/null | head -10 || echo "No obvious secrets found in src/"`
+!`grep -rn --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" -E "(password|secret|api_key|apikey|token)['\"]?\s*[:=]\s*['\"][a-zA-Z0-9+/=]{8,}" src/ 2>/dev/null | head -10`
 
 ### AWS Credentials
-!`grep -rn "AKIA[0-9A-Z]{16}" . 2>/dev/null | head -5 || echo "No AWS keys found"`
+!`grep -rn "AKIA[0-9A-Z]{16}" . 2>/dev/null | head -5`
 
 ### Private Keys
-!`find . -name "*.pem" -o -name "*.key" 2>/dev/null | grep -v node_modules | head -5 || echo "No private key files found"`
+!`find . -name "*.pem" -o -name "*.key" 2>/dev/null | grep -v node_modules | head -5`
 
 ### SQL Injection Patterns
-!`grep -rn --include="*.ts" --include="*.js" -E "query\s*\(\s*['\"\`].*\\\$\{" src/ 2>/dev/null | head -5 || echo "No obvious SQL injection patterns"`
+!`grep -rn --include="*.ts" --include="*.js" -E "query\s*\(\s*['\"\`].*\\\$\{" src/ 2>/dev/null | head -5`
 
 ### Dangerous Functions
-!`grep -rn --include="*.ts" --include="*.js" -E "\beval\s*\(|new Function\s*\(" src/ 2>/dev/null | head -5 || echo "No eval/Function found"`
+!`grep -rn --include="*.ts" --include="*.js" -E "\beval\s*\(|new Function\s*\(" src/ 2>/dev/null | head -5`
 
 ### XSS Vulnerabilities
-!`grep -rn --include="*.tsx" --include="*.jsx" "dangerouslySetInnerHTML" src/ 2>/dev/null | head -5 || echo "No dangerouslySetInnerHTML found"`
+!`grep -rn --include="*.tsx" --include="*.jsx" "dangerouslySetInnerHTML" src/ 2>/dev/null | head -5`
 
 ### CORS Configuration
-!`grep -rn --include="*.ts" --include="*.js" -E "cors.*['\"]\\*['\"]|Access-Control-Allow-Origin.*\\*" src/ 2>/dev/null | head -3 || echo "No wildcard CORS found"`
+!`grep -rn --include="*.ts" --include="*.js" -E "cors.*['\"]\\*['\"]|Access-Control-Allow-Origin.*\\*" src/ 2>/dev/null | head -3`
 
 ---
 

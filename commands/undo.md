@@ -5,7 +5,7 @@ description: Undo the last Claude-made change. Safely reverts commits, edits, or
 # Undo Last Change
 
 ## Current State
-!`git log -3 --oneline 2>/dev/null || echo "Not a git repo"`
+!`git log -3 --oneline 2>/dev/null`
 !`git status --short 2>/dev/null`
 
 ## Last Commit Details

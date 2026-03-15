@@ -14,8 +14,8 @@ Read your full instructions from `.claude/agents/boris.md` and execute according
 ## Quick Context
 
 !`pwd`
-!`git status --short 2>/dev/null || echo "Not a git repo"`
-!`cat package.json 2>/dev/null | head -20 || echo "No package.json"`
+!`git status --short 2>/dev/null`
+!`cat package.json 2>/dev/null | head -20`
 
 ## Your Mission
 

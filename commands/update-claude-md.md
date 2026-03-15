@@ -8,7 +8,7 @@ description: Update CLAUDE.md with learnings from recent work - mistakes to avoi
 !`git log --oneline -10`
 
 ## Current CLAUDE.md
-!`cat CLAUDE.md 2>/dev/null || echo "No CLAUDE.md found"`
+!`cat CLAUDE.md 2>/dev/null`
 
 ## Recent Changes
 !`git diff HEAD~3 --stat`

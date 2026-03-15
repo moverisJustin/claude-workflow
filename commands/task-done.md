@@ -7,7 +7,7 @@ description: Complete a task branch - verify, create PR, and clean up task-conte
 ## Current State
 !`git branch --show-current 2>/dev/null`
 !`git status --short 2>/dev/null`
-!`cat .claude/task-context.md 2>/dev/null | head -30 || echo "No task-context.md found on this branch"`
+!`cat .claude/task-context.md 2>/dev/null | head -30`
 
 ---
 

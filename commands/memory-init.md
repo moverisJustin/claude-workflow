@@ -6,12 +6,12 @@ description: Initialize Memory Bank for a new project. Creates memory structure 
 
 ## Checking Current State...
 
-!`ls -la .claude/memory/ 2>/dev/null && echo "Memory Bank exists" || echo "No Memory Bank found"`
+!`ls -la .claude/memory/ 2>/dev/null && echo "Memory Bank exists"`
 !`pwd`
 !`ls -la`
 
 ## Legacy Migration Check
-!`ls tasks/handoff.md tasks/todo.md tasks/lessons.md 2>/dev/null && echo "Legacy tasks/ directory found - will offer migration" || echo "No legacy tasks/ found"`
+!`ls tasks/handoff.md tasks/todo.md tasks/lessons.md 2>/dev/null && echo "Legacy tasks/ directory found - will offer migration"`
 
 If legacy `tasks/` files exist, offer to migrate:
 1. Copy `tasks/handoff.md` content -> `.claude/memory/activeContext.md`

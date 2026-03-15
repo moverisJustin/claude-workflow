@@ -6,7 +6,7 @@ description: Fast commit - stage all changes and commit with a descriptive messa
 !`git status --short`
 !`git diff --stat`
 !`git branch --show-current 2>/dev/null`
-!`git rev-list --count HEAD 2>/dev/null || echo "0"`
+!`git rev-list --count HEAD 2>/dev/null`
 
 ---
 

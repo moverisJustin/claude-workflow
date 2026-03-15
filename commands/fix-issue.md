@@ -6,7 +6,7 @@ description: Fetch a GitHub/Linear issue, understand requirements, implement the
 
 ## Fetching Issue Details...
 
-!`gh issue view $ARGUMENTS --json number,title,body,labels,assignees,state 2>/dev/null || echo "Provide issue number: /fix-issue 123"`
+!`gh issue view $ARGUMENTS --json number,title,body,labels,assignees,state 2>/dev/null`
 
 ## Linear Issue (if GitHub issue not found)
 If the issue number starts with a project prefix (e.g., MOV-123), use Linear MCP tools instead:
@@ -15,7 +15,7 @@ If the issue number starts with a project prefix (e.g., MOV-123), use Linear MCP
 - Use `mcp__claude_ai_Linear__create_comment` to add comments
 
 ## Issue Comments (Context)
-!`gh issue view $ARGUMENTS --json comments -q '.comments[-3:] | .[].body' 2>/dev/null | head -30 || echo ""`
+!`gh issue view $ARGUMENTS --json comments -q '.comments[-3:] | .[].body' 2>/dev/null | head -30`
 
 ---
 

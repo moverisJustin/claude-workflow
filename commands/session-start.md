@@ -7,36 +7,32 @@ description: Start a new session by loading Memory Bank context, checking projec
 ## Memory Bank Loading...
 
 ### Project Context
-!`cat .claude/memory/projectContext.md 2>/dev/null | head -40 || echo "No project context - run /memory-init to set up"`
+!`head -40 .claude/memory/projectContext.md 2>/dev/null`
 
 ### Active Context (Last Session State)
-!`cat .claude/memory/activeContext.md 2>/dev/null | head -30 || cat tasks/handoff.md 2>/dev/null | head -30 || echo "No active context found - run /memory-init to set up"`
+!`head -30 .claude/memory/activeContext.md 2>/dev/null`
 
 ### Progress Status
-!`cat .claude/memory/progress.md 2>/dev/null | grep -A 20 "## In Progress\|## Completed" | head -25 || cat tasks/todo.md 2>/dev/null | head -25 || echo "No progress tracking"`
+!`head -40 .claude/memory/progress.md 2>/dev/null`
+
+### Conventions / Lessons
+!`head -20 .claude/memory/conventions.md 2>/dev/null`
 
 ### Recent Session
-!`cat .claude/memory/sessionHistory.md 2>/dev/null | head -40 || echo "No session history"`
+!`head -40 .claude/memory/sessionHistory.md 2>/dev/null`
 
 ### Task Context (Branch-Specific)
-!`cat .claude/task-context.md 2>/dev/null | head -50 || echo ""`
+!`head -50 .claude/task-context.md 2>/dev/null`
 
 ## Project Status
 
 !`pwd`
-!`git status --short 2>/dev/null || echo "Not a git repo"`
+!`git status --short 2>/dev/null`
 !`git branch --show-current 2>/dev/null`
 !`git log --oneline -5 2>/dev/null`
 
 ## Environment Check
-!`node --version 2>/dev/null || echo "Node not found"`
-!`cat package.json 2>/dev/null | jq -r '.name + " v" + .version' 2>/dev/null || echo ""`
-
-## Open Issues
-!`gh issue list --state open --limit 5 2>/dev/null || echo ""`
-
-## CLAUDE.md Quick Reference
-!`cat CLAUDE.md 2>/dev/null | head -30 || echo "No CLAUDE.md"`
+!`python3 --version 2>/dev/null`
 
 ---
 
