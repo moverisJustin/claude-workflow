@@ -146,7 +146,8 @@
       "Write(*.cjs)",
       "Glob(*)",
       "Grep(*)",
-      "Task(*)"
+      "Task(*)",
+      "WebFetch(*)"
     ],
     "deny": [
       "Bash(rm -rf /)",
