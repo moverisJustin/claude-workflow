@@ -7,31 +7,31 @@ description: Run comprehensive security scan - SAST, dependency vulnerabilities,
 ## Scanning...
 
 ### Dependency Vulnerabilities
-!`npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities | to_entries | map(select(.value > 0)) | .[] | "\(.key): \(.value)"' 2>/dev/null`
+!`npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities | to_entries | map(select(.value > 0)) | .[] | "\(.key): \(.value)"' 2>/dev/null; true`
 
 ### Outdated Packages
-!`npm outdated 2>/dev/null | head -15`
+!`npm outdated 2>/dev/null | head -15; true`
 
 ### Hardcoded Secrets Check
-!`grep -rn --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" -E "(password|secret|api_key|apikey|token)['\"]?\s*[:=]\s*['\"][a-zA-Z0-9+/=]{8,}" src/ 2>/dev/null | head -10`
+!`grep -rn --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" -E "(password|secret|api_key|apikey|token)['\"]?\s*[:=]\s*['\"][a-zA-Z0-9+/=]{8,}" src/ 2>/dev/null | head -10; true`
 
 ### AWS Credentials
-!`grep -rn "AKIA[0-9A-Z]{16}" . 2>/dev/null | head -5`
+!`grep -rn "AKIA[0-9A-Z]{16}" . 2>/dev/null | head -5; true`
 
 ### Private Keys
-!`find . -name "*.pem" -o -name "*.key" 2>/dev/null | grep -v node_modules | head -5`
+!`find . -name "*.pem" -o -name "*.key" 2>/dev/null | grep -v node_modules | head -5; true`
 
 ### SQL Injection Patterns
-!`grep -rn --include="*.ts" --include="*.js" -E "query\s*\(\s*['\"\`].*\\\$\{" src/ 2>/dev/null | head -5`
+!`grep -rn --include="*.ts" --include="*.js" -E "query\s*\(\s*['\"\`].*\\\$\{" src/ 2>/dev/null | head -5; true`
 
 ### Dangerous Functions
-!`grep -rn --include="*.ts" --include="*.js" -E "\beval\s*\(|new Function\s*\(" src/ 2>/dev/null | head -5`
+!`grep -rn --include="*.ts" --include="*.js" -E "\beval\s*\(|new Function\s*\(" src/ 2>/dev/null | head -5; true`
 
 ### XSS Vulnerabilities
-!`grep -rn --include="*.tsx" --include="*.jsx" "dangerouslySetInnerHTML" src/ 2>/dev/null | head -5`
+!`grep -rn --include="*.tsx" --include="*.jsx" "dangerouslySetInnerHTML" src/ 2>/dev/null | head -5; true`
 
 ### CORS Configuration
-!`grep -rn --include="*.ts" --include="*.js" -E "cors.*['\"]\\*['\"]|Access-Control-Allow-Origin.*\\*" src/ 2>/dev/null | head -3`
+!`grep -rn --include="*.ts" --include="*.js" -E "cors.*['\"]\\*['\"]|Access-Control-Allow-Origin.*\\*" src/ 2>/dev/null | head -3; true`
 
 ---
 

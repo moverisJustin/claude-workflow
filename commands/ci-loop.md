@@ -6,9 +6,9 @@ description: Push code, wait for CI, parse failures, auto-fix, and iterate until
 
 ## Pre-flight Check
 
-!`git status --short`
-!`git branch --show-current`
-!`gh run list --limit 3 2>/dev/null`
+!`git status --short; true`
+!`git branch --show-current; true`
+!`gh run list --limit 3 2>/dev/null; true`
 
 ---
 

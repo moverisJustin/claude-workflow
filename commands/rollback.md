@@ -7,13 +7,13 @@ description: Rollback to a previous checkpoint or N commits back. Restore saved 
 ## Available Checkpoints
 
 ### Stash Checkpoints
-!`git stash list 2>/dev/null | grep "checkpoint:"`
+!`git stash list 2>/dev/null | grep "checkpoint:"; true`
 
 ### Tag Checkpoints
-!`git tag -l "checkpoint/*" 2>/dev/null`
+!`git tag -l "checkpoint/*" 2>/dev/null; true`
 
 ### Recent Commits
-!`git log --oneline -10 2>/dev/null`
+!`git log --oneline -10 2>/dev/null; true`
 
 ---
 

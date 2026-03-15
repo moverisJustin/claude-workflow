@@ -3,17 +3,17 @@ description: Complete git workflow - stage changes, commit with conventional mes
 ---
 
 # Git Context
-!`git status --short`
-!`git branch --show-current`
-!`git log -3 --oneline`
-!`git diff --stat`
+!`git status --short; true`
+!`git branch --show-current; true`
+!`git log -3 --oneline; true`
+!`git diff --stat; true`
 
 ---
 
 ## 0. Branch Check
 
-!`git branch --show-current 2>/dev/null`
-!`git rev-list --count HEAD 2>/dev/null`
+!`git branch --show-current 2>/dev/null; true`
+!`git rev-list --count HEAD 2>/dev/null; true`
 
 **If on main/master:**
 - If fewer than 5 commits: this is initial build phase -- proceed with a note.
@@ -49,7 +49,7 @@ Keep the first line under 72 characters. Add a body if the change needs explanat
 
 ## 2.5. Verify Push Target
 Before pushing, always verify the remote:
-!`git remote -v`
+!`git remote -v; true`
 
 Confirm the remote URL matches the intended repository before pushing. If unsure, ask the user.
 

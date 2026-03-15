@@ -5,13 +5,13 @@ description: Review uncommitted changes for quality, bugs, and improvements befo
 # Current Changes
 
 ## Status
-!`git status --short`
+!`git status --short; true`
 
 ## Diff
-!`git diff`
+!`git diff; true`
 
 ## Staged Changes
-!`git diff --cached`
+!`git diff --cached; true`
 
 ---
 

@@ -5,9 +5,9 @@ description: Complete a task branch - verify, create PR, and clean up task-conte
 # Complete Task Branch
 
 ## Current State
-!`git branch --show-current 2>/dev/null`
-!`git status --short 2>/dev/null`
-!`cat .claude/task-context.md 2>/dev/null | head -30`
+!`git branch --show-current 2>/dev/null; true`
+!`git status --short 2>/dev/null; true`
+!`cat .claude/task-context.md 2>/dev/null | head -30; true`
 
 ---
 

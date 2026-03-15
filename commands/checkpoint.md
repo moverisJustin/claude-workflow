@@ -5,9 +5,9 @@ description: Create a named checkpoint for easy rollback. Saves current state wi
 # Create Checkpoint
 
 ## Current State
-!`git status --short 2>/dev/null`
-!`git stash list 2>/dev/null | grep "checkpoint:" | head -5`
-!`git tag -l "checkpoint/*" 2>/dev/null | tail -5`
+!`git status --short 2>/dev/null; true`
+!`git stash list 2>/dev/null | grep "checkpoint:" | head -5; true`
+!`git tag -l "checkpoint/*" 2>/dev/null | tail -5; true`
 
 ---
 

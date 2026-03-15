@@ -3,10 +3,10 @@ description: Fast commit - stage all changes and commit with a descriptive messa
 ---
 
 # Changes
-!`git status --short`
-!`git diff --stat`
-!`git branch --show-current 2>/dev/null`
-!`git rev-list --count HEAD 2>/dev/null`
+!`git status --short; true`
+!`git diff --stat; true`
+!`git branch --show-current 2>/dev/null; true`
+!`git rev-list --count HEAD 2>/dev/null; true`
 
 ---
 

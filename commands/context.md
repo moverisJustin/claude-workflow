@@ -7,27 +7,27 @@ description: Show context window usage, Memory Bank status, and recommendations 
 ## Memory Bank Status
 
 ### Files Present
-!`ls -la .claude/memory/ 2>/dev/null`
+!`ls -la .claude/memory/ 2>/dev/null; true`
 
 ### File Sizes
-!`wc -l .claude/memory/*.md 2>/dev/null`
+!`wc -l .claude/memory/*.md 2>/dev/null; true`
 
 ### Last Updated
-!`ls -lt .claude/memory/*.md 2>/dev/null | head -5`
+!`ls -lt .claude/memory/*.md 2>/dev/null | head -5; true`
 
 ## Session History Size
-!`wc -l .claude/memory/sessionHistory.md 2>/dev/null`
+!`wc -l .claude/memory/sessionHistory.md 2>/dev/null; true`
 
 ## Git Context
 
 ### Uncommitted Changes
-!`git status --short 2>/dev/null | wc -l`
+!`git status --short 2>/dev/null | wc -l; true`
 
 ### Recent Commits
-!`git log --oneline -5 2>/dev/null`
+!`git log --oneline -5 2>/dev/null; true`
 
 ### Branch
-!`git branch --show-current 2>/dev/null`
+!`git branch --show-current 2>/dev/null; true`
 
 ---
 

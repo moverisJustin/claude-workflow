@@ -5,8 +5,8 @@ description: Create a feature branch with task context. Initializes .claude/task
 # Create Task Branch
 
 ## Current State
-!`git branch --show-current 2>/dev/null`
-!`git status --short 2>/dev/null`
+!`git branch --show-current 2>/dev/null; true`
+!`git status --short 2>/dev/null; true`
 
 ---
 

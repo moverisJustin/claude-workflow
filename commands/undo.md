@@ -5,11 +5,11 @@ description: Undo the last Claude-made change. Safely reverts commits, edits, or
 # Undo Last Change
 
 ## Current State
-!`git log -3 --oneline 2>/dev/null`
-!`git status --short 2>/dev/null`
+!`git log -3 --oneline 2>/dev/null; true`
+!`git status --short 2>/dev/null; true`
 
 ## Last Commit Details
-!`git log -1 --format="Author: %an%nMessage: %s%nDate: %ar" 2>/dev/null`
+!`git log -1 --format="Author: %an%nMessage: %s%nDate: %ar" 2>/dev/null; true`
 
 ---
 

@@ -7,32 +7,32 @@ description: Start a new session by loading Memory Bank context, checking projec
 ## Memory Bank Loading...
 
 ### Project Context
-!`head -40 .claude/memory/projectContext.md 2>/dev/null`
+!`head -40 .claude/memory/projectContext.md 2>/dev/null; true`
 
 ### Active Context (Last Session State)
-!`head -30 .claude/memory/activeContext.md 2>/dev/null`
+!`head -30 .claude/memory/activeContext.md 2>/dev/null; true`
 
 ### Progress Status
-!`head -40 .claude/memory/progress.md 2>/dev/null`
+!`head -40 .claude/memory/progress.md 2>/dev/null; true`
 
 ### Conventions / Lessons
-!`head -20 .claude/memory/conventions.md 2>/dev/null`
+!`head -20 .claude/memory/conventions.md 2>/dev/null; true`
 
 ### Recent Session
-!`head -40 .claude/memory/sessionHistory.md 2>/dev/null`
+!`head -40 .claude/memory/sessionHistory.md 2>/dev/null; true`
 
 ### Task Context (Branch-Specific)
-!`head -50 .claude/task-context.md 2>/dev/null`
+!`head -50 .claude/task-context.md 2>/dev/null; true`
 
 ## Project Status
 
-!`pwd`
-!`git status --short 2>/dev/null`
-!`git branch --show-current 2>/dev/null`
-!`git log --oneline -5 2>/dev/null`
+!`pwd; true`
+!`git status --short 2>/dev/null; true`
+!`git branch --show-current 2>/dev/null; true`
+!`git log --oneline -5 2>/dev/null; true`
 
 ## Environment Check
-!`python3 --version 2>/dev/null`
+!`python3 --version 2>/dev/null; true`
 
 ---
 
