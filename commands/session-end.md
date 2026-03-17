@@ -6,15 +6,14 @@ description: End session by saving Memory Bank state, creating session summary, 
 
 ## Current State
 
-### Uncommitted Changes
-!`git status --short`
-!`git diff --stat`
+Gather the current state by running these git commands (skip any that fail — the working directory may not be a git repo):
 
-### Commits This Session
-!`git log --oneline -10`
+1. `git status --short` — uncommitted changes
+2. `git diff --stat` — change summary
+3. `git log --oneline -10` — recent commits
+4. `git diff --name-only HEAD~5` — recently modified files
 
-### Files Modified Recently
-!`git diff --name-only HEAD~5`
+If not in a git repo, note that and proceed with Memory Bank updates only.
 
 ---
 

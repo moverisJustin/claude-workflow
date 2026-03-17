@@ -27,12 +27,14 @@ description: Start a new session by loading Memory Bank context, checking projec
 ## Project Status
 
 !`pwd`
-!`git status --short`
-!`git branch --show-current`
-!`git log --oneline -5`
 
-## Environment Check
-!`python3 --version`
+Check git status by running these commands (skip any that fail — the working directory may not be a git repo):
+
+1. `git status --short` — uncommitted changes
+2. `git branch --show-current` — current branch
+3. `git log --oneline -5` — recent commits
+
+If not in a git repo, note that and proceed with Memory Bank context only.
 
 ---
 

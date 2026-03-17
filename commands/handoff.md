@@ -5,9 +5,12 @@ description: Generate a cognitive briefing for seamless session handoff. Capture
 # Cognitive Handoff
 
 ## Current State
-!`git branch --show-current`
-!`git status --short`
-!`git log --oneline -5`
+
+Gather git state by running these commands (skip any that fail — the working directory may not be a git repo):
+
+1. `git branch --show-current` — current branch
+2. `git status --short` — uncommitted changes
+3. `git log --oneline -5` — recent commits
 
 ---
 
