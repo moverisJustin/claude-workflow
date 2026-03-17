@@ -7,31 +7,33 @@ description: Run comprehensive security scan - SAST, dependency vulnerabilities,
 ## Scanning...
 
 ### Dependency Vulnerabilities
-!`npm audit --json 2>/dev/null | jq -r '.metadata.vulnerabilities | to_entries | map(select(.value > 0)) | .[] | "\(.key): \(.value)"' 2>/dev/null; true`
+!`npm audit`
 
 ### Outdated Packages
-!`npm outdated 2>/dev/null | head -15; true`
+!`npm outdated`
+
+Run the security analysis steps below:
 
 ### Hardcoded Secrets Check
-!`grep -rn --include="*.ts" --include="*.js" --include="*.tsx" --include="*.jsx" -E "(password|secret|api_key|apikey|token)['\"]?\s*[:=]\s*['\"][a-zA-Z0-9+/=]{8,}" src/ 2>/dev/null | head -10; true`
+Search for hardcoded secrets (passwords, API keys, tokens) in source files.
 
 ### AWS Credentials
-!`grep -rn "AKIA[0-9A-Z]{16}" . 2>/dev/null | head -5; true`
+Search for AWS access key patterns (AKIA...) in the repository.
 
 ### Private Keys
-!`find . -name "*.pem" -o -name "*.key" 2>/dev/null | grep -v node_modules | head -5; true`
+Check for .pem and .key files in the repository.
 
 ### SQL Injection Patterns
-!`grep -rn --include="*.ts" --include="*.js" -E "query\s*\(\s*['\"\`].*\\\$\{" src/ 2>/dev/null | head -5; true`
+Search for string interpolation inside query calls in source files.
 
 ### Dangerous Functions
-!`grep -rn --include="*.ts" --include="*.js" -E "\beval\s*\(|new Function\s*\(" src/ 2>/dev/null | head -5; true`
+Search for eval() and new Function() usage in source files.
 
 ### XSS Vulnerabilities
-!`grep -rn --include="*.tsx" --include="*.jsx" "dangerouslySetInnerHTML" src/ 2>/dev/null | head -5; true`
+Search for dangerouslySetInnerHTML usage in JSX/TSX files.
 
 ### CORS Configuration
-!`grep -rn --include="*.ts" --include="*.js" -E "cors.*['\"]\\*['\"]|Access-Control-Allow-Origin.*\\*" src/ 2>/dev/null | head -3; true`
+Search for wildcard CORS configurations in source files.
 
 ---
 

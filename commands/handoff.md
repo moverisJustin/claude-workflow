@@ -5,9 +5,9 @@ description: Generate a cognitive briefing for seamless session handoff. Capture
 # Cognitive Handoff
 
 ## Current State
-!`git branch --show-current 2>/dev/null`
-!`git status --short 2>/dev/null`
-!`git log --oneline -5 2>/dev/null`
+!`git branch --show-current`
+!`git status --short`
+!`git log --oneline -5`
 
 ---
 

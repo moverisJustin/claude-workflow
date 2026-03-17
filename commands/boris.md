@@ -13,9 +13,9 @@ Read your full instructions from `.claude/agents/boris.md` and execute according
 
 ## Quick Context
 
-!`pwd; true`
-!`git status --short 2>/dev/null; true`
-!`cat package.json 2>/dev/null | head -20; true`
+!`pwd`
+!`git status --short`
+!`cat package.json`
 
 ## Your Mission
 

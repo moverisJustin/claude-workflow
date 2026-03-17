@@ -5,21 +5,21 @@ description: Run complete verification suite - tests, types, lint, build - and r
 # Complete Verification Suite
 
 ## Test Suite
-!`npm test 2>&1 | tail -20; true`
+!`npm test`
 
 ## TypeScript
-!`npm run typecheck 2>&1; true`
+!`npm run typecheck`
 
 ## Linting
-!`npm run lint 2>&1 | tail -10; true`
+!`npm run lint`
 
 ## Build
-!`npm run build 2>&1 | tail -10; true`
+!`npm run build`
 
 ## Python Checks (if applicable)
-!`pytest --tb=short 2>&1 | tail -20; true`
-!`mypy . 2>&1 | tail -10; true`
-!`ruff check . 2>&1 | tail -10; true`
+!`pytest --tb=short`
+!`mypy .`
+!`ruff check .`
 
 ---
 

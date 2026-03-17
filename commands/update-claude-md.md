@@ -5,13 +5,13 @@ description: Update CLAUDE.md with learnings from recent work - mistakes to avoi
 # Context Gathering
 
 ## Recent Git History
-!`git log --oneline -10; true`
+!`git log --oneline -10`
 
 ## Current CLAUDE.md
-!`cat CLAUDE.md 2>/dev/null; true`
+!`cat CLAUDE.md`
 
 ## Recent Changes
-!`git diff HEAD~3 --stat; true`
+!`git diff HEAD~3 --stat`
 
 ---
 

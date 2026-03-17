@@ -233,6 +233,33 @@ Never assume column names based on what "makes sense." Always check `information
 ### For non-trivial Node scripts, write to a temp file instead of `-e`
 Node.js inline eval (`node -e '...'`) breaks on anything beyond trivial code, especially with special characters, escaping, and newer Node versions. For multi-line scripts with template literals, write to `/tmp/script.mjs` and run that. Saves debugging escaping issues.
 
+### Keep slash command `!` backtick commands simple — no redirects, pipes, or quoted strings
+Claude Code's sandbox flags `!` backtick commands in `.claude/commands/*.md` as "multiple operations" if they contain `2>/dev/null`, `| head -N`, `| tail -N`, `| wc -l`, `|| echo "..."`, `|| true`, or quoted strings inside backticks (`--since="8 hours ago"`). Strip all of these. Use git's native flags (e.g., `git log --oneline -10` instead of `git log | head -10`). Let commands fail naturally — Claude handles missing files/repos gracefully without needing `2>/dev/null` fallbacks.
+
+### Linear issue audits must include ALL statuses, not just active
+When auditing Linear issues, check Backlog issues too — not just In Progress/Todo. Work often gets done without the issue being moved from Backlog. Cross-reference every issue against the actual DB/codebase state regardless of its Linear status.
+
+### Be precise about data flow direction
+When describing data movement, always be explicit: "Source: X → Destination: Y". Saying "copying from X to Y" can be misread. Ambiguous phrasing wastes time on clarification.
+
+### Verify storage layout before destructive operations — never trust cached notes
+Symlinks, mount points, and directory layouts change over time. Always verify with `ls -la` and `readlink -f` before proposing deletions. Memory notes about storage go stale fast — a "symlinked" dir may actually be a real dir (or vice versa), and deleting a "backup" could destroy the only copy.
+
+### multiprocessing.Pool.imap_unordered needs chunksize for large workloads
+Without `chunksize`, Python serializes the entire iterable into the parent process memory. With tens of thousands of items, the parent can balloon to 10x+ the expected RAM and crash the machine. Always pass a reasonable `chunksize` (e.g., 50-100) and `del` large intermediate lists before spawning the pool.
+
+### Prefer rsync over SSH instead of rsync over CIFS/SMB mounts
+Rsync to a CIFS-mounted NAS is dramatically slower (~5 MB/s) than rsync over SSH (~80 MB/s) on the same link due to per-file SMB protocol overhead. Always check if the NAS supports SSH and use `rsync -e ssh` when possible.
+
+### Always test cron commands manually before deploying
+Invalid flags (like `--no-delete` for rsync) cause silent failures in cron jobs. Run the exact command interactively first and verify it completes successfully before adding to crontab.
+
+### Validate computed values on a small sample before large backfills
+When computing new metrics (angles, distances, scores) across tens of thousands of records, always test on 5-10 samples first and verify the values make sense. Coordinate system conventions (e.g., solvePnP Euler angles wrapping at ±180°) can produce technically correct but semantically wrong results that corrupt the entire dataset.
+
+### Config files must be loaded by the code that creates work items
+A config file that defines parameters is useless if the code that creates work items uses a hardcoded list instead. Always verify end-to-end that config values actually reach the consumer. A hardcoded list that shadows a config file will silently diverge — the config becomes dead code.
+
 ### Linear issue audits must include ALL statuses, not just active
 When auditing Linear issues, check Backlog issues too — not just In Progress/Todo. Work often gets done without the issue being moved from Backlog. Cross-reference every issue against the actual DB/codebase state regardless of its Linear status.
 

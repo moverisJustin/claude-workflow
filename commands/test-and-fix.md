@@ -4,12 +4,12 @@ description: Run test suite, analyze failures, fix issues, and iterate until all
 
 # Running Verification Suite
 
-!`npm test 2>&1; true`
-!`npm run typecheck 2>&1; true`
-!`npm run lint 2>&1; true`
+!`npm test`
+!`npm run typecheck`
+!`npm run lint`
 
 ## Python Tests
-!`pytest --tb=short 2>&1 | tail -30; true`
+!`pytest --tb=short`
 
 ---
 

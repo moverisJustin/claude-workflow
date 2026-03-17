@@ -5,7 +5,7 @@ description: Switch between operational modes (architect, code, debug, review, a
 # Mode Control
 
 ## Current Mode
-!`cat .claude/current-mode 2>/dev/null; true`
+!`cat .claude/current-mode`
 
 ---
 
