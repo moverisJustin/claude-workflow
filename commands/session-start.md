@@ -4,27 +4,24 @@ description: Start a new session by loading Memory Bank context, checking projec
 
 # Session Start
 
-## Memory Bank Loading...
+## Step 0: Check for Memory Bank
 
-### Project Context
-!`cat .claude/memory/projectContext.md`
+!`ls .claude/memory/projectContext.md`
 
-### Active Context (Last Session State)
-!`cat .claude/memory/activeContext.md`
+**If `.claude/memory/` does not exist or is empty**, auto-initialize by running `/memory-init` now. Then continue with step 1 below.
 
-### Progress Status
-!`cat .claude/memory/progress.md`
+## Step 1: Load Memory Bank
 
-### Conventions / Lessons
-!`cat .claude/memory/conventions.md`
+Read these files (skip any that don't exist):
 
-### Recent Session
-!`cat .claude/memory/sessionHistory.md`
+1. `.claude/memory/projectContext.md` — what this project is
+2. `.claude/memory/activeContext.md` — last session state
+3. `.claude/memory/progress.md` — task tracking
+4. `.claude/memory/conventions.md` — learned patterns
+5. `.claude/memory/sessionHistory.md` — session log
+6. `.claude/task-context.md` — branch-specific task (if on a feature branch)
 
-### Task Context (Branch-Specific)
-!`cat .claude/task-context.md`
-
-## Project Status
+## Step 2: Check Project Status
 
 !`pwd`
 
