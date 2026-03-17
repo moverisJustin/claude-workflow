@@ -127,7 +127,19 @@ else
   fi
 fi
 
-# --- Phase 6: Merge CLAUDE.md (with lesson sync) ---
+# --- Phase 6: Install hook scripts ---
+echo "--- Phase 6: Install hook scripts ---"
+mkdir -p "$CLAUDE_DIR/scripts"
+SCRIPT_COUNT=0
+for f in "$SCRIPT_DIR/scripts/"*.sh; do
+  [ -f "$f" ] || continue
+  cp "$f" "$CLAUDE_DIR/scripts/$(basename "$f")"
+  chmod +x "$CLAUDE_DIR/scripts/$(basename "$f")"
+  SCRIPT_COUNT=$((SCRIPT_COUNT + 1))
+done
+echo "  Installed $SCRIPT_COUNT hook scripts"
+
+# --- Phase 7: Merge CLAUDE.md (with lesson sync) ---
 echo "--- Phase 6: Merge CLAUDE.md ---"
 
 if [ -f "$CLAUDE_DIR/CLAUDE.md" ]; then
@@ -161,7 +173,8 @@ echo "Installed:"
 echo "  - $AGENT_COUNT agents"
 echo "  - $CMD_COUNT commands"
 echo "  - 1 skill (boris-workflow)"
-echo "  - settings.json (merged)"
+echo "  - $SCRIPT_COUNT hook scripts"
+echo "  - settings.json (merged with hooks)"
 echo "  - CLAUDE.md (with lessons synced)"
 echo ""
 echo "Backup at: $BACKUP_DIR"

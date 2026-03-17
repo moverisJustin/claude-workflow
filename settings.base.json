@@ -255,6 +255,16 @@
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/hook-session-start.sh"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": {
@@ -264,6 +274,17 @@
           {
             "type": "command",
             "command": "case \"$CLAUDE_FILE_PATH\" in *.js|*.ts|*.jsx|*.tsx|*.json|*.css|*.scss|*.md) npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true ;; esac"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "tool": ["Bash"]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/hook-branch-switch.sh"
           }
         ]
       }
@@ -288,6 +309,17 @@
           {
             "type": "command",
             "command": "mkdir -p .claude/audit && echo \"$(date -u +%Y-%m-%dT%H:%M:%SZ) FILE_WRITE $CLAUDE_FILE_PATH\" >> .claude/audit/files.log 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "matcher": {
+          "tool": ["Bash"]
+        },
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/hook-destructive-guard.sh"
           }
         ]
       }

@@ -60,6 +60,16 @@ Quick reference for all slash commands, specialist agents, and modes.
 | `review` | Code review — read-only with comments |
 | `audit` | Compliance and security review |
 
+## Hooks (Automatic)
+
+| Hook | Trigger | What it does | Context impact |
+|---|---|---|---|
+| **SessionStart loader** | Every new session | Auto-loads project name, branch, last session state | ~200 chars |
+| **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push | Auto-checkpoint tag + stash dirty tree | Zero |
+| **Branch switch logger** | After `git switch`/`git checkout <branch>` | Audit-logs branch transitions | Zero |
+
+Non-git projects: set `"git_enabled": false` in `.claude/project-config.json`.
+
 ## Quick Workflows
 
 **Start of day:**
@@ -98,15 +108,16 @@ Each project gets a `.claude/memory/` directory with persistent context:
 
 | File | Purpose |
 |---|---|
-| `projectbrief.md` | What the project is, goals, constraints |
-| `productContext.md` | Why it exists, user problems it solves |
-| `systemPatterns.md` | Architecture, patterns, key decisions |
-| `techContext.md` | Stack, dependencies, tooling, dev setup |
+| `projectContext.md` | What the project is, tech stack, architecture |
 | `activeContext.md` | Current focus, recent changes, next steps |
 | `progress.md` | What works, what doesn't, what's left |
+| `decisionLog.md` | Architecture decisions with rationale |
 | `conventions.md` | Project-specific lessons and rules |
+| `sessionHistory.md` | Rolling session summaries |
 
-Initialize with `/memory-init`. Context loads automatically via `/session-start`.
+Also: `.claude/project-config.json` stores git preference and project description.
+
+Initialize with `/memory-init`. Context auto-loads via SessionStart hook + `/session-start`.
 
 ## Task Context (Branch-Specific)
 

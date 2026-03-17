@@ -31,7 +31,26 @@ mkdir -p .claude/memory/archive
 mkdir -p .claude/audit
 ```
 
-### 2. Analyze Project
+### 2. Create Project Config
+
+Ask the user (or detect from `.git/`):
+- Does this project use git? (default: yes if `.git/` exists)
+- Brief one-line description of the project?
+
+Then create `.claude/project-config.json`:
+```json
+{
+  "git_enabled": true,
+  "project_description": "[from user or README]",
+  "created": "[today's date]"
+}
+```
+
+This config drives the SessionStart hook behavior:
+- `git_enabled: false` → suppresses git guards and branch info in auto-loaded context
+- `git_enabled: true` (default) → full git safety net active
+
+### 3. Analyze Project
 
 Gather context from:
 - package.json (name, description, scripts)
@@ -40,7 +59,7 @@ Gather context from:
 - CLAUDE.md if exists
 - Git history
 
-### 3. Create Memory Files
+### 4. Create Memory Files
 
 **projectContext.md** - Populate from analysis:
 ```markdown
@@ -157,12 +176,13 @@ New project setup
 Fresh project setup. Ready to begin development.
 ```
 
-### 4. Report
+### 5. Report
 
 ```
 Memory Bank Initialized
 
 Created:
+- .claude/project-config.json
 - .claude/memory/projectContext.md
 - .claude/memory/activeContext.md
 - .claude/memory/progress.md

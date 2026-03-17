@@ -7,7 +7,8 @@ Personal Claude Code workflow configuration based on [claude-boris v2.0](https:/
 - **15 specialist agents** -- boris (orchestrator), code-architect, code-simplifier, test-writer, verify-app, pr-reviewer, doc-generator, ci-integrator, issue-tracker, git-guardian, memory-bank, mode-controller, security-auditor, audit-logger, oncall-guide
 - **23 slash commands** -- `/boris`, `/session-start`, `/session-end`, `/verify-all`, `/test-and-fix`, `/security-scan`, `/commit-push-pr`, `/quick-commit`, `/undo`, `/checkpoint`, `/rollback`, `/mode`, `/fix-issue`, `/ci-loop`, `/context`, `/memory-init`, `/handoff`, `/update-claude-md`, `/first-principles`, `/review-changes`, `/task-branch`, `/task-done`, `/anythingelse`
 - **1 skill** -- boris-workflow methodology
-- **Settings** -- wildcard permissions, Prettier hook (JS/TS only), audit logging, deny list for dangerous ops
+- **3 hook scripts** -- SessionStart context auto-loader, destructive ops guard (auto-checkpoint), branch switch audit logger
+- **Settings** -- wildcard permissions, Prettier hook (JS/TS only), audit logging, deny list for dangerous ops, hook wiring
 - **CLAUDE.md** -- global instructions with quick reference, workflow rules, and synced Learned Patterns
 
 ## Install
@@ -21,7 +22,7 @@ chmod +x install.sh sync-lessons.sh uninstall.sh
 
 The installer:
 - Backs up your existing `~/.claude/` config
-- Copies agents, commands, and skills
+- Copies agents, commands, skills, and hook scripts
 - Merges settings (preserves your machine-specific paths, plugins, and MCP permissions)
 - Syncs Learned Patterns between repo and local
 
@@ -140,6 +141,20 @@ Restores from the most recent backup created by `install.sh`.
 | `debug` | Diagnosis — read-heavy, minimal edits |
 | `review` | Code review — read-only with comments |
 | `audit` | Compliance and security review |
+
+### Hooks (Automatic)
+
+These run automatically via Claude Code's hook system -- no user action needed.
+
+| Hook | Trigger | What it does | Context impact |
+|---|---|---|---|
+| **SessionStart loader** | Every new session | Auto-loads project name, branch, last session state | ~200 chars |
+| **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push, etc. | Creates checkpoint tag + stashes dirty tree | Zero |
+| **Branch switch logger** | After `git switch`, `git checkout <branch>` | Audit-logs branch transitions | Zero |
+
+The SessionStart hook also detects new projects (no `.claude/project-config.json`) and prompts you to run `/memory-init`.
+
+Non-git projects can set `"git_enabled": false` in `.claude/project-config.json` to disable git guards.
 
 ### Quick Workflows
 
