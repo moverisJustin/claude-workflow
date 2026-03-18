@@ -259,3 +259,6 @@ When computing new metrics (angles, distances, scores) across tens of thousands 
 
 ### Config files must be loaded by the code that creates work items
 A config file that defines parameters is useless if the code that creates work items uses a hardcoded list instead. Always verify end-to-end that config values actually reach the consumer. A hardcoded list that shadows a config file will silently diverge — the config becomes dead code.
+
+### Always commit AND PUSH source files at phase boundaries
+Before deploying or moving to the next phase, verify all source files are committed and **pushed to the remote**. Don't assume files are in the repo just because they're on disk. Work in `/tmp/` is ephemeral — if a branch isn't pushed, it's lost on reboot. Always `git push -u origin <branch>` after creating a feature branch.
