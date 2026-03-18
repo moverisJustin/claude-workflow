@@ -15,7 +15,13 @@
 - [x] install.sh deployment script
 - [x] sync-lessons.sh lesson promotion
 - [x] GitHub repo synced (moverisJustin/claude-workflow)
+- [x] Claude Code hooks: SessionStart auto-context loader
+- [x] Claude Code hooks: destructive ops guard (auto-checkpoint)
+- [x] Claude Code hooks: branch switch audit logger
+- [x] project-config.json support for non-git projects
+- [x] Hook installation in install.sh (Phase 6)
 
 ## Open
 - [ ] End-to-end test: full /task-branch -> work -> /task-done -> PR cycle
-- [ ] Test /session-start and /session-end from this repo's directory
+- [ ] End-to-end test: fresh install on another machine
+- [ ] Consider: hook for auto-running /session-end at context 75%

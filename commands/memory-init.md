@@ -6,12 +6,9 @@ description: Initialize Memory Bank for a new project. Creates memory structure 
 
 ## Checking Current State...
 
-!`ls -la .claude/memory/`
-!`pwd`
-!`ls -la`
+Use Glob to check if `.claude/memory/*.md` files exist, and if `tasks/handoff.md`, `tasks/todo.md`, `tasks/lessons.md` exist (legacy).
 
 ## Legacy Migration Check
-!`ls tasks/handoff.md tasks/todo.md tasks/lessons.md`
 
 If legacy `tasks/` files exist, offer to migrate:
 1. Copy `tasks/handoff.md` content -> `.claude/memory/activeContext.md`

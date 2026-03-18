@@ -6,13 +6,13 @@ description: Start a new session by loading Memory Bank context, checking projec
 
 ## Step 0: Check for Memory Bank
 
-!`ls .claude/memory/projectContext.md`
+Check if `.claude/memory/projectContext.md` exists using the Glob tool.
 
 **If `.claude/memory/` does not exist or is empty**, auto-initialize by running `/memory-init` now. Then continue with step 1 below.
 
 ## Step 1: Load Memory Bank
 
-Read these files (skip any that don't exist):
+Use the Read tool to read these files (skip any that don't exist):
 
 1. `.claude/memory/projectContext.md` — what this project is
 2. `.claude/memory/activeContext.md` — last session state
@@ -21,17 +21,11 @@ Read these files (skip any that don't exist):
 5. `.claude/memory/sessionHistory.md` — session log
 6. `.claude/task-context.md` — branch-specific task (if on a feature branch)
 
+Read all of these in parallel using multiple Read tool calls.
+
 ## Step 2: Check Project Status
 
-!`pwd`
-
-Check git status by running these commands (skip any that fail — the working directory may not be a git repo):
-
-1. `git status --short` — uncommitted changes
-2. `git branch --show-current` — current branch
-3. `git log --oneline -5` — recent commits
-
-If not in a git repo, note that and proceed with Memory Bank context only.
+Run `git status --short`, `git branch --show-current`, and `git log --oneline -5` to check project state. Skip if not a git repo.
 
 ---
 

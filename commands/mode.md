@@ -5,7 +5,7 @@ description: Switch between operational modes (architect, code, debug, review, a
 # Mode Control
 
 ## Current Mode
-!`cat .claude/current-mode`
+Read `.claude/current-mode` using the Read tool (skip if it doesn't exist).
 
 ---
 

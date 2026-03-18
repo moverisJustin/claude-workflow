@@ -8,7 +8,7 @@ description: Update CLAUDE.md with learnings from recent work - mistakes to avoi
 !`git log --oneline -10`
 
 ## Current CLAUDE.md
-!`cat CLAUDE.md`
+Read `CLAUDE.md` using the Read tool.
 
 ## Recent Changes
 !`git diff HEAD~3 --stat`

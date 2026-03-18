@@ -7,7 +7,8 @@ description: Complete a task branch - verify, create PR, and clean up task-conte
 ## Current State
 !`git branch --show-current`
 !`git status --short`
-!`cat .claude/task-context.md`
+
+Read `.claude/task-context.md` using the Read tool.
 
 ---
 

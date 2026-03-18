@@ -13,9 +13,9 @@ Read your full instructions from `.claude/agents/boris.md` and execute according
 
 ## Quick Context
 
-!`pwd`
 !`git status --short`
-!`cat package.json`
+
+Read `package.json` using the Read tool (skip if it doesn't exist).
 
 ## Your Mission
 
