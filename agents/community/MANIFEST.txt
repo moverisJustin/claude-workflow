@@ -1,0 +1,131 @@
+# Agency-Agents Selection Manifest
+# Source: https://github.com/msitarzewski/agency-agents
+# One agent slug per line. Lines starting with # are comments.
+# Run scripts/sync-agency-agents.sh to sync from upstream.
+
+# --- Engineering (22 of 23) ---
+engineering-ai-engineer
+engineering-ai-data-remediation-engineer
+engineering-autonomous-optimization-architect
+engineering-backend-architect
+engineering-code-reviewer
+engineering-data-engineer
+engineering-database-optimizer
+engineering-devops-automator
+engineering-embedded-firmware-engineer
+engineering-feishu-integration-developer
+engineering-frontend-developer
+engineering-git-workflow-master
+engineering-incident-response-commander
+engineering-mobile-app-builder
+engineering-rapid-prototyper
+engineering-security-engineer
+engineering-senior-developer
+engineering-software-architect
+engineering-sre
+engineering-technical-writer
+engineering-threat-detection-engineer
+
+# --- Design (8 of 8) ---
+design-brand-guardian
+design-image-prompt-engineer
+design-inclusive-visuals-specialist
+design-ui-designer
+design-ux-architect
+design-ux-researcher
+design-visual-storyteller
+design-whimsy-injector
+
+# --- Sales (8 of 8) ---
+sales-account-strategist
+sales-coach
+sales-deal-strategist
+sales-discovery-coach
+sales-engineer
+sales-outbound-strategist
+sales-pipeline-analyst
+sales-proposal-strategist
+
+# --- Marketing (14 of 27, excluding Chinese platforms) ---
+marketing-ai-citation-strategist
+marketing-app-store-optimizer
+marketing-book-co-author
+marketing-carousel-growth-engine
+marketing-content-creator
+marketing-growth-hacker
+marketing-instagram-curator
+marketing-linkedin-content-creator
+marketing-podcast-strategist
+marketing-reddit-community-builder
+marketing-seo-specialist
+marketing-social-media-strategist
+marketing-tiktok-strategist
+marketing-twitter-engager
+
+# --- Product (5 of 5) ---
+product-behavioral-nudge-engine
+product-feedback-synthesizer
+product-manager
+product-sprint-prioritizer
+product-trend-researcher
+
+# --- Project Management (5 of 6, excluding Jira) ---
+project-management-experiment-tracker
+project-management-project-shepherd
+project-manager-senior
+project-management-studio-operations
+project-management-studio-producer
+
+# --- Testing & QA (8 of 8) ---
+testing-accessibility-auditor
+testing-api-tester
+testing-evidence-collector
+testing-performance-benchmarker
+testing-reality-checker
+testing-test-results-analyzer
+testing-tool-evaluator
+testing-workflow-optimizer
+
+# --- Support (6 of 6) ---
+support-analytics-reporter
+support-executive-summary-generator
+support-finance-tracker
+support-infrastructure-maintainer
+support-legal-compliance-checker
+support-support-responder
+
+# --- Game Development (8, core + Godot trio) ---
+game-audio-engineer
+game-designer
+level-designer
+narrative-designer
+technical-artist
+godot-gameplay-scripter
+godot-multiplayer-engineer
+godot-shader-developer
+
+# --- Paid Media (7 of 7) ---
+paid-media-auditor
+paid-media-creative-strategist
+paid-media-paid-social-strategist
+paid-media-ppc-strategist
+paid-media-programmatic-buyer
+paid-media-search-query-analyst
+paid-media-tracking-specialist
+
+# --- Specialized (15 of 27, excluding regional/niche) ---
+accounts-payable-agent
+agentic-identity-trust
+agents-orchestrator
+automation-governance-architect
+blockchain-security-auditor
+compliance-auditor
+corporate-training-designer
+data-consolidation-agent
+specialized-developer-advocate
+specialized-document-generator
+specialized-mcp-builder
+specialized-model-qa
+specialized-salesforce-architect
+supply-chain-strategist
+specialized-workflow-architect

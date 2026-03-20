@@ -45,12 +45,19 @@ echo ""
 echo "--- Phase 2: Install agents ---"
 mkdir -p "$CLAUDE_DIR/agents"
 AGENT_COUNT=0
+# Core Boris agents
 for f in "$SCRIPT_DIR/agents/"*.md; do
   [ -f "$f" ] || continue
   cp "$f" "$CLAUDE_DIR/agents/$(basename "$f")"
   AGENT_COUNT=$((AGENT_COUNT + 1))
 done
-echo "  Installed $AGENT_COUNT agents"
+# Community agents (from agency-agents)
+for f in "$SCRIPT_DIR/agents/community/"*.md; do
+  [ -f "$f" ] || continue
+  cp "$f" "$CLAUDE_DIR/agents/$(basename "$f")"
+  AGENT_COUNT=$((AGENT_COUNT + 1))
+done
+echo "  Installed $AGENT_COUNT agents ($(ls "$SCRIPT_DIR/agents/"*.md 2>/dev/null | wc -l | xargs) core + $(ls "$SCRIPT_DIR/agents/community/"*.md 2>/dev/null | wc -l | xargs) community)"
 
 # --- Phase 3: Install commands ---
 echo "--- Phase 3: Install commands ---"

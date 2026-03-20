@@ -30,7 +30,7 @@ Quick reference for all slash commands, specialist agents, and modes.
 | `/review-changes` | Review uncommitted changes before committing |
 | `/anythingelse` | Creative wildcard prompt |
 
-## Specialist Agents
+## Core Agents (16)
 
 | Agent | Role |
 |---|---|
@@ -38,9 +38,9 @@ Quick reference for all slash commands, specialist agents, and modes.
 | **code-architect** | System design, architecture decisions, technical planning |
 | **code-simplifier** | Clean up code after implementation — reduce complexity |
 | **test-writer** | Generate comprehensive tests (JS/TS/Python) |
-| **verify-app** | End-to-end verification before shipping |
+| **verify-app** | End-to-end verification + performance checks |
 | **pr-reviewer** | Automated code review — bugs, security, style |
-| **doc-generator** | Generate/update README, API docs, CLAUDE.md |
+| **doc-generator** | Generate/update docs (Divio system, docs-as-code) |
 | **ci-integrator** | CI pipeline automation — push, monitor, fix, iterate |
 | **issue-tracker** | Linear/GitHub issue management and lifecycle |
 | **git-guardian** | Safe git ops — dirty file protection, checkpoints, attribution |
@@ -48,7 +48,27 @@ Quick reference for all slash commands, specialist agents, and modes.
 | **mode-controller** | Behavioral mode switching with tool access restrictions |
 | **security-auditor** | Vulnerability scanning and security assessment |
 | **audit-logger** | Compliance audit trails (SOC 2, ISO 27001, HIPAA) |
-| **oncall-guide** | Production incident debugging and rapid resolution |
+| **oncall-guide** | Production incidents + SLO/SLI framework + post-mortems |
+| **linear-project-manager** | Linear-native issue, sprint, and project management |
+
+## Community Agents (105)
+
+From [agency-agents](https://github.com/msitarzewski/agency-agents). Key ones for dev work:
+
+| Agent | Use For |
+|---|---|
+| `engineering-database-optimizer` | Schema review, query optimization, N+1 detection |
+| `engineering-frontend-developer` | React/CSS/a11y, Core Web Vitals |
+| `engineering-devops-automator` | Docker, CI/CD, infrastructure-as-code |
+| `testing-api-tester` | API contract testing, endpoint validation |
+| `testing-performance-benchmarker` | Load testing, k6, Lighthouse |
+| `testing-accessibility-auditor` | WCAG 2.2 compliance |
+| `specialized-mcp-builder` | Building new MCP servers |
+| `engineering-sre` | SLO definitions, error budgets, observability |
+| `product-manager` | Product strategy, prioritization |
+| `marketing-content-creator` | Blog posts, marketing copy |
+
+Full list: `ls agents/community/` or see `agents/community/MANIFEST.txt`
 
 ## Modes (`/mode <name>`)
 

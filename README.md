@@ -4,7 +4,8 @@ Personal Claude Code workflow configuration based on [claude-boris v2.0](https:/
 
 ## What's Included
 
-- **15 specialist agents** -- boris (orchestrator), code-architect, code-simplifier, test-writer, verify-app, pr-reviewer, doc-generator, ci-integrator, issue-tracker, git-guardian, memory-bank, mode-controller, security-auditor, audit-logger, oncall-guide
+- **16 core agents** -- boris (orchestrator), code-architect, code-simplifier, test-writer, verify-app, pr-reviewer, doc-generator, ci-integrator, issue-tracker, git-guardian, memory-bank, mode-controller, security-auditor, audit-logger, oncall-guide, linear-project-manager
+- **105 community agents** -- from [agency-agents](https://github.com/msitarzewski/agency-agents) covering engineering, design, sales, marketing, product, project management, testing, support, game dev, and paid media
 - **23 slash commands** -- `/boris`, `/session-start`, `/session-end`, `/verify-all`, `/test-and-fix`, `/security-scan`, `/commit-push-pr`, `/quick-commit`, `/undo`, `/checkpoint`, `/rollback`, `/mode`, `/fix-issue`, `/ci-loop`, `/context`, `/memory-init`, `/handoff`, `/update-claude-md`, `/first-principles`, `/review-changes`, `/task-branch`, `/task-done`, `/anythingelse`
 - **1 skill** -- boris-workflow methodology
 - **3 hook scripts** -- SessionStart context auto-loader, destructive ops guard (auto-checkpoint), branch switch audit logger
@@ -131,6 +132,27 @@ Restores from the most recent backup created by `install.sh`.
 | **security-auditor** | Vulnerability scanning and security assessment |
 | **audit-logger** | Compliance audit trails (SOC 2, ISO 27001, HIPAA) |
 | **oncall-guide** | Production incident debugging and rapid resolution |
+| **linear-project-manager** | Linear-native issue, sprint, and project management |
+
+### Community Agents (105)
+
+Sourced from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents), these provide domain-specific expertise across 11 categories:
+
+| Category | Count | Examples |
+|---|---|---|
+| Engineering | 22 | database-optimizer, frontend-developer, devops-automator, rapid-prototyper, SRE |
+| Design | 8 | UI designer, UX architect, brand guardian, visual storyteller |
+| Sales | 8 | account strategist, deal strategist, sales engineer, pipeline analyst |
+| Marketing | 14 | SEO specialist, content creator, LinkedIn/Reddit/Twitter, growth hacker |
+| Product | 5 | product manager, sprint prioritizer, feedback synthesizer |
+| Project Management | 5 | project shepherd, experiment tracker, studio producer |
+| Testing & QA | 8 | API tester, performance benchmarker, accessibility auditor |
+| Support | 6 | analytics reporter, finance tracker, legal compliance |
+| Game Development | 8 | game designer, narrative designer, Godot specialists |
+| Paid Media | 7 | PPC strategist, programmatic buyer, creative strategist |
+| Specialized | 15 | MCP builder, workflow architect, developer advocate |
+
+**Manage community agents**: Edit `agents/community/MANIFEST.txt` and run `scripts/sync-agency-agents.sh` to sync from upstream.
 
 ### Modes (`/mode <name>`)
 
@@ -171,7 +193,8 @@ Non-git projects can set `"git_enabled": false` in `.claude/project-config.json`
 
 ## Customization
 
-- **Add agents**: Create `.md` files in `agents/` with frontmatter (`name`, `description`, `tools`)
+- **Add core agents**: Create `.md` files in `agents/` with frontmatter (`name`, `description`, `tools`)
+- **Add/remove community agents**: Edit `agents/community/MANIFEST.txt` and run `scripts/sync-agency-agents.sh`
 - **Add commands**: Create `.md` files in `commands/` with frontmatter (`description`)
 - **Machine-specific settings**: Edit `~/.claude/settings.json` directly for paths, plugins, MCP permissions. These are preserved across `install.sh` runs.
 - **New lessons**: Just work with Claude -- lessons are added to `~/.claude/CLAUDE.md` during sessions, then synced to repo via `sync-lessons.sh`

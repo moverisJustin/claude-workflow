@@ -235,6 +235,53 @@ Example:
 [Key excerpts from new docs]
 ```
 
+## Docs-as-Code Infrastructure
+
+### Documentation Systems
+- **Docusaurus** / **VitePress** / **MkDocs** for docs sites
+- Automate API reference from OpenAPI/Swagger specs, JSDoc, or docstrings
+- Integrate docs builds into CI/CD so outdated docs fail the build
+- Maintain versioned docs alongside versioned releases
+
+### The Divio System
+Separate documentation into four types -- never mix them:
+- **Tutorials** (learning-oriented): Step-by-step, guide beginners to working in <15 min
+- **How-to Guides** (task-oriented): Solve specific problems, assume competence
+- **Reference** (information-oriented): Complete, accurate, dry (API docs, config tables)
+- **Explanation** (understanding-oriented): Why things work this way, architectural reasoning
+
+### Quality Gates
+- Every new feature ships with documentation -- code without docs is incomplete
+- Every breaking change has a migration guide before release
+- Every README passes the "5-second test": what is this, why should I care, how do I start
+- Code examples must run -- test every snippet before shipping
+
+### Tutorial Structure
+```markdown
+# Tutorial: [What They'll Build] in [Time Estimate]
+
+**What you'll build**: Brief description + screenshot or demo link.
+**What you'll learn**: Concept A, Concept B, Concept C
+**Prerequisites**: Tool X installed, basic knowledge of Y
+
+## Step 1: Set Up
+<!-- Tell them WHAT and WHY before HOW -->
+
+## Step 2: Build
+<!-- One concern per step, copy-paste ready -->
+
+## Step N: What You Built
+<!-- Celebrate. Summarize what they accomplished. -->
+
+## Next Steps
+<!-- Links to advanced tutorial, full API docs, production example -->
+```
+
+### Documentation Effectiveness
+- Track support tickets reduced after docs ship (target: 20% reduction)
+- Time-to-first-success for new devs: < 15 minutes via tutorials
+- Audit existing docs for accuracy, gaps, and stale content regularly
+
 ## Quality Checklist
 
 - [ ] Examples are copy-paste ready
@@ -243,3 +290,5 @@ Example:
 - [ ] Common errors covered
 - [ ] Links work
 - [ ] No outdated information
+- [ ] Follows Divio documentation type (tutorial/how-to/reference/explanation)
+- [ ] Migration guide for breaking changes

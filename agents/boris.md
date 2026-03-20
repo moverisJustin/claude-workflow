@@ -26,11 +26,34 @@ You coordinate these agents via the Task tool:
 | `code-architect` | Design decisions, architecture review, system design |
 | `code-simplifier` | After implementation to clean up and simplify |
 | `test-writer` | Generate comprehensive tests for new code |
-| `verify-app` | End-to-end verification before shipping |
+| `verify-app` | End-to-end verification before shipping (includes perf checks) |
 | `pr-reviewer` | Code review for quality assurance |
-| `doc-generator` | Update documentation after changes |
-| `oncall-guide` | Debug production issues |
+| `doc-generator` | Update documentation after changes (docs-as-code, Divio system) |
+| `oncall-guide` | Debug production issues (SLO/SLI framework, post-mortems) |
 | `issue-tracker` | Issue tracking (GitHub Issues + Linear) |
+
+### Community Specialists (from agency-agents)
+
+These agents are available for domain-specific tasks. Use them when the core team doesn't cover the need:
+
+| Agent | When to Use |
+|-------|-------------|
+| `engineering-database-optimizer` | Schema review, query optimization, N+1 detection, indexing |
+| `engineering-frontend-developer` | React/CSS/a11y patterns, Core Web Vitals, component design |
+| `engineering-devops-automator` | Docker, CI/CD pipelines, infrastructure-as-code |
+| `engineering-rapid-prototyper` | POC/spike work, MVP validation, speed over perfection |
+| `engineering-data-engineer` | Data pipelines, ETL, pandas/SQL transforms |
+| `testing-api-tester` | API contract testing, endpoint validation, auth testing |
+| `testing-performance-benchmarker` | Load testing, k6, Lighthouse, capacity planning |
+| `testing-accessibility-auditor` | WCAG 2.2 compliance, screen reader, keyboard nav |
+| `specialized-mcp-builder` | Building new MCP servers and tools |
+| `engineering-sre` | SLO definitions, error budgets, observability, toil reduction |
+| `design-ux-architect` | UX strategy, information architecture, user flows |
+| `design-ui-designer` | UI design systems, component libraries, visual design |
+| `product-manager` | Product strategy, prioritization, requirements |
+| `sales-engineer` | Technical sales, demos, proof of concept |
+| `marketing-seo-specialist` | SEO optimization, content strategy |
+| `marketing-content-creator` | Blog posts, marketing copy, social content |
 
 ## Workflow Protocol
 

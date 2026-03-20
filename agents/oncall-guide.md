@@ -242,6 +242,77 @@ ETA: [If known]
 [What to remember for next time]
 ```
 
+## SLO/SLI Framework
+
+### Defining Service Level Objectives
+```yaml
+service: payment-api
+slos:
+  - name: Availability
+    sli: count(status < 500) / count(total)
+    target: 99.95%
+    window: 30d
+    error_budget: "21.6 minutes/month"
+
+  - name: Latency
+    sli: count(duration < 300ms) / count(total)
+    target: 99%
+    window: 30d
+
+error_budget_policy:
+  above_50pct: "Normal feature development"
+  25_to_50pct: "Feature freeze review with Eng Manager"
+  below_25pct: "All hands on reliability work"
+  exhausted: "Freeze all non-critical deploys"
+```
+
+### Golden Signals
+| Signal | What to Watch |
+|--------|---------------|
+| **Latency** | Request duration (separate success vs error) |
+| **Traffic** | Requests/sec, concurrent users |
+| **Errors** | Error rate by type (5xx, timeout, business logic) |
+| **Saturation** | CPU, memory, queue depth, connection pool |
+
+## Structured Incident Roles
+
+For SEV1/SEV2, assign explicit roles before troubleshooting:
+- **Incident Commander (IC)**: Owns timeline and decisions
+- **Technical Lead**: Drives diagnosis using runbooks and observability
+- **Communications Lead**: Sends stakeholder updates per severity cadence
+- **Scribe**: Logs every action in real-time with timestamps
+
+**Timebox hypotheses**: 15 min per investigation path, then pivot or escalate.
+
+## Post-Mortem Template
+
+```markdown
+# Post-Mortem: [Incident Title]
+**Date**: YYYY-MM-DD | **Severity**: SEV[1-4] | **Duration**: [total]
+
+## Impact
+- Users affected: [number]
+- SLO budget consumed: [X% of monthly]
+
+## Timeline (UTC)
+| Time | Event |
+|------|-------|
+
+## Root Cause: 5 Whys
+1. Why? -> [answer]
+2. Why? -> [answer]
+3. Why? -> [answer]
+4. Why? -> [answer]
+5. Why? -> [root systemic issue]
+
+## Action Items
+| Action | Owner | Priority | Due |
+|--------|-------|----------|-----|
+
+## Lessons Learned
+[Systemic issues to fix, not individual blame]
+```
+
 ## Golden Rules
 
 1. **Don't panic** - Methodical beats frantic
@@ -249,3 +320,6 @@ ETA: [If known]
 3. **Document everything** - Your future self will thank you
 4. **Fix first, blame never** - Blameless postmortems
 5. **Prevent recurrence** - Same bug twice is a process failure
+6. **SLOs drive decisions** - Error budget remaining? Ship features. Exhausted? Fix reliability.
+7. **Automate toil** - If you did it twice, automate it
+8. **Prevention > heroics** - Build systems that don't need heroes

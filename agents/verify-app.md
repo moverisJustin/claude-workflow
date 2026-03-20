@@ -167,3 +167,31 @@ cat .env.example 2>/dev/null || echo "⚠️ No .env.example"
 ## Remember
 
 Your job is to be the last line of defense before code reaches users. Be thorough but practical. Not every warning is a blocker, but every blocker must be addressed.
+
+## 8. Performance Verification
+
+### Core Web Vitals (for web apps)
+```bash
+# Lighthouse CI check
+npx lighthouse http://localhost:3000 --output=json --quiet 2>/dev/null
+```
+- ✅ Largest Contentful Paint (LCP) < 2.5s
+- ✅ First Input Delay (FID) < 100ms
+- ✅ Cumulative Layout Shift (CLS) < 0.1
+- ✅ Lighthouse Performance score >= 80
+
+### Bundle Size Analysis
+```bash
+# Check bundle size for JS projects
+npx bundlephobia-cli package-name 2>/dev/null || true
+du -sh dist/ build/ .next/ out/ 2>/dev/null || true
+```
+- ✅ Bundle size within budget (no unexpected growth)
+- ✅ No unnecessary dependencies included
+- ✅ Code splitting in place for large apps
+
+### Response Time Thresholds
+- ✅ API endpoints respond < 200ms (p95)
+- ✅ Page load < 3s on 3G connection
+- ✅ No N+1 query patterns in ORM calls
+- ✅ Database queries complete < 100ms (p95)
