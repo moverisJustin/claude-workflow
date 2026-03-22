@@ -1,23 +1,29 @@
 # Active Context
 
 ## Current State
-All planned features complete and pushed to GitHub (2026-03-17).
+On branch `feature/agency-agents-integration`. Committed but not yet pushed or PR'd. All work deployed locally via install.sh (121 agents working).
 
-## Recent Work
-- Added Claude Code hooks system (3 hook scripts in scripts/)
-- SessionStart hook: auto-loads compact project context (~200 chars) on every new session
-- Destructive ops guard: auto-checkpoints before git reset --hard, rm -rf, force-push
-- Branch switch logger: audit-logs branch transitions
-- Added project-config.json support to memory-init for non-git projects
-- Updated settings.base.json with hook wiring (SessionStart, PreToolUse, PostToolUse)
-- Updated install.sh with Phase 6 for script installation
-- Updated README.md and CHEATSHEET.md with hooks documentation
-- Fixed Memory Bank file names in CHEATSHEET.md (was referencing old names)
+## Recent Work (2026-03-19)
+- Integrated 105 community agents from msitarzewski/agency-agents repo
+- Created sync-agency-agents.sh for selective upstream sync via MANIFEST.txt
+- Created linear-project-manager.md (custom Linear MCP agent)
+- Enhanced doc-generator (docs-as-code, Divio system)
+- Enhanced oncall-guide (SLO/SLI framework, post-mortem templates)
+- Enhanced verify-app (performance verification: Core Web Vitals, bundle size)
+- Updated boris.md with community agent delegation table
+- Fixed WebFetch permission: `WebFetch(*)` is invalid, must use bare `WebFetch`
+- Updated install.sh to deploy both core (16) and community (105) agents
+- Updated README.md and CHEATSHEET.md
 
 ## Resume Prompt
-Claude-workflow repo now has a complete hooks system. Three shell scripts in scripts/ handle auto-context loading (SessionStart), destructive operation safety (PreToolUse checkpoint), and branch switch auditing (PostToolUse). All are wired in settings.base.json and deployed via install.sh Phase 6. The project-config.json file (created by /memory-init) lets non-git projects opt out of git guards. Everything is committed and pushed to main. Next step would be end-to-end testing of the full workflow on a fresh machine.
+The claude-workflow repo now has 121 agents (16 core + 105 community from agency-agents). Community agents are managed via agents/community/MANIFEST.txt and synced from upstream with scripts/sync-agency-agents.sh. A new linear-project-manager agent was created for Linear MCP integration. Three core agents were enhanced with content from the richer agency-agents (doc-generator, oncall-guide, verify-app). The WebFetch permission bug was fixed (bare tool name, no parentheses). Everything is committed on feature/agency-agents-integration but needs to be pushed and PR'd or merged to main.
+
+## Failed Approaches
+- `WebFetch(*)` pattern doesn't work -- wildcard syntax only applies to Bash rules. Must use bare `WebFetch`.
+- Initial MANIFEST.txt had wrong slugs for game-dev and specialized agents (they don't use category prefix in filenames).
 
 ## Next Steps
+- Push branch and create PR (or merge to main)
 - End-to-end test: fresh install on another machine
 - Test /task-branch -> work -> /task-done -> PR cycle
 - Consider: hook for auto-running /session-end at context 75%

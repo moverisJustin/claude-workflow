@@ -14,3 +14,13 @@
 - `sync-lessons.sh` handles copying learned patterns from repo CLAUDE.md to ~/.claude/CLAUDE.md
 - Watch for duplicate patterns — the script appends without checking for existing entries
 - After manual edits to CLAUDE.md, verify no duplicates before committing
+
+## Permissions
+- `WebFetch(*)` is INVALID — wildcard `(*)` syntax only works for Bash rules
+- Use bare `WebFetch` and `WebSearch` (no parentheses) to allow all fetches/searches
+- Tool-specific syntax: `WebFetch(domain:example.com)` for domain restrictions
+
+## Community Agents
+- Agency-agents files use varying naming conventions: most are `{category}-{name}.md` but game-dev and specialized agents often omit the category prefix
+- Always verify actual filenames in upstream repo with `find` before updating MANIFEST.txt
+- install.sh flattens both `agents/*.md` and `agents/community/*.md` into `~/.claude/agents/`

@@ -20,8 +20,20 @@
 - [x] Claude Code hooks: branch switch audit logger
 - [x] project-config.json support for non-git projects
 - [x] Hook installation in install.sh (Phase 6)
+- [x] Integrate 105 community agents from agency-agents repo
+- [x] Create sync-agency-agents.sh for selective upstream sync
+- [x] Create MANIFEST.txt agent selection list
+- [x] Create linear-project-manager agent (Linear MCP integration)
+- [x] Enhance doc-generator (Divio system, docs-as-code)
+- [x] Enhance oncall-guide (SLO/SLI framework, post-mortem templates)
+- [x] Enhance verify-app (performance verification, Core Web Vitals)
+- [x] Update boris.md with community agent delegation table
+- [x] Fix WebFetch permission syntax (bare `WebFetch`, not `WebFetch(*)`)
+- [x] Update install.sh for core + community agent deployment
+- [x] Update README.md and CHEATSHEET.md with community agents
 
 ## Open
+- [ ] Push feature/agency-agents-integration branch and create PR (or merge to main)
 - [ ] End-to-end test: full /task-branch -> work -> /task-done -> PR cycle
 - [ ] End-to-end test: fresh install on another machine
 - [ ] Consider: hook for auto-running /session-end at context 75%
