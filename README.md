@@ -1,18 +1,35 @@
 # Claude Workflow
 
-Personal Claude Code workflow configuration based on [claude-boris v2.0](https://github.com/llcoolblaze/claude-boris), customized with Linear integration, Python support, and cross-machine lesson syncing.
+A shared Claude Code configuration that makes every team member's AI sessions smarter, safer, and continuous. Based on [claude-boris v2.0](https://github.com/llcoolblaze/claude-boris), customized with Linear integration, 120+ specialist agents, and cross-machine knowledge syncing.
 
-## What's Included
+## Why Use This
 
-- **16 core agents** -- boris (orchestrator), code-architect, code-simplifier, test-writer, verify-app, pr-reviewer, doc-generator, ci-integrator, issue-tracker, git-guardian, memory-bank, mode-controller, security-auditor, audit-logger, oncall-guide, linear-project-manager
-- **105 community agents** -- from [agency-agents](https://github.com/msitarzewski/agency-agents) covering engineering, design, sales, marketing, product, project management, testing, support, game dev, and paid media
-- **23 slash commands** -- `/boris`, `/session-start`, `/session-end`, `/verify-all`, `/test-and-fix`, `/security-scan`, `/commit-push-pr`, `/quick-commit`, `/undo`, `/checkpoint`, `/rollback`, `/mode`, `/fix-issue`, `/ci-loop`, `/context`, `/memory-init`, `/handoff`, `/update-claude-md`, `/first-principles`, `/review-changes`, `/task-branch`, `/task-done`, `/anythingelse`
-- **1 skill** -- boris-workflow methodology
-- **3 hook scripts** -- SessionStart context auto-loader, destructive ops guard (auto-checkpoint), branch switch audit logger
-- **Settings** -- wildcard permissions, Prettier hook (JS/TS only), audit logging, deny list for dangerous ops, hook wiring
-- **CLAUDE.md** -- global instructions with quick reference, workflow rules, and synced Learned Patterns
+Without this workflow, every Claude Code session starts from zero. Claude doesn't remember what you worked on yesterday, doesn't know the mistakes it already made, and has no guardrails when it runs destructive commands. You spend the first 10 minutes of every session re-explaining context. Multiply that across a team and the waste compounds.
 
-## Install
+This workflow fixes that:
+
+- **No more session amnesia.** The Memory Bank gives Claude persistent context per project. It remembers what was decided, what failed, and what's next. `/session-start` picks up exactly where you left off.
+
+- **Mistakes happen once, not twice.** When Claude makes a mistake and you correct it, the lesson gets saved to Learned Patterns. Those patterns sync across machines via git, so the entire team benefits from every correction. Claude gets better the more you use it.
+
+- **Safety rails for destructive operations.** Hooks automatically create checkpoints before `git reset --hard`, `rm -rf`, or force-pushes. Branch switches get audit-logged. You can always `/undo` or `/rollback`.
+
+- **Complex tasks run themselves.** Instead of manually prompting Claude through multi-step work, `/boris implement user auth` plans the approach, delegates to specialist agents (architect, test-writer, security-auditor), verifies the result, and ships it. 120+ agents cover engineering, design, sales, marketing, product, QA, and more.
+
+- **Context travels with branches.** Each feature branch carries a `.claude/task-context.md` with the objective, plan, decisions, and progress. Switch machines, switch people, `git pull` the branch and Claude has full context.
+
+## What You Get
+
+| Category | Count | Highlights |
+|---|---|---|
+| Core agents | 16 | Boris orchestrator, code-architect, test-writer, verify-app, security-auditor, linear-project-manager |
+| Community agents | 105 | Engineering, design, sales, marketing, product, PM, QA, support, game dev, paid media, specialized |
+| Slash commands | 23 | `/boris`, `/session-start`, `/verify-all`, `/fix-issue`, `/task-branch`, `/undo`, and more |
+| Hook scripts | 3 | Session auto-loader, destructive ops guard, branch switch logger |
+| Skills | 1 | Boris workflow methodology |
+| Settings | -- | Wildcard permissions, Prettier hook, audit logging, deny list for dangerous ops |
+
+## Quick Start
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/claude-workflow.git ~/Documents/claude-workflow
@@ -21,83 +38,64 @@ chmod +x install.sh sync-lessons.sh uninstall.sh
 ./install.sh
 ```
 
-The installer:
-- Backs up your existing `~/.claude/` config
-- Copies agents, commands, skills, and hook scripts
-- Merges settings (preserves your machine-specific paths, plugins, and MCP permissions)
-- Syncs Learned Patterns between repo and local
+The installer backs up your existing `~/.claude/` config, copies agents/commands/skills/hooks, merges settings (preserving your machine-specific paths and MCP permissions), and syncs Learned Patterns.
 
-## Usage
+Then in any Claude Code session:
 
-Start every Claude Code session with `/session-start`. End with `/session-end`.
-
-First time in a project? Run `/memory-init` to set up the Memory Bank.
-
-For complex tasks: `/boris <describe the task>`
-
-## Sync Lessons Across Machines
-
-Learned Patterns are universal lessons that accumulate as Claude makes mistakes and you correct them. They persist across all projects.
-
-### Workflow
-
-**After a work session (any machine):**
-```bash
-cd ~/Documents/claude-workflow
-./sync-lessons.sh
-git add CLAUDE.md && git commit -m "sync lessons" && git push
+```
+/session-start          # Orient Claude to your project
+/memory-init            # First time in a project? Set up Memory Bank
+/boris <describe task>  # Hand off a complex task to the orchestrator
 ```
 
-**On another machine:**
-```bash
-cd ~/Documents/claude-workflow
-git pull
-./sync-lessons.sh
-```
+## Daily Workflow
 
-### How it works
+| Situation | Command |
+|---|---|
+| Start of day | `/session-start` (auto-loads context) |
+| New task | `/task-branch feature/auth` then start building |
+| Complex task | `/boris implement user authentication` |
+| Bug from Linear | `/fix-issue MOV-123` |
+| Before merging | `/verify-all` then `/review-changes` then `/commit-push-pr` |
+| Something broke | `/mode debug` then investigate then `/mode code` then fix |
+| Task complete | `/task-done` (verify, PR, cleanup) |
+| Context getting full | `/handoff` (auto-suggested at 60%, auto-runs at 75%) |
+| End of day | `/session-end` |
+| Oops | `/undo` or `/rollback` |
 
-- Bidirectional merge: new local lessons go to repo, new repo lessons go to local
-- Deduplication by `### Heading` -- same lesson title is never duplicated
-- Never overwrites or removes existing lessons
-- Only appends net-new entries
+## Key Concepts
 
-## Update
+### Memory Bank
+Each project gets a `.claude/memory/` directory with persistent files: project context, active session state, progress tracking, decision log, conventions, and session history. Claude reads these at session start and writes them at session end. The result is continuity across sessions without you re-explaining anything.
 
-To pull the latest agents/commands/settings:
+### Learned Patterns
+When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns promote to `CLAUDE.md` and sync across machines via `sync-lessons.sh` + git. Over time, Claude stops making the mistakes your team has already caught.
 
-```bash
-cd ~/Documents/claude-workflow
-git pull
-./install.sh
-```
+### Task Context
+Feature branches carry `.claude/task-context.md` with the objective, plan, key decisions, and current progress. Created by `/task-branch`, auto-loaded by `/session-start`, removed when the branch merges. This means anyone (or any machine) can pick up a branch cold and Claude has full context.
 
-## Uninstall
+### Modes
+`/mode architect` (read-only design), `/mode code` (full implementation), `/mode debug` (investigation), `/mode review` (read-only code review), `/mode audit` (security scanning). Each mode restricts tool access to prevent accidents.
 
-```bash
-cd ~/Documents/claude-workflow
-./uninstall.sh
-```
+---
 
-Restores from the most recent backup created by `install.sh`.
+## Reference
 
-## Quick Reference
-
-> Full reference with agents, modes, and workflows: **[CHEATSHEET.md](CHEATSHEET.md)**
+> Full reference with all details: **[CHEATSHEET.md](CHEATSHEET.md)**
 
 ### Slash Commands
 
 | Command | What it does |
 |---|---|
-| `/boris <task>` | Full orchestrated workflow — plan, delegate, verify, ship |
+| `/boris <task>` | Full orchestrated workflow -- plan, delegate, verify, ship |
 | `/session-start` | Load Memory Bank, check project status, orient to continue |
 | `/session-end` | Save Memory Bank state, create session summary for next time |
-| `/verify-all` | Run tests, types, lint, build — full verification suite |
+| `/verify-all` | Run tests, types, lint, build -- full verification suite |
 | `/test-and-fix` | Run tests, analyze failures, fix, repeat until green |
 | `/security-scan` | SAST, dependency CVEs, secrets detection, OWASP checks |
 | `/task-branch <name>` | Create feature branch with task context for cross-machine handoff |
 | `/task-done` | Complete task: verify, create PR, clean up task-context.md |
-| `/commit-push-pr` | Stage, commit, push, create PR — full git workflow |
+| `/commit-push-pr` | Stage, commit, push, create PR -- full git workflow |
 | `/quick-commit` | Fast local commit with auto-generated message (no push) |
 | `/undo` | Revert the last Claude-made change safely |
 | `/checkpoint <name>` | Create a named save point for easy rollback |
@@ -107,26 +105,26 @@ Restores from the most recent backup created by `install.sh`.
 | `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
 | `/context` | Show context window usage and Memory Bank status |
 | `/memory-init` | Initialize Memory Bank for a new project |
-| `/handoff` | Cognitive briefing — saves mental model, failed approaches, resume prompt |
+| `/handoff` | Cognitive briefing -- saves mental model, failed approaches, resume prompt |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
 | `/first-principles` | Break down a complex problem from fundamentals |
 | `/review-changes` | Review uncommitted changes before committing |
 | `/anythingelse` | Creative wildcard prompt |
 
-### Specialist Agents
+### Core Agents (16)
 
 | Agent | Role |
 |---|---|
-| **boris** | Master orchestrator — plans, delegates to specialists, verifies |
+| **boris** | Master orchestrator -- plans, delegates to specialists, verifies |
 | **code-architect** | System design, architecture decisions, technical planning |
-| **code-simplifier** | Clean up code after implementation — reduce complexity |
+| **code-simplifier** | Clean up code after implementation -- reduce complexity |
 | **test-writer** | Generate comprehensive tests (JS/TS/Python) |
 | **verify-app** | End-to-end verification before shipping |
-| **pr-reviewer** | Automated code review — bugs, security, style |
+| **pr-reviewer** | Automated code review -- bugs, security, style |
 | **doc-generator** | Generate/update README, API docs, CLAUDE.md |
-| **ci-integrator** | CI pipeline automation — push, monitor, fix, iterate |
+| **ci-integrator** | CI pipeline automation -- push, monitor, fix, iterate |
 | **issue-tracker** | Linear/GitHub issue management and lifecycle |
-| **git-guardian** | Safe git ops — dirty file protection, checkpoints, attribution |
+| **git-guardian** | Safe git ops -- dirty file protection, checkpoints, attribution |
 | **memory-bank** | Cross-session context persistence |
 | **mode-controller** | Behavioral mode switching with tool access restrictions |
 | **security-auditor** | Vulnerability scanning and security assessment |
@@ -136,7 +134,7 @@ Restores from the most recent backup created by `install.sh`.
 
 ### Community Agents (105)
 
-Sourced from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents), these provide domain-specific expertise across 11 categories:
+Sourced from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents), covering 11 domains:
 
 | Category | Count | Examples |
 |---|---|---|
@@ -152,44 +150,17 @@ Sourced from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency
 | Paid Media | 7 | PPC strategist, programmatic buyer, creative strategist |
 | Specialized | 15 | MCP builder, workflow architect, developer advocate |
 
-**Manage community agents**: Edit `agents/community/MANIFEST.txt` and run `scripts/sync-agency-agents.sh` to sync from upstream.
-
-### Modes (`/mode <name>`)
-
-| Mode | Focus |
-|---|---|
-| `architect` | Design and planning only — no code edits |
-| `code` | Implementation — full tool access |
-| `debug` | Diagnosis — read-heavy, minimal edits |
-| `review` | Code review — read-only with comments |
-| `audit` | Compliance and security review |
+Manage community agents: edit `agents/community/MANIFEST.txt` and run `scripts/sync-agency-agents.sh` to sync from upstream.
 
 ### Hooks (Automatic)
 
-These run automatically via Claude Code's hook system -- no user action needed.
+| Hook | Trigger | What it does |
+|---|---|---|
+| **SessionStart loader** | Every new session | Auto-loads project name, branch, last session state |
+| **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push | Creates checkpoint tag + stashes dirty tree |
+| **Branch switch logger** | After `git switch`, `git checkout <branch>` | Audit-logs branch transitions |
 
-| Hook | Trigger | What it does | Context impact |
-|---|---|---|---|
-| **SessionStart loader** | Every new session | Auto-loads project name, branch, last session state | ~200 chars |
-| **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push, etc. | Creates checkpoint tag + stashes dirty tree | Zero |
-| **Branch switch logger** | After `git switch`, `git checkout <branch>` | Audit-logs branch transitions | Zero |
-
-The SessionStart hook also detects new projects (no `.claude/project-config.json`) and prompts you to run `/memory-init`.
-
-Non-git projects can set `"git_enabled": false` in `.claude/project-config.json` to disable git guards.
-
-### Quick Workflows
-
-- **Start of day:** `/session-start` (runs automatically)
-- **New task:** `/task-branch feature/auth` then start building
-- **Complex task:** `/boris implement user authentication`
-- **Bug from Linear:** `/fix-issue MOV-123`
-- **Before merging:** `/verify-all` → `/review-changes` → `/commit-push-pr`
-- **Something broke:** `/mode debug` → investigate → `/mode code` → fix
-- **Task complete:** `/task-done` (verify, PR, cleanup)
-- **Context getting full:** `/handoff` (auto-suggested at 60%, auto-runs at 75%)
-- **End of day:** `/session-end`
-- **Oops:** `/undo` or `/rollback`
+The SessionStart hook also detects new projects (no `.claude/project-config.json`) and prompts you to run `/memory-init`. Non-git projects can set `"git_enabled": false` in `.claude/project-config.json`.
 
 ## Customization
 
@@ -198,3 +169,40 @@ Non-git projects can set `"git_enabled": false` in `.claude/project-config.json`
 - **Add commands**: Create `.md` files in `commands/` with frontmatter (`description`)
 - **Machine-specific settings**: Edit `~/.claude/settings.json` directly for paths, plugins, MCP permissions. These are preserved across `install.sh` runs.
 - **New lessons**: Just work with Claude -- lessons are added to `~/.claude/CLAUDE.md` during sessions, then synced to repo via `sync-lessons.sh`
+
+## Sync Lessons Across Machines
+
+Learned Patterns are universal lessons that accumulate as Claude makes mistakes and you correct them. They persist across all projects.
+
+**After a work session (any machine):**
+```bash
+cd ~/Documents/claude-workflow
+./sync-lessons.sh
+git add CLAUDE.md && git commit -m "sync lessons" && git push
+```
+
+**On another machine:**
+```bash
+cd ~/Documents/claude-workflow
+git pull
+./sync-lessons.sh
+```
+
+How it works: bidirectional merge by `### Heading` deduplication. New local lessons go to repo, new repo lessons go to local. Never overwrites or removes existing lessons.
+
+## Update
+
+```bash
+cd ~/Documents/claude-workflow
+git pull
+./install.sh
+```
+
+## Uninstall
+
+```bash
+cd ~/Documents/claude-workflow
+./uninstall.sh
+```
+
+Restores from the most recent backup created by `install.sh`.
