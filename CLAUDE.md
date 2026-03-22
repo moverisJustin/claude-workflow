@@ -262,3 +262,6 @@ A config file that defines parameters is useless if the code that creates work i
 
 ### Always commit AND PUSH source files at phase boundaries
 Before deploying or moving to the next phase, verify all source files are committed and **pushed to the remote**. Don't assume files are in the repo just because they're on disk. Work in `/tmp/` is ephemeral — if a branch isn't pushed, it's lost on reboot. Always `git push -u origin <branch>` after creating a feature branch.
+
+### Update README on session-end, not just Memory Bank
+On `/session-end`, update README.md (and CHEATSHEET.md if relevant) alongside Memory Bank files. The README is the first thing people see on the repo — if it doesn't reflect the current state, new users and future sessions start with a wrong mental model. Memory Bank is for Claude; README is for humans. Both must stay in sync.

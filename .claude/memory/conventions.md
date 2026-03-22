@@ -20,6 +20,9 @@
 - Use bare `WebFetch` and `WebSearch` (no parentheses) to allow all fetches/searches
 - Tool-specific syntax: `WebFetch(domain:example.com)` for domain restrictions
 
+## Session Protocol
+- On `/session-end`, update README.md (and CHEATSHEET.md if relevant) alongside Memory Bank files. The README is the first thing people see on the repo — it must reflect the current state of the project, not just the memory files.
+
 ## Community Agents
 - Agency-agents files use varying naming conventions: most are `{category}-{name}.md` but game-dev and specialized agents often omit the category prefix
 - Always verify actual filenames in upstream repo with `find` before updating MANIFEST.txt
