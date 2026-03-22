@@ -114,13 +114,13 @@ Mark AI-generated vs human code:
 ```bash
 # Set author for Claude commits
 git -c user.name="Claude Boris" \
-    -c user.email="claude-boris@anthropic.com" \
+    -c user.email="claude-boris@noreply.github.com" \
     commit -m "message"
 
 # Or use Co-authored-by
 git commit -m "message
 
-Co-authored-by: Claude Boris <claude-boris@anthropic.com>"
+Co-authored-by: Claude Boris <claude-boris@noreply.github.com>"
 ```
 
 ## Safety Protocols

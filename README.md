@@ -55,7 +55,7 @@ Then in any Claude Code session:
 | Start of day | `/session-start` (auto-loads context) |
 | New task | `/task-branch feature/auth` then start building |
 | Complex task | `/boris implement user authentication` |
-| Bug from Linear | `/fix-issue MOV-123` |
+| Bug from Linear | `/fix-issue PROJ-123` |
 | Before merging | `/verify-all` then `/review-changes` then `/commit-push-pr` |
 | Something broke | `/mode debug` then investigate then `/mode code` then fix |
 | Task complete | `/task-done` (verify, PR, cleanup) |

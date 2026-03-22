@@ -9,7 +9,7 @@ description: Fetch a GitHub/Linear issue, understand requirements, implement the
 !`gh issue view $ARGUMENTS --json number,title,body,labels,assignees,state`
 
 ## Linear Issue (if GitHub issue not found)
-If the issue number starts with a project prefix (e.g., MOV-123), use Linear MCP tools instead:
+If the issue number starts with a project prefix (e.g., PROJ-123), use Linear MCP tools instead:
 - Use `mcp__claude_ai_Linear__get_issue` to fetch issue details
 - Use `mcp__claude_ai_Linear__update_issue` to update status
 - Use `mcp__claude_ai_Linear__create_comment` to add comments

@@ -102,7 +102,7 @@ Non-git projects: set `"git_enabled": false` in `.claude/project-config.json`.
 `/boris implement user authentication`
 
 **Bug from Linear:**
-`/fix-issue MOV-123`
+`/fix-issue PROJ-123`
 
 **Before merging:**
 `/verify-all` → `/review-changes` → `/commit-push-pr`
