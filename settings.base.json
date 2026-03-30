@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Bash(bash .claude/scripts/drift-check.sh*)",
+      "Bash(bash ~/.claude/scripts/drift-check.sh*)",
       "Bash(git *)",
       "Bash(gh *)",
       "Bash(npm test*)",

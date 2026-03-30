@@ -25,6 +25,8 @@ Quick reference for all slash commands, specialist agents, and modes.
 | `/context` | Show context window usage and Memory Bank status |
 | `/memory-init` | Initialize Memory Bank for a new project |
 | `/handoff` | Cognitive briefing — saves mental model, failed approaches, resume prompt |
+| `/load-context <type>` | Load task-specific context mid-session (feature/debug/test/deploy/etc) |
+| `/drift-check` | Validate Memory Bank accuracy against codebase — suggest and auto-fix drift |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
 | `/first-principles` | Break down a complex problem from fundamentals |
 | `/review-changes` | Review uncommitted changes before committing |
@@ -128,16 +130,26 @@ Each project gets a `.claude/memory/` directory with persistent context:
 
 | File | Purpose |
 |---|---|
+| `ROUTER.md` | Context routing table — maps task types to relevant files |
 | `projectContext.md` | What the project is, tech stack, architecture |
 | `activeContext.md` | Current focus, recent changes, next steps |
 | `progress.md` | What works, what doesn't, what's left |
 | `decisionLog.md` | Architecture decisions with rationale |
 | `conventions.md` | Project-specific lessons and rules |
 | `sessionHistory.md` | Rolling session summaries |
+| `patterns/INDEX.md` | Registry of task-specific reusable guides |
 
 Also: `.claude/project-config.json` stores git preference and project description.
 
 Initialize with `/memory-init`. Context auto-loads via SessionStart hook + `/session-start`.
+
+### Context Router
+
+`ROUTER.md` is loaded first every session. It classifies your task and loads only 2-3 relevant memory files (instead of all 6). Auto-generated for existing projects on first session. Use `/load-context <type>` to switch context mid-session.
+
+### Drift Detection
+
+`/drift-check` validates that Memory Bank files still match codebase reality (dead paths, stale branches, missing deps). Pure bash, zero AI tokens. Integrated into `/session-start` (warns if score < 80) and `/session-end` (catches self-introduced drift).
 
 ## Task Context (Branch-Specific)
 

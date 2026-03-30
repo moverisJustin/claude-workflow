@@ -46,6 +46,8 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 /context             # Check context usage
 /memory-init         # Initialize Memory Bank for project
 /handoff             # Cognitive briefing for seamless session handoff
+/load-context <type> # Load task-specific context mid-session (feature/debug/test/etc)
+/drift-check         # Validate Memory Bank accuracy against codebase
 
 # Mode System
 /mode [mode]         # Switch modes (architect/code/debug/review/audit)
@@ -144,12 +146,28 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 # Memory Bank (Persistent Context)
 
 Per-project memory at `.claude/memory/`:
+- `ROUTER.md` — Context routing table (loaded first, routes to relevant files)
 - `projectContext.md` — What this project is and why
 - `activeContext.md` — Current session state (replaces tasks/handoff.md)
 - `progress.md` — Task tracking (replaces tasks/todo.md)
 - `decisionLog.md` — Architecture decisions with rationale
 - `conventions.md` — Learned patterns and mistakes (replaces tasks/lessons.md)
 - `sessionHistory.md` — Rolling session summaries
+- `patterns/INDEX.md` — Registry of task-specific reusable guides
+- `patterns/*.md` — Individual pattern files (grow from real work)
+
+### Context Router
+- `ROUTER.md` maps task types to relevant memory files via keyword matching
+- `/session-start` reads ROUTER.md first, classifies the task, loads only 2-3 relevant files
+- Auto-generated for existing projects on first session (no manual setup needed)
+- Falls back to loading everything if ROUTER.md is missing or unreadable
+- `/load-context <type>` switches context mid-session without restarting
+
+### Drift Detection
+- `scripts/drift-check.sh` validates Memory Bank accuracy (zero AI tokens, pure bash)
+- 5 checkers: dead paths, dead branches, missing deps, staleness, dead commands
+- Integrated into `/session-start` (warns if score < 80) and `/session-end` (catches self-introduced drift)
+- Run manually with `/drift-check` for details and auto-fix
 
 ### Task Context (Branch-Specific)
 - `.claude/task-context.md` — Per-branch task state (objective, plan, decisions, progress)
@@ -164,15 +182,18 @@ Per-project memory at `.claude/memory/`:
 
 ## Session Start Protocol
 At the beginning of every working session in a project:
-1. Run `/session-start` (loads Memory Bank automatically, falls back to `tasks/` if no Memory Bank)
-2. Or manually read: `.claude/memory/activeContext.md`, `progress.md`, `conventions.md`
-3. Summarize what you know and confirm direction before diving in
+1. Run `/session-start` (reads ROUTER.md, loads only task-relevant memory files, runs drift check)
+2. If ROUTER.md doesn't exist yet, it's auto-generated from existing Memory Bank files
+3. Falls back to `tasks/` if no Memory Bank exists
+4. Summarize what you know and confirm direction before diving in
 
 ## Session End Protocol
 At session end or when approaching 75% context usage:
 1. Run `/session-end` (saves everything automatically)
-2. Or manually update: `activeContext.md`, `progress.md`, `sessionHistory.md`
-3. Commit or stash all work
+2. GROW step: evaluate if this session's work should become a reusable pattern
+3. Update ROUTER.md "Current Project State" section
+4. Run drift check to catch self-introduced drift
+5. Commit or stash all work
 
 ---
 
