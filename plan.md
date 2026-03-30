@@ -68,11 +68,20 @@ Patterns are optional and project-specific. `/memory-init` creates the empty dir
 #### 1.3 Modify `/session-start` command
 Update `commands/session-start.md` to:
 
-1. Read ROUTER.md first (small file, always loaded)
-2. Classify the user's task/message against the routing table
-3. Load only the matched files (instead of all 6)
-4. If no task provided yet (just a greeting), load the "Fallback" set
-5. Preserve the existing state summary output format
+1. Check if `.claude/memory/ROUTER.md` exists
+2. **If ROUTER.md exists** → read it, classify the user's task/message against the routing table, load only matched files
+3. **If ROUTER.md does NOT exist but Memory Bank does** → auto-generate ROUTER.md by:
+   - Reading `projectContext.md` to understand the project stack and structure
+   - Scanning `conventions.md` for existing patterns and tools
+   - Checking which memory files exist and have content
+   - Generating a project-tailored routing table from the template (`context/ROUTER.md`)
+   - Creating `patterns/` dir + empty `INDEX.md` if missing
+   - Then proceeding with routed loading as normal
+4. **If neither exists** → fall through to `/memory-init` as today
+5. If no task provided yet (just a greeting), load the "Fallback" set
+6. Preserve the existing state summary output format
+
+This ensures **existing projects with Memory Banks get routing automatically** on their next session start — no manual setup required.
 
 **Before** (current):
 ```
@@ -82,7 +91,10 @@ conventions.md, sessionHistory.md, decisionLog.md
 
 **After** (routed):
 ```
-Read: ROUTER.md → classify task → load 2-3 relevant files
+Check ROUTER.md exists?
+  YES → classify task → load 2-3 relevant files
+  NO (but Memory Bank exists) → auto-generate ROUTER.md → then route
+  NO (no Memory Bank) → /memory-init (existing behavior)
 ```
 
 #### 1.4 Add `/load-context` command
@@ -101,6 +113,8 @@ Update `commands/memory-init.md` to also:
 - Create `.claude/memory/ROUTER.md` (from template, customized for the project)
 - Create `.claude/memory/patterns/` directory
 - Create `.claude/memory/patterns/INDEX.md` (empty registry)
+
+> **Note**: `/memory-init` handles **new projects**. For existing projects that already have a Memory Bank but no ROUTER.md, the auto-generation logic in `/session-start` (step 1.3) handles the migration seamlessly — no manual action needed.
 
 #### 1.6 Modify `/session-end` command
 Update `commands/session-end.md` to add a "GROW" step:
@@ -201,10 +215,12 @@ install.sh                       # Copy new files during install
 ```
 
 #### 3.3 Backward compatibility
-- Projects without ROUTER.md fall back to current behavior (load everything)
-- `/session-start` checks for ROUTER.md existence before routing
+- Projects with Memory Bank but no ROUTER.md get it **auto-generated** on next `/session-start`
+- Projects with no Memory Bank at all fall through to `/memory-init` as today
+- Auto-generation reads existing Memory Bank files to tailor the routing table (not a generic template dump)
 - Drift check is advisory, never blocking
 - Pattern directory is optional — INDEX.md can be empty
+- No user action required — existing projects upgrade transparently
 
 ---
 
