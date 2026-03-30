@@ -146,6 +146,20 @@ for f in "$SCRIPT_DIR/scripts/"*.sh; do
 done
 echo "  Installed $SCRIPT_COUNT hook scripts"
 
+# --- Phase 6.5: Install context templates ---
+echo "--- Phase 6.5: Install context templates ---"
+mkdir -p "$CLAUDE_DIR/context/patterns"
+CONTEXT_COUNT=0
+if [ -f "$SCRIPT_DIR/context/ROUTER.md" ]; then
+  cp "$SCRIPT_DIR/context/ROUTER.md" "$CLAUDE_DIR/context/ROUTER.md"
+  CONTEXT_COUNT=$((CONTEXT_COUNT + 1))
+fi
+if [ -f "$SCRIPT_DIR/context/patterns/INDEX.md" ]; then
+  cp "$SCRIPT_DIR/context/patterns/INDEX.md" "$CLAUDE_DIR/context/patterns/INDEX.md"
+  CONTEXT_COUNT=$((CONTEXT_COUNT + 1))
+fi
+echo "  Installed $CONTEXT_COUNT context templates (ROUTER.md, patterns/INDEX.md)"
+
 # --- Phase 7: Merge CLAUDE.md (with lesson sync) ---
 echo "--- Phase 6: Merge CLAUDE.md ---"
 
@@ -181,6 +195,7 @@ echo "  - $AGENT_COUNT agents"
 echo "  - $CMD_COUNT commands"
 echo "  - 1 skill (boris-workflow)"
 echo "  - $SCRIPT_COUNT hook scripts"
+echo "  - $CONTEXT_COUNT context templates"
 echo "  - settings.json (merged with hooks)"
 echo "  - CLAUDE.md (with lessons synced)"
 echo ""

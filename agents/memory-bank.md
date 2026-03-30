@@ -14,13 +14,43 @@ The Memory Bank uses structured files in `.claude/memory/`:
 
 ```
 .claude/memory/
+├── ROUTER.md            # Context routing table (loaded first, routes to relevant files)
 ├── projectContext.md    # What this project is and why
 ├── activeContext.md     # Current session state and focus
 ├── progress.md          # Task progress and completion status
 ├── decisionLog.md       # Architectural decisions with rationale
 ├── conventions.md       # Learned coding patterns and rules
-└── sessionHistory.md    # Summary of past sessions
+├── sessionHistory.md    # Summary of past sessions
+└── patterns/            # Task-specific reusable guides
+    ├── INDEX.md         # Pattern registry
+    └── *.md             # Individual pattern files
 ```
+
+## Context Router
+
+ROUTER.md is the navigation hub. It maps task types to relevant memory files so the agent loads only what's needed (instead of everything). The router:
+
+- Is loaded first every session (~200 tokens)
+- Classifies the user's task against keyword-based routing rules
+- Loads only 2-3 relevant files per task type
+- Falls back to loading everything if routing fails
+- Is auto-generated on first session if missing (from existing memory files)
+
+## Pattern System
+
+Patterns are task-specific guides that compound over time:
+- Created by the GROW step during `/session-end`
+- Registered in `patterns/INDEX.md` for discoverability
+- Loaded on demand when the router matches a relevant task type
+- Each pattern includes: when to use, steps, conventions, common mistakes, verification checklist
+
+## Drift Detection
+
+Memory Bank files are validated against the actual codebase via `drift-check.sh`:
+- 5 static checkers: dead paths, dead branches, missing deps, staleness, dead commands
+- Zero AI tokens — pure bash analysis
+- Scoring: starts at 100, deducts per finding
+- Integrated into `/session-start` (warns if score < 80) and `/session-end` (catches self-introduced drift)
 
 ## File Purposes
 

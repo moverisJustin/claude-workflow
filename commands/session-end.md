@@ -151,12 +151,66 @@ If this project has `tasks/` files alongside or instead of Memory Bank:
 **Update `.claude/memory/decisionLog.md`** (if significant decision made):
 - Add new ADR entry
 
+### 3.5. GROW Step — Pattern Accumulation
+
+After updating Memory Bank files, evaluate whether this session's work should become a reusable pattern:
+
+**Ask yourself**: "Did this session involve a task type that could be repeated? Is there a step-by-step approach worth capturing?"
+
+**If yes**:
+1. Check if `.claude/memory/patterns/` exists (create it if not, along with `INDEX.md`)
+2. Check `patterns/INDEX.md` — does a pattern already exist for this task type?
+   - **If yes**: Update the existing pattern file with any new steps, conventions, or mistakes learned
+   - **If no**: Create a new pattern file using this template:
+     ```markdown
+     # Pattern: [Name]
+
+     ## When to Use
+     [1 sentence — what task type triggers this pattern]
+
+     ## Steps
+     1. [Step-by-step guide]
+
+     ## Conventions
+     - [Rules that apply to this task type]
+
+     ## Common Mistakes
+     - [Things that went wrong]
+
+     ## Verify
+     - [ ] [Checklist items]
+     ```
+3. Update `patterns/INDEX.md` with the new/updated pattern entry
+
+**If no**: Skip this step. Not every session produces a pattern. Simple bug fixes, doc updates, and one-off tasks usually don't need one.
+
+### 3.6. Update ROUTER.md — Current Project State
+
+Update the "Current Project State" section in `.claude/memory/ROUTER.md` (if it exists) with:
+- What is currently working
+- What is not yet built
+- Known issues
+
+This re-grounds the next session's agent to the actual state of the project.
+
+### 3.7. Drift Check (Post-Update)
+
+After all Memory Bank updates are written, run a quick drift check:
+```bash
+bash .claude/scripts/drift-check.sh --quiet
+```
+
+If the score dropped below 80 due to this session's own updates (e.g., referencing a file that was just deleted), fix the drift before finalizing. If the script doesn't exist, skip this step.
+
 ### 4. Final Checks
 
 Before ending:
 - [ ] All work committed or stashed?
 - [ ] Memory Bank files updated?
+- [ ] Patterns updated (GROW step)?
+- [ ] ROUTER.md project state refreshed?
 - [ ] Any blockers documented?
+- [ ] Drift score healthy (>= 80)?
 - [ ] Push to remote if ready?
 
 ### 5. Report to User

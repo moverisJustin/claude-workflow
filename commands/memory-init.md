@@ -25,7 +25,9 @@ If legacy `tasks/` files exist, offer to migrate:
 ```bash
 mkdir -p .claude/memory
 mkdir -p .claude/memory/archive
+mkdir -p .claude/memory/patterns
 mkdir -p .claude/audit
+mkdir -p .claude/scripts
 ```
 
 ### 2. Create Project Config
@@ -173,7 +175,41 @@ New project setup
 Fresh project setup. Ready to begin development.
 ```
 
-### 5. Report
+### 5. Create Context Router
+
+Generate `.claude/memory/ROUTER.md` — a routing table that maps task types to relevant memory files. Use the project analysis from Step 3 to customize the routing table:
+
+- Identify the project's primary task types (e.g., a web app needs deploy/CI routes; a library needs docs/test routes)
+- Map each task type to the most relevant memory files
+- Fill in the "Current Project State" section with what was detected
+
+Use the template from `~/.claude/context/ROUTER.md` (shipped with claude-workflow) as the base structure, then customize for this project.
+
+### 6. Create Pattern Index
+
+Create `.claude/memory/patterns/INDEX.md` — an empty pattern registry:
+```markdown
+# Pattern Index
+
+> Task-specific guides that grow from real work. Created by the GROW step in `/session-end`.
+
+## Registry
+
+| Pattern | File | Task Signals | Last Updated |
+|---------|------|-------------|-------------|
+```
+
+Patterns will accumulate as you work. The `/session-end` GROW step will prompt to create them.
+
+### 7. Copy Drift Check Script
+
+If `~/.claude/scripts/drift-check.sh` exists (installed globally by claude-workflow), copy it to `.claude/scripts/drift-check.sh` so the project has its own local copy:
+```bash
+cp ~/.claude/scripts/drift-check.sh .claude/scripts/drift-check.sh 2>/dev/null || true
+chmod +x .claude/scripts/drift-check.sh 2>/dev/null || true
+```
+
+### 8. Report
 
 ```
 Memory Bank Initialized
@@ -186,6 +222,9 @@ Created:
 - .claude/memory/decisionLog.md
 - .claude/memory/conventions.md
 - .claude/memory/sessionHistory.md
+- .claude/memory/ROUTER.md (context routing)
+- .claude/memory/patterns/INDEX.md (pattern registry)
+- .claude/scripts/drift-check.sh (drift detection)
 
 Project detected:
 - Name: [name]
@@ -195,6 +234,7 @@ Project detected:
 Memory Bank is ready.
 Use /session-start to begin work.
 Use /session-end to save context.
+Use /drift-check to validate Memory Bank accuracy.
 ```
 
 ---
