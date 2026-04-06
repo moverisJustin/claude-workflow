@@ -286,3 +286,9 @@ Before deploying or moving to the next phase, verify all source files are commit
 
 ### Update README on session-end, not just Memory Bank
 On `/session-end`, update README.md (and CHEATSHEET.md if relevant) alongside Memory Bank files. The README is the first thing people see on the repo — if it doesn't reflect the current state, new users and future sessions start with a wrong mental model. Memory Bank is for Claude; README is for humans. Both must stay in sync.
+
+### Never re-propose approaches that have been ruled out
+If conventions.md or memory documents say an approach doesn't work or is infeasible, DO NOT suggest it again. Read conventions at session start and respect established constraints. Re-proposing ruled-out approaches wastes the user's time and erodes trust. The entire point of the memory bank is to prevent repeating mistakes.
+
+### Claude Code permission wildcard `(*)` only works for Bash
+In settings.json permissions, `ToolName(*)` is ONLY valid for Bash (e.g., `Bash(git *)`). For all other tools — Read, Glob, Grep, Task, WebFetch, WebSearch — use the bare tool name without parentheses. `Read(*)`, `Glob(*)`, `WebFetch(*)` are silently ignored and cause constant permission prompts. Edit/Write path patterns like `Edit(src/**)` and `Write(*.ts)` ARE valid because they match file paths.
