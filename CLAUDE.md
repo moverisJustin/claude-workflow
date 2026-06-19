@@ -115,6 +115,8 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - Auto-stash dirty files before AI modifications
 - Never force-push to main/master
 - Always verify push target with `git remote -v` before pushing
+- **Signed commits required**: all commits must carry a verified signature (org security protocol). Signing is SSH-based and on by default (`commit.gpgsign true`, `gpg.format ssh`); `install.sh` configures it per-machine. Never disable it with `--no-gpg-sign`. If a commit fails to sign, fix the key/agent — don't bypass.
+- **PR-based external review**: every change ships through a PR for external review. Claude may **merge** a PR after an external reviewer approves it (`gh pr merge` produces a GitHub-signed, Verified merge commit) — but must **never approve its own PR**. Approval is human-only; merging-after-approval is permitted.
 
 ## 8. Branch Strategy (Feature-Branch-by-Default)
 - ALL work happens on feature branches, NOT main
@@ -292,3 +294,6 @@ If conventions.md or memory documents say an approach doesn't work or is infeasi
 
 ### Claude Code permission wildcard `(*)` only works for Bash
 In settings.json permissions, `ToolName(*)` is ONLY valid for Bash (e.g., `Bash(git *)`). For all other tools — Read, Glob, Grep, Task, WebFetch, WebSearch — use the bare tool name without parentheses. `Read(*)`, `Glob(*)`, `WebFetch(*)` are silently ignored and cause constant permission prompts. Edit/Write path patterns like `Edit(src/**)` and `Write(*.ts)` ARE valid because they match file paths.
+
+### SSH commit signing is the default — verified signatures required
+All commits must carry a verified signature (GitHub security protocol). Signing is SSH-based: `git config --global gpg.format ssh`, `user.signingkey ~/.ssh/<key>.pub`, `commit.gpgsign true`, `tag.gpgsign true`. `install.sh` (Phase 5.5) configures this per-machine, idempotently, and prints the key to register on GitHub as a **Signing Key** (Settings → SSH and GPG keys, type: Signing Key — or `gh ssh-key add <key> --type signing` after `gh auth refresh -s admin:ssh_signing_key`). For the "Verified" badge the committer email must be a verified account email (a `…@users.noreply.github.com` address qualifies). Never bypass with `--no-gpg-sign`; if signing fails, fix the key/agent. Merges via `gh pr merge` / the GitHub UI are signed by GitHub's web-flow key and show Verified automatically. A key with no passphrase (or one loaded into the macOS Keychain agent) is required so Claude Code's non-interactive commits don't hang.

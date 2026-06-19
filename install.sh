@@ -134,6 +134,65 @@ else
   fi
 fi
 
+# --- Phase 5.5: Configure SSH commit signing ---
+echo "--- Phase 5.5: Configure SSH commit signing ---"
+
+if [ "${SKIP_SIGNING_SETUP:-0}" = "1" ]; then
+  echo "  SKIP_SIGNING_SETUP=1 -- skipping commit signing setup"
+else
+  CURRENT_SIGN="$(git config --global --get commit.gpgsign 2>/dev/null || true)"
+  CURRENT_KEY="$(git config --global --get user.signingkey 2>/dev/null || true)"
+  if [ "$CURRENT_SIGN" = "true" ] && [ -n "$CURRENT_KEY" ]; then
+    echo "  Already configured (key: $CURRENT_KEY) -- skipping"
+  else
+    # Find an SSH public key to sign with (prefer id_ed25519)
+    SIGNING_KEY=""
+    if [ -f "$HOME/.ssh/id_ed25519.pub" ]; then
+      SIGNING_KEY="$HOME/.ssh/id_ed25519.pub"
+    else
+      for k in "$HOME/.ssh/"*.pub; do
+        [ -f "$k" ] || continue
+        SIGNING_KEY="$k"
+        break
+      done
+    fi
+
+    if [ -z "$SIGNING_KEY" ]; then
+      echo "  No SSH public key found in ~/.ssh/ -- NOT enabling signing."
+      echo "  Create one:  ssh-keygen -t ed25519 -C \"your_email\""
+      echo "  then re-run this installer (or set up signing manually)."
+    else
+      git config --global gpg.format ssh
+      git config --global user.signingkey "$SIGNING_KEY"
+      git config --global commit.gpgsign true
+      git config --global tag.gpgsign true
+
+      # allowed_signers enables local verification (git log --show-signature)
+      SIGNER_EMAIL="$(git config --get user.email 2>/dev/null || true)"
+      if [ -n "$SIGNER_EMAIL" ]; then
+        mkdir -p "$HOME/.config/git"
+        ALLOWED="$HOME/.config/git/allowed_signers"
+        ENTRY="$SIGNER_EMAIL $(cat "$SIGNING_KEY")"
+        if [ ! -f "$ALLOWED" ] || ! grep -qF "$ENTRY" "$ALLOWED" 2>/dev/null; then
+          printf '%s\n' "$ENTRY" >> "$ALLOWED"
+        fi
+        git config --global gpg.ssh.allowedSignersFile "$ALLOWED"
+        echo "  Configured SSH signing (key: $SIGNING_KEY, signer: $SIGNER_EMAIL)"
+      else
+        echo "  Configured SSH signing (key: $SIGNING_KEY)"
+        echo "  Set user.email and re-run to enable local verification."
+      fi
+
+      echo ""
+      echo "  ACTION REQUIRED -- register this key as a SIGNING key on GitHub:"
+      echo "    $(cat "$SIGNING_KEY")"
+      echo "  CLI:  gh auth refresh -h github.com -s admin:ssh_signing_key && gh ssh-key add \"$SIGNING_KEY\" --type signing"
+      echo "  Web:  https://github.com/settings/ssh/new  (Key type: Signing Key)"
+    fi
+  fi
+fi
+echo ""
+
 # --- Phase 6: Install hook scripts ---
 echo "--- Phase 6: Install hook scripts ---"
 mkdir -p "$CLAUDE_DIR/scripts"
