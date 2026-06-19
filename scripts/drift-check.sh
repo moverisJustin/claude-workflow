@@ -52,33 +52,29 @@ fi
 # --- Checker 1: Dead File Paths ---
 # Finds file paths referenced in Memory Bank .md files that don't exist on disk
 check_paths() {
-  local md_file
+  local md_file line_num path basename
   for md_file in "$MEMORY_DIR"/*.md "$MEMORY_DIR"/patterns/*.md .claude/task-context.md; do
     [ -f "$md_file" ] || continue
-    local line_num=0
-    while IFS= read -r line; do
-      line_num=$((line_num + 1))
-      # Match paths like src/foo/bar.ts, ./lib/thing.js, etc.
-      # Skip URLs (http://, https://), anchors (#), and Memory Bank self-references
-      while IFS= read -r path; do
-        [ -z "$path" ] && continue
-        # Skip common false positives
-        [[ "$path" == http* ]] && continue
-        [[ "$path" == "#"* ]] && continue
-        [[ "$path" == ".claude/memory/"* ]] && continue
-        [[ "$path" == "patterns/"* ]] && continue
-        [[ "$path" == *"*"* ]] && continue  # Skip glob patterns
-        [[ "$path" == *"["* ]] && continue  # Skip markdown template placeholders
-        [[ "$path" == *"{"* ]] && continue  # Skip template variables
-        [[ "$path" == "/"* ]] && continue   # Skip absolute paths
-        # Only check paths that look like real file references (have an extension)
-        if [[ "$path" == *"."* ]] && [ ! -e "$path" ]; then
-          local basename
-          basename=$(basename "$md_file")
-          add_finding "ERROR" "$basename" "$line_num" "references $path (file not found)"
-        fi
-      done < <(echo "$line" | grep -oE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+' | sort -u)
-    done < "$md_file"
+    basename=$(basename "$md_file")
+    # One grep pass per file (output "linenum:match"), deduped, file order preserved.
+    # IMPORTANT: a single process substitution PER FILE — not one per line — because
+    # bash 3.2 (stock on macOS) segfaults after a few hundred process substitutions.
+    while IFS=: read -r line_num path; do
+      [ -z "$path" ] && continue
+      # Skip common false positives
+      [[ "$path" == http* ]] && continue
+      [[ "$path" == "#"* ]] && continue
+      [[ "$path" == ".claude/memory/"* ]] && continue
+      [[ "$path" == "patterns/"* ]] && continue
+      [[ "$path" == *"*"* ]] && continue   # glob patterns
+      [[ "$path" == *"["* ]] && continue   # markdown placeholders
+      [[ "$path" == *"{"* ]] && continue   # template variables
+      [[ "$path" == "/"* ]] && continue    # absolute paths
+      # Only check paths that look like real file references (have an extension)
+      if [[ "$path" == *"."* ]] && [ ! -e "$path" ]; then
+        add_finding "ERROR" "$basename" "$line_num" "references $path (file not found)"
+      fi
+    done < <(grep -noE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+' "$md_file" | awk '!seen[$0]++')
   done
 }
 
@@ -88,48 +84,38 @@ check_branches() {
   # Skip if not a git repo
   git rev-parse --git-dir > /dev/null 2>&1 || return 0
 
-  local branches
+  local branches md_file line_num branch_ref basename
   branches=$(git branch -a 2>/dev/null | sed 's/^[* ]*//' | sed 's|remotes/origin/||' | sort -u)
 
   for md_file in "$MEMORY_DIR"/progress.md "$MEMORY_DIR"/activeContext.md .claude/task-context.md; do
     [ -f "$md_file" ] || continue
-    local line_num=0
-    while IFS= read -r line; do
-      line_num=$((line_num + 1))
-      # Look for branch-like references: feature/xxx, fix/xxx, task/xxx, claude/xxx
-      while IFS= read -r branch_ref; do
-        [ -z "$branch_ref" ] && continue
-        if ! echo "$branches" | grep -qF "$branch_ref"; then
-          local basename
-          basename=$(basename "$md_file")
-          add_finding "WARN" "$basename" "$line_num" "references branch $branch_ref (branch not found)"
-        fi
-      done < <(echo "$line" | grep -oE '(feature|fix|task|claude|hotfix|release)/[a-zA-Z0-9_.-]+' | sort -u)
-    done < "$md_file"
+    basename=$(basename "$md_file")
+    # Look for branch-like references: feature/xxx, fix/xxx, task/xxx, claude/xxx
+    # One grep pass per file (see check_paths re: bash 3.2 / process substitution).
+    while IFS=: read -r line_num branch_ref; do
+      [ -z "$branch_ref" ] && continue
+      if ! printf '%s\n' "$branches" | grep -qF "$branch_ref"; then
+        add_finding "WARN" "$basename" "$line_num" "references branch $branch_ref (branch not found)"
+      fi
+    done < <(grep -noE '(feature|fix|task|claude|hotfix|release)/[a-zA-Z0-9_.-]+' "$md_file" | awk '!seen[$0]++')
   done
 }
 
 # --- Checker 3: Missing Dependencies ---
 # Finds package names claimed in Memory Bank but missing from manifest
 check_dependencies() {
-  local manifest=""
-  local manifest_type=""
+  local manifest="" md_file line_num pkg basename
 
   if [ -f "package.json" ]; then
     manifest="package.json"
-    manifest_type="node"
   elif [ -f "requirements.txt" ]; then
     manifest="requirements.txt"
-    manifest_type="python-req"
   elif [ -f "pyproject.toml" ]; then
     manifest="pyproject.toml"
-    manifest_type="python-pyproject"
   elif [ -f "Cargo.toml" ]; then
     manifest="Cargo.toml"
-    manifest_type="rust"
   elif [ -f "go.mod" ]; then
     manifest="go.mod"
-    manifest_type="go"
   else
     return 0  # No manifest found, skip
   fi
@@ -137,23 +123,18 @@ check_dependencies() {
   # Look for dependency-like mentions in conventions.md and projectContext.md
   for md_file in "$MEMORY_DIR"/conventions.md "$MEMORY_DIR"/projectContext.md; do
     [ -f "$md_file" ] || continue
-    local line_num=0
-    while IFS= read -r line; do
-      line_num=$((line_num + 1))
-      # Match backtick-quoted package names that look like dependencies
-      while IFS= read -r pkg; do
-        [ -z "$pkg" ] && continue
-        # Skip common non-package words
-        [[ "$pkg" == "true" || "$pkg" == "false" || "$pkg" == "null" || "$pkg" == "none" ]] && continue
-        [[ ${#pkg} -lt 2 ]] && continue
-        # Check if package exists in manifest
-        if ! grep -qi "$pkg" "$manifest" 2>/dev/null; then
-          local basename
-          basename=$(basename "$md_file")
-          add_finding "WARN" "$basename" "$line_num" "references package \`$pkg\` (not found in $manifest)"
-        fi
-      done < <(echo "$line" | grep -oE '`[a-zA-Z0-9@/_-]+`' | tr -d '`' | sort -u)
-    done < "$md_file"
+    basename=$(basename "$md_file")
+    # One grep pass per file (see check_paths re: bash 3.2 / process substitution).
+    while IFS=: read -r line_num pkg; do
+      [ -z "$pkg" ] && continue
+      # Skip common non-package words
+      [[ "$pkg" == "true" || "$pkg" == "false" || "$pkg" == "null" || "$pkg" == "none" ]] && continue
+      [[ ${#pkg} -lt 2 ]] && continue
+      # Check if package exists in manifest
+      if ! grep -qi "$pkg" "$manifest" 2>/dev/null; then
+        add_finding "WARN" "$basename" "$line_num" "references package \`$pkg\` (not found in $manifest)"
+      fi
+    done < <(grep -noE '`[a-zA-Z0-9@/_-]+`' "$md_file" | tr -d '`' | awk '!seen[$0]++')
   done
 }
 
@@ -213,39 +194,30 @@ check_commands() {
   # Only check if package.json exists (npm scripts)
   [ -f "package.json" ] || return 0
 
+  local md_file line_num script target basename
   for md_file in "$MEMORY_DIR"/*.md; do
     [ -f "$md_file" ] || continue
-    local line_num=0
-    while IFS= read -r line; do
-      line_num=$((line_num + 1))
-      # Match npm run/npx commands
-      while IFS= read -r script; do
-        [ -z "$script" ] && continue
-        if ! grep -q "\"$script\"" package.json 2>/dev/null; then
-          local basename
-          basename=$(basename "$md_file")
-          add_finding "WARN" "$basename" "$line_num" "references npm script \`$script\` (not in package.json scripts)"
-        fi
-      done < <(echo "$line" | grep -oE 'npm run [a-zA-Z0-9:_-]+' | sed 's/npm run //' | sort -u)
-    done < "$md_file"
+    basename=$(basename "$md_file")
+    # One grep pass per file (see check_paths re: bash 3.2 / process substitution).
+    while IFS=: read -r line_num script; do
+      [ -z "$script" ] && continue
+      if ! grep -q "\"$script\"" package.json 2>/dev/null; then
+        add_finding "WARN" "$basename" "$line_num" "references npm script \`$script\` (not in package.json scripts)"
+      fi
+    done < <(grep -noE 'npm run [a-zA-Z0-9:_-]+' "$md_file" | sed 's/npm run //' | awk '!seen[$0]++')
   done
 
   # Check Makefile targets if Makefile exists
   if [ -f "Makefile" ]; then
     for md_file in "$MEMORY_DIR"/*.md; do
       [ -f "$md_file" ] || continue
-      local line_num=0
-      while IFS= read -r line; do
-        line_num=$((line_num + 1))
-        while IFS= read -r target; do
-          [ -z "$target" ] && continue
-          if ! grep -qE "^${target}:" Makefile 2>/dev/null; then
-            local basename
-            basename=$(basename "$md_file")
-            add_finding "WARN" "$basename" "$line_num" "references make target \`$target\` (not in Makefile)"
-          fi
-        done < <(echo "$line" | grep -oE 'make [a-zA-Z0-9_-]+' | sed 's/make //' | sort -u)
-      done < "$md_file"
+      basename=$(basename "$md_file")
+      while IFS=: read -r line_num target; do
+        [ -z "$target" ] && continue
+        if ! grep -qE "^${target}:" Makefile 2>/dev/null; then
+          add_finding "WARN" "$basename" "$line_num" "references make target \`$target\` (not in Makefile)"
+        fi
+      done < <(grep -noE 'make [a-zA-Z0-9_-]+' "$md_file" | sed 's/make //' | awk '!seen[$0]++')
     done
   fi
 }
@@ -265,7 +237,7 @@ if $JSON_OUTPUT; then
   echo "  \"warnings\": $WARNINGS,"
   echo "  \"infos\": $INFOS,"
   echo "  \"findings\": ["
-  local first=true
+  first=true
   for f in "${FINDINGS[@]+"${FINDINGS[@]}"}"; do
     IFS='|' read -r sev file line msg <<< "$f"
     if $first; then first=false; else echo ","; fi
