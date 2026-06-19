@@ -220,24 +220,29 @@ fi
 echo "  Installed $CONTEXT_COUNT context templates (ROUTER.md, patterns/INDEX.md)"
 
 # --- Phase 7: Merge CLAUDE.md (with lesson sync) ---
-echo "--- Phase 6: Merge CLAUDE.md ---"
+echo "--- Phase 7: Merge CLAUDE.md ---"
 
 if [ -f "$CLAUDE_DIR/CLAUDE.md" ]; then
-  # Sync lessons between repo and local
+  # Sync lessons between repo and local. Local -> repo promotion is OPT-IN: only lessons
+  # tagged "<!-- shareable -->" are written to the (public) repo, so private/org-specific
+  # notes in ~/.claude/CLAUDE.md never leak into the repo.
   "$SCRIPT_DIR/sync-lessons.sh" || echo "  Lesson sync skipped (sync-lessons.sh not found or failed)"
 
-  # Copy everything EXCEPT the Learned Patterns section from repo
-  # (lessons are handled by sync-lessons.sh)
-  # For now, only sync lessons. The rest of CLAUDE.md structure is managed by install.
+  # The repo owns CLAUDE.md's structural sections; lessons are handled by sync-lessons.sh above.
 
   # Check if local CLAUDE.md has the Boris sections
   if ! grep -q "Quick Reference (Boris v2.0)" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
-    # Local CLAUDE.md doesn't have Boris sections yet -- replace with repo version
-    # but preserve any local Learned Patterns first
-    "$SCRIPT_DIR/sync-lessons.sh" 2>/dev/null || true
+    # Local CLAUDE.md predates Boris -- install the repo structure, preserving local lessons.
+    # Opt-in means untagged local lessons are NOT in the repo, so round-tripping them through
+    # the repo (the old behavior) would silently drop them on the overwrite below. Instead,
+    # snapshot the old file and pull its lessons back in via the ungated Repo->Local merge
+    # (REPO_FILE here = the snapshot temp, never the public repo), keeping them local.
+    SNAPSHOT="$(mktemp)"
+    cp "$CLAUDE_DIR/CLAUDE.md" "$SNAPSHOT"
     cp "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
-    "$SCRIPT_DIR/sync-lessons.sh" 2>/dev/null || true
-    echo "  Installed CLAUDE.md with Boris workflow (lessons preserved)"
+    LOCAL_FILE="$CLAUDE_DIR/CLAUDE.md" REPO_FILE="$SNAPSHOT" "$SCRIPT_DIR/sync-lessons.sh" >/dev/null 2>&1 || true
+    rm -f "$SNAPSHOT"
+    echo "  Installed CLAUDE.md with Boris workflow (local lessons preserved, none promoted to repo)"
   else
     echo "  CLAUDE.md already has Boris sections (lessons synced)"
   fi
@@ -266,5 +271,5 @@ echo "  2. Type / to see all available commands"
 echo "  3. Run /memory-init in any project to set up Memory Bank"
 echo "  4. Run /session-start to begin a session"
 echo ""
-echo "To sync lessons across machines:"
+echo "To sync lessons across machines (only <!-- shareable --> lessons reach the public repo):"
 echo "  ./sync-lessons.sh && git add CLAUDE.md && git commit -m 'sync lessons' && git push"

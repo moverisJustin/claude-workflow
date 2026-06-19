@@ -87,7 +87,7 @@ Each project gets a `.claude/memory/` directory with persistent files: project c
 Patterns are task-specific step-by-step guides that accumulate from real work. After each session, the GROW step in `/session-end` evaluates whether the task should become a reusable pattern (e.g., "add an API endpoint", "debug a streaming pipeline"). Patterns are registered in `patterns/INDEX.md` and loaded on demand by the router when a matching task comes up. Over time, your project builds a playbook that makes repeated task types faster.
 
 ### Learned Patterns
-When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns promote to `CLAUDE.md` and sync across machines via `sync-lessons.sh` + git. Over time, Claude stops making the mistakes your team has already caught.
+When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns go to your private `~/.claude/CLAUDE.md` and stay on your machine by default. Sharing to this **public** repo is opt-in: `sync-lessons.sh` only promotes a pattern whose block carries a `<!-- shareable -->` marker, so private/org-specific notes never leak. Shared patterns then sync back to every machine via git. Over time, Claude stops making the mistakes your team has already caught.
 
 ### Task Context
 Feature branches carry `.claude/task-context.md` with the objective, plan, key decisions, and current progress. Created by `/task-branch`, auto-loaded by `/session-start`, removed when the branch merges. This means anyone (or any machine) can pick up a branch cold and Claude has full context.
@@ -189,16 +189,25 @@ The SessionStart hook also detects new projects (no `.claude/project-config.json
 - **Add/remove community agents**: Edit `agents/community/MANIFEST.txt` and run `scripts/sync-agency-agents.sh`
 - **Add commands**: Create `.md` files in `commands/` with frontmatter (`description`)
 - **Machine-specific settings**: Edit `~/.claude/settings.json` directly for paths, plugins, MCP permissions. These are preserved across `install.sh` runs.
-- **New lessons**: Just work with Claude -- lessons are added to `~/.claude/CLAUDE.md` during sessions, then synced to repo via `sync-lessons.sh`
+- **New lessons**: Just work with Claude -- lessons are added to your private `~/.claude/CLAUDE.md` during sessions. To publish one to this public repo, add a `<!-- shareable -->` marker under its `### ` heading, then run `sync-lessons.sh` (untagged lessons stay local)
 
 ## Sync Lessons Across Machines
 
-Learned Patterns are universal lessons that accumulate as Claude makes mistakes and you correct them. They persist across all projects.
+Learned Patterns are universal lessons that accumulate as Claude makes mistakes and you correct them. They persist across all projects and live in your private `~/.claude/CLAUDE.md`.
+
+Promotion to this **public** repo is **opt-in**. A lesson is pushed to the repo's `CLAUDE.md` only if its block contains a `<!-- shareable -->` marker; everything else stays on your machine. This keeps private/org-specific notes (production hosts, internal tooling, client names) out of the public repo by default.
+
+**Mark a lesson shareable** -- add the marker on the line under its heading in `~/.claude/CLAUDE.md`:
+```markdown
+### Always run migrations inside a transaction
+<!-- shareable -->
+Wrap schema changes in BEGIN/COMMIT so a failed migration rolls back cleanly.
+```
 
 **After a work session (any machine):**
 ```bash
 cd ~/Documents/claude-workflow
-./sync-lessons.sh
+./sync-lessons.sh   # promotes only <!-- shareable --> lessons; reports what it kept local
 git add CLAUDE.md && git commit -m "sync lessons" && git push
 ```
 
@@ -209,7 +218,7 @@ git pull
 ./sync-lessons.sh
 ```
 
-How it works: bidirectional merge by `### Heading` deduplication. New local lessons go to repo, new repo lessons go to local. Never overwrites or removes existing lessons.
+How it works: bidirectional merge by `### Heading` deduplication. **Local -> repo** is opt-in (only `<!-- shareable -->`-tagged lessons promote). **Repo -> local** pulls every shared lesson down so it takes effect locally. Never overwrites or removes existing lessons. Verify the privacy guard any time with `./test-sync-lessons.sh`.
 
 ## Update
 

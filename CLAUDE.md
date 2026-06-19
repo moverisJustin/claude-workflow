@@ -87,6 +87,7 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - **Lesson promotion:** When writing to `.claude/memory/conventions.md`, evaluate if the lesson is project-specific or universal
   - **Universal lessons** (workflow patterns, common pitfalls, user preferences, cross-project mistakes) → also add to the "Learned Patterns" section in `~/.claude/CLAUDE.md`
   - **Project-specific lessons** (repo quirks, specific APIs, local tooling) → stay in `.claude/memory/conventions.md` only
+  - **Sharing to the public repo is opt-in:** lessons added to `~/.claude/CLAUDE.md` stay on this machine by default. `sync-lessons.sh` promotes a lesson to the public repo's `CLAUDE.md` only if its block carries a `<!-- shareable -->` marker. When — and only when — a universal lesson is safe to publish, add that marker on the line under its `### ` heading; leave private/org-specific lessons untagged so they never leak into the public repo.
 
 ## 4. Verification Before Done
 - Never mark a task complete without proving it works
@@ -297,3 +298,7 @@ In settings.json permissions, `ToolName(*)` is ONLY valid for Bash (e.g., `Bash(
 
 ### SSH commit signing is the default — verified signatures required
 All commits must carry a verified signature (GitHub security protocol). Signing is SSH-based: `git config --global gpg.format ssh`, `user.signingkey ~/.ssh/<key>.pub`, `commit.gpgsign true`, `tag.gpgsign true`. `install.sh` (Phase 5.5) configures this per-machine, idempotently, and prints the key to register on GitHub as a **Signing Key** (Settings → SSH and GPG keys, type: Signing Key — or `gh ssh-key add <key> --type signing` after `gh auth refresh -s admin:ssh_signing_key`). For the "Verified" badge the committer email must be a verified account email (a `…@users.noreply.github.com` address qualifies). Never bypass with `--no-gpg-sign`; if signing fails, fix the key/agent. Merges via `gh pr merge` / the GitHub UI are signed by GitHub's web-flow key and show Verified automatically. A key with no passphrase (or one loaded into the macOS Keychain agent) is required so Claude Code's non-interactive commits don't hang.
+
+### Lesson sync to the public repo is opt-in
+<!-- shareable -->
+Lesson sync between `~/.claude/CLAUDE.md` (private, per-machine) and this public repo's `CLAUDE.md` is **opt-in** in the Local→Repo direction: `sync-lessons.sh` promotes a lesson to the repo only if its block contains a `<!-- shareable -->` marker (placed on the line under its `### ` heading). Untagged lessons stay local, so private/org-specific notes never leak into the public repo. Repo→Local promotion is unchanged (shared lessons still flow to every machine) and dedup-by-heading is preserved. `install.sh` calls `sync-lessons.sh`, so the installer is protected too. Guard test: `./test-sync-lessons.sh`. This pattern is tagged as a live example of the marker.

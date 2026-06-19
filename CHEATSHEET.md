@@ -173,11 +173,16 @@ Each feature branch can carry its own task context in `.claude/task-context.md`:
 
 Lessons promote upward:
 1. **Project-specific** → `.claude/memory/conventions.md` (stays in project)
-2. **Universal** → `~/.claude/CLAUDE.md` Learned Patterns (applies everywhere)
+2. **Universal** → `~/.claude/CLAUDE.md` Learned Patterns (applies everywhere, stays local by default)
+
+Sharing to the **public** repo is **opt-in**: `sync-lessons.sh` promotes a lesson only if its
+block carries a `<!-- shareable -->` marker (on the line under its `### ` heading). Untagged
+lessons stay local so private/org-specific notes never leak. Repo → local is unchanged.
 
 Sync across machines:
 ```bash
 cd ~/Documents/claude-workflow
-./sync-lessons.sh
+./sync-lessons.sh   # only <!-- shareable --> lessons promote; rest kept local
 git add CLAUDE.md && git commit -m "sync lessons" && git push
 ```
+Privacy guard test: `./test-sync-lessons.sh`
