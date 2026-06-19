@@ -92,6 +92,18 @@ If the script doesn't exist, check `~/.claude/scripts/drift-check.sh` as a fallb
 
 ---
 
+## Step 2.6: Commit Signing Check (Lightweight)
+
+Verify SSH commit signing is configured — the org security protocol requires verified signatures on all commits. Skip silently if not in a git repo.
+```bash
+git config --get commit.gpgsign
+```
+
+- **Returns `true`**: Proceed silently.
+- **Empty or not `true`**: Warn in the state summary: "Commit signing is not configured — commits will land Unverified. Run `install.sh` (Phase 5.5) to set up SSH signing, or see CLAUDE.md → Git Safety."
+
+---
+
 ## Session Initialization Protocol
 
 ### 1. Synthesize Context
