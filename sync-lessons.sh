@@ -3,14 +3,21 @@ set -euo pipefail
 
 # Bidirectional Lesson Sync
 # Merges "Learned Patterns" between local ~/.claude/CLAUDE.md and repo CLAUDE.md
-# - New local lessons → repo (so they can be pushed to other machines)
-# - New repo lessons → local (so pulled lessons take effect)
+# - Local -> repo: OPT-IN. A local lesson is promoted to the (public) repo ONLY if its
+#   block contains the marker "<!-- shareable -->". Untagged lessons stay local, so
+#   private / org-specific notes never leak into the public repo. (Default-safe.)
+# - Repo -> local: ALL repo lessons are pulled down so shared lessons take effect locally.
 # - Never overwrites or removes existing lessons
 # - Deduplicates by ### heading
+#
+# Paths are overridable via the LOCAL_FILE / REPO_FILE env vars (used by test-sync-lessons.sh).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOCAL_FILE="$HOME/.claude/CLAUDE.md"
-REPO_FILE="$SCRIPT_DIR/CLAUDE.md"
+LOCAL_FILE="${LOCAL_FILE:-$HOME/.claude/CLAUDE.md}"
+REPO_FILE="${REPO_FILE:-$SCRIPT_DIR/CLAUDE.md}"
+
+# A local lesson is promoted to the repo only if its block contains this marker.
+SHAREABLE_MARKER='<!-- shareable -->'
 
 # --- Helpers ---
 
@@ -48,6 +55,12 @@ extract_lesson_block() {
   '
 }
 
+# Return success if a lesson block opts in to public-repo promotion (contains the marker).
+# Keeps private / org-specific lessons local by default.
+is_shareable() {
+  printf '%s\n' "$1" | grep -qiF "$SHAREABLE_MARKER"
+}
+
 # --- Main ---
 
 echo "=== Lesson Sync ==="
@@ -74,27 +87,34 @@ REPO_TITLES=$(extract_lesson_titles "$REPO_SECTION")
 # Track changes
 LOCAL_ADDED=0
 REPO_ADDED=0
+HELD_BACK=0
 
-# --- Direction 1: Local → Repo (new local lessons that repo doesn't have) ---
+# --- Direction 1: Local -> Repo (new local lessons, opt-in via shareable marker) ---
 
 if [ -n "$LOCAL_TITLES" ]; then
   while IFS= read -r title; do
     [ -z "$title" ] && continue
     # Check if this title exists in repo
     if ! echo "$REPO_TITLES" | grep -qxF "$title"; then
-      # New lesson from local, append to repo
+      # New lesson from local that the repo doesn't have yet
       BLOCK=$(extract_lesson_block "$LOCAL_SECTION" "$title")
-      if [ -n "$BLOCK" ]; then
-        echo "" >> "$REPO_FILE"
-        echo "$BLOCK" >> "$REPO_FILE"
-        REPO_ADDED=$((REPO_ADDED + 1))
-        echo "  Local → Repo: $title"
+      [ -z "$BLOCK" ] && continue
+      # OPT-IN gate: only promote to the public repo if explicitly marked shareable.
+      # Untagged lessons stay local so private notes never leak into the public repo.
+      if ! is_shareable "$BLOCK"; then
+        HELD_BACK=$((HELD_BACK + 1))
+        echo "  Kept local (no $SHAREABLE_MARKER marker): $title"
+        continue
       fi
+      echo "" >> "$REPO_FILE"
+      echo "$BLOCK" >> "$REPO_FILE"
+      REPO_ADDED=$((REPO_ADDED + 1))
+      echo "  Local -> Repo: $title"
     fi
   done <<< "$LOCAL_TITLES"
 fi
 
-# --- Direction 2: Repo → Local (new repo lessons that local doesn't have) ---
+# --- Direction 2: Repo -> Local (new repo lessons that local doesn't have) ---
 
 # Re-read repo section after potential additions from direction 1
 REPO_SECTION=$(extract_lessons_section "$REPO_FILE")
@@ -111,7 +131,7 @@ if [ -n "$REPO_TITLES" ]; then
         echo "" >> "$LOCAL_FILE"
         echo "$BLOCK" >> "$LOCAL_FILE"
         LOCAL_ADDED=$((LOCAL_ADDED + 1))
-        echo "  Repo → Local: $title"
+        echo "  Repo -> Local: $title"
       fi
     fi
   done <<< "$REPO_TITLES"
@@ -121,14 +141,21 @@ fi
 
 echo ""
 if [ $LOCAL_ADDED -eq 0 ] && [ $REPO_ADDED -eq 0 ]; then
-  echo "No new lessons to sync. Both files are in sync."
+  echo "No new lessons synced. Files are in sync."
 else
   echo "Sync complete:"
   [ $REPO_ADDED -gt 0 ] && echo "  $REPO_ADDED lesson(s) added to repo CLAUDE.md"
   [ $LOCAL_ADDED -gt 0 ] && echo "  $LOCAL_ADDED lesson(s) added to local ~/.claude/CLAUDE.md"
+fi
+
+if [ $HELD_BACK -gt 0 ]; then
   echo ""
-  if [ $REPO_ADDED -gt 0 ]; then
-    echo "Don't forget to commit and push the repo changes:"
-    echo "  git add CLAUDE.md && git commit -m 'sync lessons' && git push"
-  fi
+  echo "  $HELD_BACK local lesson(s) kept private (no $SHAREABLE_MARKER marker, not promoted to repo)."
+  echo "  To publish one, add a line '$SHAREABLE_MARKER' under its ### heading and re-run."
+fi
+
+if [ $REPO_ADDED -gt 0 ]; then
+  echo ""
+  echo "Don't forget to commit and push the repo changes:"
+  echo "  git add CLAUDE.md && git commit -m 'sync lessons' && git push"
 fi
