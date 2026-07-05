@@ -56,6 +56,30 @@ if [ -d "$CLAUDE_DIR/skills/boris-workflow" ]; then
   echo "  Removed boris-workflow skill"
 fi
 
+# Remove workflow-installed hook scripts and context templates
+# (includes hook-branch-switch.sh, retired but possibly present from old installs)
+for s in hook-session-start.sh hook-destructive-guard.sh hook-audit.sh \
+         hook-prettier.sh hook-drift-watch.sh hook-precompact.sh \
+         hook-compact-resume.sh hook-branch-switch.sh drift-check.sh \
+         sync-agency-agents.sh test-hooks.sh; do
+  if [ -f "$CLAUDE_DIR/scripts/$s" ]; then
+    rm -f "$CLAUDE_DIR/scripts/$s"
+    echo "  Removed scripts/$s"
+  fi
+done
+rm -f "$CLAUDE_DIR/context/ROUTER.md" "$CLAUDE_DIR/context/patterns/INDEX.md" 2>/dev/null || true
+
+# On a machine where install.sh was the FIRST thing to create settings.json,
+# there was no backup to restore — the workflow settings (and their hook
+# wiring, now pointing at deleted scripts) are still in place.
+if [ ! -f "$LATEST_BACKUP/settings.json" ] && [ -f "$CLAUDE_DIR/settings.json" ]; then
+  echo ""
+  echo "  WARNING: no settings.json backup existed (fresh-install machine)."
+  echo "  ~/.claude/settings.json still contains the workflow's hook wiring and"
+  echo "  permissions. Remove the 'hooks' block manually (the scripts it points"
+  echo "  to are gone) or delete the file if you had no prior settings."
+fi
+
 echo ""
 echo "=== Uninstall Complete ==="
 echo "Restored to state from: $(basename "$LATEST_BACKUP")"

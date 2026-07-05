@@ -10,6 +10,10 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 COMMUNITY_DIR="$REPO_DIR/agents/community"
 MANIFEST="$COMMUNITY_DIR/MANIFEST.txt"
 UPSTREAM_REPO="https://github.com/msitarzewski/agency-agents.git"
+# Pinned upstream commit: resyncs are reproducible and cannot silently pull
+# changed third-party prompt content. To update: UPSTREAM_PIN=HEAD ./sync-agency-agents.sh,
+# review the diff, then move this pin to the new reviewed SHA.
+UPSTREAM_PIN="${UPSTREAM_PIN:-217a63b8b6b6ea5752fd436a05996c796ba0ec66}"
 TEMP_DIR=$(mktemp -d)
 
 trap 'rm -rf "$TEMP_DIR"' EXIT
@@ -21,13 +25,21 @@ fi
 
 echo "=== Agency-Agents Sync ==="
 echo "Upstream: $UPSTREAM_REPO"
+echo "Pin: $UPSTREAM_PIN"
 echo "Target: $COMMUNITY_DIR"
 echo ""
 
-# --- Clone upstream ---
-echo "--- Cloning upstream repo ---"
-git clone --depth 1 --quiet "$UPSTREAM_REPO" "$TEMP_DIR/agency-agents"
-echo "  Cloned successfully"
+# --- Fetch upstream at the pinned commit ---
+echo "--- Fetching upstream repo ---"
+git init --quiet "$TEMP_DIR/agency-agents"
+git -C "$TEMP_DIR/agency-agents" remote add origin "$UPSTREAM_REPO"
+if [ "$UPSTREAM_PIN" = "HEAD" ]; then
+  git -C "$TEMP_DIR/agency-agents" fetch --depth 1 --quiet origin HEAD
+else
+  git -C "$TEMP_DIR/agency-agents" fetch --depth 1 --quiet origin "$UPSTREAM_PIN"
+fi
+git -C "$TEMP_DIR/agency-agents" checkout --quiet FETCH_HEAD
+echo "  Synced at commit: $(git -C "$TEMP_DIR/agency-agents" rev-parse --short HEAD)"
 echo ""
 
 # --- Parse manifest ---

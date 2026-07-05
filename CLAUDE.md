@@ -113,7 +113,7 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - Use `/checkpoint` before risky changes
 - Use `/undo` to revert Claude-made commits
 - Use `/rollback` to restore checkpoints
-- Auto-stash dirty files before AI modifications
+- The destructive-command hook auto-checkpoints (tag + non-mutating stash snapshot) before `git reset --hard`/`rm -rf` and asks for confirmation on high-risk `rm -rf` targets
 - Never force-push to main/master
 - Always verify push target with `git remote -v` before pushing
 - **Signed commits required**: all commits must carry a verified signature (org security protocol). Signing is SSH-based and on by default (`commit.gpgsign true`, `gpg.format ssh`); `install.sh` configures it per-machine. Never disable it with `--no-gpg-sign`. If a commit fails to sign, fix the key/agent — don't bypass.
@@ -129,9 +129,10 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - `/fix-issue` auto-creates task context from issue details
 - Branch naming: `feature/`, `fix/`, `task/` prefixes
 
-## 9. Context Guardian (Proactive Rescue)
-- **At ~60% context usage**: Proactively tell the user: "Context is getting full. Want me to run `/handoff` to save cognitive state?"
-- **At ~75% context usage**: Auto-run `/handoff` without asking. Save the cognitive briefing to activeContext.md and task-context.md. Then tell the user context is preserved.
+## 9. Compaction Recovery (Mechanical, Hook-Driven)
+- The old 60%/75% "Context Guardian" percentages are retired: the model cannot observe its own context usage, so those triggers could never fire. The replacement is mechanical:
+- **PreCompact hook** writes a git-state snapshot to `.claude/memory/compaction-snapshot.md` immediately before any compaction (branch, uncommitted files, recent commits)
+- **Post-compaction hook** (SessionStart, `compact` source) injects a recovery directive: verify the summary against real state, compare with the snapshot, and update `.claude/task-context.md` with a cognitive handoff before continuing
 - **Before any `/session-end`**: Generate the cognitive briefing (resume prompt, mental model, failed approaches, active hypotheses) as part of the session-end flow
 - **Priority**: If context is critically low, saving the handoff briefing is MORE important than finishing the current subtask. A lost mental model costs more than a half-finished function.
 - The cognitive briefing captures THINKING (why, how, what failed) not just DOING (which files changed)

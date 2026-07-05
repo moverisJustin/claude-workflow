@@ -152,6 +152,6 @@ Key items preserved:
 ## When to Use
 
 - **Manually**: Run `/handoff` when you're done for the day or switching tasks
-- **Auto-triggered**: The context guardian in CLAUDE.md will suggest this at 60% context usage and auto-run at 75%
+- **Compaction**: covered mechanically by hooks — PreCompact writes a git-state snapshot to `.claude/memory/compaction-snapshot.md`, and the post-compaction hook directs a task-context.md handoff update (the old 60%/75% guardian percentages could never fire and are retired)
 - **Before `/session-end`**: `/handoff` focuses on cognitive state; `/session-end` handles the mechanical saves. Use both for maximum preservation.
 - **Emergency**: If context is running critically low, run `/handoff` immediately — it's more valuable than finishing the current subtask

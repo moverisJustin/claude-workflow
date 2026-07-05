@@ -18,7 +18,7 @@ This workflow fixes that:
 
 - **Patterns compound from real work.** After each session, the GROW step evaluates whether the task should become a reusable pattern. Over time, your project accumulates step-by-step guides for common task types (adding an API endpoint, debugging a pipeline, writing integration tests).
 
-- **Safety rails for destructive operations.** Hooks automatically create checkpoints before `git reset --hard`, `rm -rf`, or force-pushes. Branch switches get audit-logged. You can always `/undo` or `/rollback`.
+- **Safety rails for destructive operations.** Hooks automatically create non-mutating checkpoints before `git reset --hard`, `rm -rf`, or force-pushes, and high-risk `rm -rf` targets require confirmation. Commands and file writes get audit-logged. You can always `/undo` or `/rollback`.
 
 - **Complex tasks run themselves.** Instead of manually prompting Claude through multi-step work, `/boris implement user auth` plans the approach, delegates to specialist agents (architect, test-writer, security-auditor), verifies the result, and ships it. 120+ agents cover engineering, design, sales, marketing, product, QA, and more.
 
@@ -31,7 +31,7 @@ This workflow fixes that:
 | Core agents | 16 | Boris orchestrator, code-architect, test-writer, verify-app, security-auditor, linear-project-manager |
 | Community agents | 105 | Engineering, design, sales, marketing, product, PM, QA, support, game dev, paid media, specialized |
 | Slash commands | 25 | `/boris`, `/session-start`, `/verify-all`, `/fix-issue`, `/task-branch`, `/drift-check`, `/load-context`, and more |
-| Hook scripts | 4 | Session auto-loader, destructive ops guard, branch switch logger, drift watcher |
+| Hook scripts | 7 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery |
 | Context templates | 2 | ROUTER.md (context routing), patterns/INDEX.md (pattern registry) |
 | Skills | 1 | Boris workflow methodology |
 | Settings | -- | Wildcard permissions, Prettier hook, audit logging, deny list for dangerous ops |
@@ -68,7 +68,7 @@ Then in any Claude Code session:
 | Something broke | `/mode debug` then investigate then `/mode code` then fix |
 | Task complete | `/task-done` (verify, PR, cleanup) |
 | Docs drifting? | `/drift-check` (validates Memory Bank against codebase) |
-| Context getting full | `/handoff` (auto-suggested at 60%, auto-runs at 75%) |
+| Context getting full | `/handoff` (compaction itself is auto-covered by the PreCompact snapshot + post-compaction recovery hooks) |
 | End of day | `/session-end` (saves state, grows patterns, checks drift) |
 | Oops | `/undo` or `/rollback` |
 
@@ -177,9 +177,14 @@ Manage community agents: edit `agents/community/MANIFEST.txt` and run `scripts/s
 | Hook | Trigger | What it does |
 |---|---|---|
 | **SessionStart loader** | Every new session | Auto-loads project name, branch, last session state |
-| **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push | Creates checkpoint tag + stashes dirty tree |
-| **Branch switch logger** | After `git switch`, `git checkout <branch>` | Audit-logs branch transitions |
-| **Drift watcher** (optional) | After `git commit` | Runs drift check, warns if score drops below 80 |
+| **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push | Creates a non-mutating checkpoint (tag + `git stash create` snapshot — the working tree is never touched); escalates to a confirmation prompt for high-risk `rm -rf` targets (absolute paths, `~`, `..`, `*`) |
+| **Audit logger** | Before Bash / Edit / Write | Appends a command and file-write trail to `.claude/audit/` |
+| **Drift watcher** | After `git commit` | Runs drift check, alerts Claude if the Memory Bank score drops below 80 |
+| **Prettier formatter** | After Edit/Write of js/ts/css/md files | Formats with the project's own prettier; projects without prettier are skipped |
+| **Compaction snapshot** | Before context compaction | Writes a git-state snapshot (branch, uncommitted files, recent commits) to `.claude/memory/compaction-snapshot.md` |
+| **Post-compaction recovery** | After context compaction | Injects a directive to verify the summary against the snapshot and save a cognitive handoff to `task-context.md` |
+
+Hooks read the tool payload as JSON on stdin per the current Claude Code hooks contract and are covered by `scripts/test-hooks.sh` in CI, so a contract change can never silently disable them again.
 
 The SessionStart hook also detects new projects (no `.claude/project-config.json`) and prompts you to run `/memory-init`. Non-git projects can set `"git_enabled": false` in `.claude/project-config.json`.
 

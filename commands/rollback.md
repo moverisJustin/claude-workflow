@@ -12,6 +12,15 @@ description: Rollback to a previous checkpoint or N commits back. Restore saved 
 ### Tag Checkpoints
 !`git tag -l "checkpoint/*"`
 
+### Auto-Checkpoints (created by the destructive-command guard hook)
+!`git tag -l "auto-checkpoint/*"`
+
+Auto-checkpoints come in pairs: `auto-checkpoint/<ts>` tags the HEAD at guard
+time (`git reset --hard auto-checkpoint/<ts>` to restore committed state), and
+`auto-checkpoint/<ts>-work` tags a stash-create snapshot of then-uncommitted
+changes (`git stash apply auto-checkpoint/<ts>-work` to restore them). They
+are pruned automatically after 7 days.
+
 ### Recent Commits
 !`git log --oneline -10`
 
