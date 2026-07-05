@@ -105,7 +105,7 @@ for s in "$CLAUDE_DIR/scripts/"hook-*.sh \
     echo "  Removed scripts/$(basename "$s")"
   fi
 done
-rm -f "$CLAUDE_DIR/context/ROUTER.md" "$CLAUDE_DIR/context/patterns/INDEX.md" 2>/dev/null || true
+rm -rf "$CLAUDE_DIR/context" 2>/dev/null || true
 
 # On a machine where install.sh was the FIRST thing to create settings.json,
 # there was no backup to restore — the workflow settings (and their hook

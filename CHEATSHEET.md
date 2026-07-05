@@ -9,8 +9,8 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 | Skill | What it does |
 |---|---|
 | `/boris <task>` | Full orchestrated workflow — plan, delegate, verify, ship |
-| `/session-start` | Load Memory Bank, check project status, orient to continue |
-| `/session-end` | Save Memory Bank state, create session summary for next time |
+| `/session-start` | Deep-orient: load Memory Bank + task-context, check status, drift/signing |
+| `/session-end` | Commit/stash work, persist new decisions/conventions, update task-context |
 | `/checks` | Stack-detected quality gates (tests, types, lint, format, build) + Stop-hook verify gate |
 | `/task-branch <name>` | Create feature branch with task context for cross-machine handoff |
 | `/task-done` | Complete task: verify, create PR, clean up task-context.md |
@@ -20,7 +20,6 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 | `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
 | `/memory-init` | Initialize Memory Bank for a new project |
 | `/handoff` | Cognitive briefing — saves mental model, failed approaches, resume prompt |
-| `/load-context <type>` | Load task-specific context mid-session (feature/debug/test/deploy/etc) |
 | `/drift-check` | Validate Memory Bank accuracy against codebase — suggest and auto-fix drift |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
 | `/first-principles` | Break down a complex problem from fundamentals |
@@ -90,7 +89,7 @@ Full list: `ls agents/community/` or see `agents/community/MANIFEST.txt`
 
 | Hook | Trigger | What it does | Context impact |
 |---|---|---|---|
-| **SessionStart loader** | Every new session | Auto-loads project name, branch, last session state | ~200 chars |
+| **SessionStart loader** | Every new session | Auto-loads project name, branch, task-context objective, drift/signing warnings | ~200 chars |
 | **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push | Non-mutating checkpoint (tag + stash snapshot); asks for confirmation on high-risk `rm -rf` targets | Zero |
 | **Audit logger** | Before Bash / Edit / Write | Appends command + file-write trail to `.claude/audit/` | Zero |
 | **Drift watcher** | After `git commit` | Runs drift check, alerts if Memory Bank score < 80 | Zero when healthy |
@@ -135,30 +134,25 @@ Point Claude at the logs/error — it diagnoses and fixes (plan mode first if yo
 
 ## Memory Bank
 
-Each project gets a `.claude/memory/` directory with persistent context:
+Each project's `.claude/memory/` holds three **structured, human-authored** files — the knowledge native auto-memory doesn't provide:
 
 | File | Purpose |
 |---|---|
-| `ROUTER.md` | Context routing table — maps task types to relevant files |
 | `projectContext.md` | What the project is, tech stack, architecture |
-| `activeContext.md` | Current focus, recent changes, next steps |
-| `progress.md` | What works, what doesn't, what's left |
-| `decisionLog.md` | Architecture decisions with rationale |
-| `conventions.md` | Project-specific lessons and rules |
-| `sessionHistory.md` | Rolling session summaries |
-| `patterns/INDEX.md` | Registry of task-specific reusable guides |
+| `decisionLog.md` | Architecture decisions with rationale (ADRs) |
+| `conventions.md` | Project-specific conventions and lessons |
 
-Also: `.claude/project-config.json` stores git preference and project description.
+Session continuity ("where was I", recent work, summaries) is **native auto-memory** (`MEMORY.md` + topic files, loaded every session) + session resume — no activeContext/progress/sessionHistory/ROUTER files. Also: `.claude/project-config.json` stores git preference and project description.
 
-Initialize with `/memory-init`. Context auto-loads via SessionStart hook + `/session-start`.
+Initialize with `/memory-init`. Orient via the SessionStart hook + `/session-start`.
 
-### Context Router
+### Agent Memory
 
-`ROUTER.md` is loaded first every session. It classifies your task and loads only 2-3 relevant memory files (instead of all 6). Auto-generated for existing projects on first session. Use `/load-context <type>` to switch context mid-session.
+The recurring specialist agents (test-writer, doc-generator, code-architect, oncall-guide) carry `memory: project` — they learn this repo's patterns across sessions instead of rediscovering them each run.
 
 ### Drift Detection
 
-`/drift-check` validates that Memory Bank files still match codebase reality (dead paths, stale branches, missing deps). Pure bash, zero AI tokens. Integrated into `/session-start` (warns if score < 80) and `/session-end` (catches self-introduced drift).
+`/drift-check` validates that the Memory Bank, `CLAUDE.md`, and `.claude/rules/` still match codebase reality (dead paths, stale branches, missing deps). Pure bash, zero AI tokens. Integrated into `/session-start` (warns if score < 80) and `/session-end` (catches self-introduced drift).
 
 ## Task Context (Branch-Specific)
 

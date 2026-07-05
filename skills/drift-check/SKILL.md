@@ -41,7 +41,7 @@ For each finding, suggest a specific fix:
 | Finding Type | Suggested Fix |
 |-------------|---------------|
 | Dead file path | Remove the reference, or update to the correct path if the file was moved |
-| Dead branch | Remove from progress.md / activeContext.md |
+| Dead branch | Remove the stale branch reference from `.claude/task-context.md` |
 | Missing dependency | Remove from conventions/projectContext, or add the package back |
 | Stale file | Re-read the relevant part of the codebase and update the memory file |
 | Dead command | Remove the command reference, or add the script to package.json |

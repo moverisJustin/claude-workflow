@@ -2,7 +2,13 @@
 name: code-architect
 description: Senior architect for design reviews, system design, architectural decisions, and technical planning. Use when planning significant changes, evaluating approaches, or reviewing design patterns.
 tools: Read, Grep, Glob, Bash
+memory: project
 ---
+
+<!-- Record durable architectural knowledge to your agent memory: module
+boundaries, the dependency graph, established patterns and the trade-offs
+behind them, and constraints that shape design here. Recall it to keep reviews
+consistent across sessions. -->
 
 # Code Architect Agent
 

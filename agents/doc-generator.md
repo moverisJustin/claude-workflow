@@ -2,7 +2,13 @@
 name: doc-generator
 description: Generate and update documentation from code. Creates README sections, API docs, component docs, and keeps CLAUDE.md current.
 tools: Read, Write, Edit, Grep, Glob, Bash
+memory: project
 ---
+
+<!-- Record durable, repo-specific documentation knowledge to your agent
+memory: where docs live, the doc style/system in use, README structure, and
+which sections track which code. Recall it instead of re-deriving the doc
+layout each run. -->
 
 # Doc Generator Agent
 
