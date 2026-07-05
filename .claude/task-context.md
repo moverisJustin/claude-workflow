@@ -1,31 +1,31 @@
-# Task Context — feature/phase4b-ci-loop
+# Task Context — feature/phase4c-permissions
 
 ## Objective
-Boris v3 upgrade, **Phase 4b: non-blocking CI loop** (branched off main;
-Phases 0-3 + 4a merged).
+Boris v3 upgrade, **Phase 4c: minimal permissions cleanup** (user chose the
+minimal option — no new prompts for tools they use). Off main; Phases 0-3 + 4a
+merged, 4b (#12) open.
 
-The `/ci-loop` skill ran `gh run watch --exit-status` in a FOREGROUND `!`bash
-block, freezing the entire turn for the whole CI run (often 10+ min).
-
-## Changes
-- **skills/ci-loop/SKILL.md rewritten**: push, then watch CI as a BACKGROUND
-  task (`run_in_background: true`) so the harness re-invokes on completion
-  instead of blocking the session. Kept the fix taxonomy (TS/lint/format/test/
-  build/infra) + 5-iteration circuit breaker; folded in ci-integrator's
-  multi-CI detection note; added "never report a cancelled run as green".
-  Mentions /loop as the tool for a persistent "keep-green" watcher.
-- **Deleted agents/ci-integrator.md** — it duplicated the ci-loop protocol;
-  the rewritten skill is self-contained. Core agents 9 → 8.
-- Docs: README/CHEATSHEET/CLAUDE.md — core-agent count 9→8, ci-loop
-  description (non-blocking background watch), removed ci-integrator rows.
+## Changes (settings.base.json only)
+- **Removed 35 dead `mcp__claude_ai_Linear__*` allow entries** — stale prefix;
+  the live Linear server is `mcp__plugin_linear_linear__*` / a per-connection
+  UUID, so these never matched. Net-neutral (Linear already prompted; approvals
+  persist in the user's local settings). allow 226 → 191.
+- **Normalized sudo grants** to the idiomatic `:*` suffix (some used ` *`).
+- **Hardened the deny list** 25 → 39: added `rm -fr` flag-order variants, the
+  no-space pipe-to-shell bypass (`curl *|bash`), `dd if=* of=/dev/*`, `mkfs*`,
+  and `--force ... main*` trailing-arg force-push forms. Secret-read denies
+  kept. (The destructive-guard PreToolUse hook remains the robust, order-
+  independent layer; these static rules are the fallback.)
+- Left `curl */ssh */wget *`/the Linux sudo grants intact — the user uses them
+  (minimal cleanup, not aggressive tightening).
+- test-install.sh: +3 assertions (no Linear entries, pipe-bypass deny present,
+  sudo normalized). README settings row updated.
 
 ## Verification
-- install e2e / hooks / drift / sync-lessons suites; no ci-integrator refs
-  remain outside this task-context.
+- install e2e 30/30, hooks 36/36, drift 5/5, sync-lessons 17/17; settings valid
+  JSON; hooks block (Phase 0 string matchers) untouched.
 
-## Next (Phase 4 remaining)
-- 4c: permissions overhaul (settings.base.json) — adjacent to the settings.json
-  format issue the user hit; drop 35 enumerated Linear MCP tools, tighten
-  curl/ssh/sudo, fix trivially-bypassed deny rules.
-- 4d: plugin packaging + migrate.sh — needs a decision on command namespacing.
-- 4e: scheduled maintenance routine.
+## Next
+- 4d: plugin packaging, PRESERVE BARE NAMES (skills-dir form) — user's pick;
+  install.sh survives (plugins can't ship permissions).
+- 4e: LOCAL scheduled task (drift-check + doc-count verification) — user's pick.
