@@ -1,44 +1,34 @@
 ---
 name: memory-init
-description: Initialize Memory Bank for a new project. Creates memory structure and populates with project context.
+description: Initialize the Memory Bank for a project - the structured, human-authored files native auto-memory does not provide (project identity, ADRs, project-specific conventions) plus the project config.
 disable-model-invocation: true
 ---
 
 # Initialize Memory Bank
 
-## Checking Current State...
+The Memory Bank holds only what native auto-memory cannot: **structured,
+human-authored** project knowledge. Session continuity ("where was I", recent
+work, rolling summaries) is handled by native auto-memory (`MEMORY.md` + topic
+files, loaded every session) and session resume — so this skill does NOT create
+activeContext/progress/sessionHistory or a context router. It creates three
+durable files plus the project config.
 
-Use Glob to check if `.claude/memory/*.md` files exist, and if `tasks/handoff.md`, `tasks/todo.md`, `tasks/lessons.md` exist (legacy).
+## 1. Check current state
 
-## Legacy Migration Check
+Use Glob to check whether `.claude/memory/*.md` already exists. If it does, jump
+to "If Memory Bank already exists" at the bottom.
 
-If legacy `tasks/` files exist, offer to migrate:
-1. Copy `tasks/handoff.md` content -> `.claude/memory/activeContext.md`
-2. Copy `tasks/todo.md` content -> `.claude/memory/progress.md`
-3. Copy `tasks/lessons.md` content -> `.claude/memory/conventions.md`
-4. Keep `tasks/` as backup until confirmed working
-
----
-
-## Memory Bank Initialization
-
-### 1. Create Directory Structure
+## 2. Create structure + project config
 
 ```bash
-mkdir -p .claude/memory
-mkdir -p .claude/memory/archive
-mkdir -p .claude/memory/patterns
-mkdir -p .claude/audit
-mkdir -p .claude/scripts
+mkdir -p .claude/memory .claude/audit
 ```
 
-### 2. Create Project Config
-
-Ask the user (or detect from `.git/`):
+Ask (or detect from `.git/` and README):
 - Does this project use git? (default: yes if `.git/` exists)
-- Brief one-line description of the project?
+- One-line project description?
 
-Then create `.claude/project-config.json`:
+Create `.claude/project-config.json`:
 ```json
 {
   "git_enabled": true,
@@ -46,28 +36,22 @@ Then create `.claude/project-config.json`:
   "created": "[today's date]"
 }
 ```
+`git_enabled: false` suppresses the git guards and branch info in the hooks;
+`true` (default) keeps the full safety net active.
 
-This config drives the SessionStart hook behavior:
-- `git_enabled: false` → suppresses git guards and branch info in auto-loaded context
-- `git_enabled: true` (default) → full git safety net active
+## 3. Analyze the project
 
-### 3. Analyze Project
+Gather from: package.json / pyproject.toml (name, scripts), README, directory
+structure, CLAUDE.md if present, git history.
 
-Gather context from:
-- package.json (name, description, scripts)
-- README.md (purpose, setup)
-- Directory structure
-- CLAUDE.md if exists
-- Git history
+## 4. Create the three Memory Bank files
 
-### 4. Create Memory Files
-
-**projectContext.md** - Populate from analysis:
+**projectContext.md** — what this project is and why (durable identity):
 ```markdown
 # Project Context
 
-## Project Identity
-**Name**: [from package.json or directory]
+## Identity
+**Name**: [from manifest or directory]
 **Purpose**: [from README or infer]
 **Repository**: [from git remote]
 
@@ -79,73 +63,32 @@ Gather context from:
 | Testing | [detect] |
 
 ## Architecture Overview
-[Describe based on directory structure]
+[Based on directory structure]
 
 ## Key Directories
-[List main directories and purposes]
+[Main directories and their purposes]
 ```
 
-**activeContext.md** - Initialize empty:
-```markdown
-# Active Context
-
-## Current Focus
-**Working On**: [Fresh start]
-**Branch**: [current branch]
-**Started**: [today's date]
-
-## Recent Changes
-None yet.
-
-## Next Steps
-1. Set up development environment
-2. Review project structure
-3. Identify first task
-```
-
-**progress.md** - Initialize empty:
-```markdown
-# Progress Tracker
-
-## Current Sprint
-**Goal**: [To be defined]
-
-## In Progress
-| Task | Progress | Notes |
-|------|----------|-------|
-| Project setup | 100% | Memory Bank initialized |
-
-## Completed
-| Task | Completed |
-|------|-----------|
-| Memory Bank init | [today] |
-
-## Queued
-[To be populated]
-```
-
-**decisionLog.md** - Initialize with template:
+**decisionLog.md** — architecture decisions with rationale (ADRs):
 ```markdown
 # Decision Log
 
 ## [Today's Date] - Initialize Memory Bank
-
 ### Status
 Accepted
-
-### Context
-Setting up persistent memory for Claude Code workflow.
-
 ### Decision
-Use Memory Bank system with structured markdown files.
-
+Use the Memory Bank for structured project knowledge; rely on native
+auto-memory for session continuity.
 ### Rationale
-Prevents context loss between sessions.
+Structured ADRs, project identity, and project-specific conventions have no
+native equivalent; session state does.
 ```
 
-**conventions.md** - Populate from CLAUDE.md/project:
+**conventions.md** — project-specific conventions and lessons (the
+lesson-capture target for THIS repo; universal lessons go to
+`~/.claude/rules/learned-patterns.md` instead):
 ```markdown
-# Conventions & Patterns
+# Conventions & Lessons
 
 ## Code Style
 [From CLAUDE.md or detected]
@@ -156,101 +99,36 @@ Prevents context loss between sessions.
 ## Testing Patterns
 [From test files if present]
 
-## Mistakes Log
-[Empty - will be populated]
+## Lessons (project-specific)
+[Grows as you correct Claude — format: ### short title + what/why/instead]
 ```
 
-**sessionHistory.md** - Initialize:
-```markdown
-# Session History
-
-## [Today's Date] - Initial Setup
-
-### Duration
-New project setup
-
-### What Was Accomplished
-- Memory Bank initialized
-- Project context captured
-
-### Context for Next Session
-Fresh project setup. Ready to begin development.
-```
-
-### 5. Create Context Router
-
-Generate `.claude/memory/ROUTER.md` — a routing table that maps task types to relevant memory files. Use the project analysis from Step 3 to customize the routing table:
-
-- Identify the project's primary task types (e.g., a web app needs deploy/CI routes; a library needs docs/test routes)
-- Map each task type to the most relevant memory files
-- Fill in the "Current Project State" section with what was detected
-
-Use the template from `~/.claude/context/ROUTER.md` (shipped with claude-workflow) as the base structure, then customize for this project.
-
-### 6. Create Pattern Index
-
-Create `.claude/memory/patterns/INDEX.md` — an empty pattern registry:
-```markdown
-# Pattern Index
-
-> Task-specific guides that grow from real work. Created by the GROW step in `/session-end`.
-
-## Registry
-
-| Pattern | File | Task Signals | Last Updated |
-|---------|------|-------------|-------------|
-```
-
-Patterns will accumulate as you work. The `/session-end` GROW step will prompt to create them.
-
-### 7. Copy Drift Check Script
-
-If `~/.claude/scripts/drift-check.sh` exists (installed globally by claude-workflow), copy it to `.claude/scripts/drift-check.sh` so the project has its own local copy:
-```bash
-cp ~/.claude/scripts/drift-check.sh .claude/scripts/drift-check.sh 2>/dev/null || true
-chmod +x .claude/scripts/drift-check.sh 2>/dev/null || true
-```
-
-### 8. Report
+## 5. Report
 
 ```
 Memory Bank Initialized
 
 Created:
 - .claude/project-config.json
-- .claude/memory/projectContext.md
-- .claude/memory/activeContext.md
-- .claude/memory/progress.md
-- .claude/memory/decisionLog.md
-- .claude/memory/conventions.md
-- .claude/memory/sessionHistory.md
-- .claude/memory/ROUTER.md (context routing)
-- .claude/memory/patterns/INDEX.md (pattern registry)
-- .claude/scripts/drift-check.sh (drift detection)
+- .claude/memory/projectContext.md   (project identity)
+- .claude/memory/decisionLog.md      (ADRs)
+- .claude/memory/conventions.md      (project-specific lessons)
 
-Project detected:
-- Name: [name]
-- Stack: [detected stack]
-- Type: [web app/cli/library/etc]
+Session continuity is handled by native auto-memory (/memory to inspect) and
+session resume — no activeContext/progress/sessionHistory files needed.
+Branch task state lives in .claude/task-context.md (created by /task-branch,
+committed for cross-machine handoff).
 
-Memory Bank is ready.
-Use /session-start to begin work.
-Use /session-end to save context.
-Use /drift-check to validate Memory Bank accuracy.
+Use /session-start to orient, /session-end to save, /drift-check to validate.
 ```
 
 ---
 
-## If Memory Bank Already Exists
+## If Memory Bank already exists
 
-```
-Memory Bank already exists
-
-Current files:
-[list files]
-
-Options:
-1. Keep existing (recommended)
-2. Reset all files: /memory-reset
-3. Update project context only: /memory-refresh
-```
+If the project still has retired files from an older layout
+(`activeContext.md`, `progress.md`, `sessionHistory.md`, `ROUTER.md`,
+`patterns/`), offer to fold their still-useful content into the three durable
+files (decisions → decisionLog, lessons → conventions) and note that native
+auto-memory now carries session state — then leave the retired files for the
+user to delete. Do not recreate them.

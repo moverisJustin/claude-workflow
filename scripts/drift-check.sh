@@ -53,7 +53,12 @@ fi
 # Finds file paths referenced in Memory Bank .md files that don't exist on disk
 check_paths() {
   local md_file line_num path basename
-  for md_file in "$MEMORY_DIR"/*.md "$MEMORY_DIR"/patterns/*.md .claude/task-context.md; do
+  # Surviving Memory Bank files + the committed task-context. Deliberately NOT
+  # CLAUDE.md or rules/: those reference files by bare basename and by
+  # installed-location paths (~/.claude/rules/*, native MEMORY.md) that don't
+  # exist relative to the project root, so scanning them floods the score with
+  # false-positive dead paths.
+  for md_file in "$MEMORY_DIR"/*.md .claude/task-context.md; do
     [ -f "$md_file" ] || continue
     basename=$(basename "$md_file")
     # One grep pass per file (output "linenum:match"), deduped, file order preserved.
@@ -65,11 +70,15 @@ check_paths() {
       [[ "$path" == http* ]] && continue
       [[ "$path" == "#"* ]] && continue
       [[ "$path" == ".claude/memory/"* ]] && continue
-      [[ "$path" == "patterns/"* ]] && continue
       [[ "$path" == *"*"* ]] && continue   # glob patterns
       [[ "$path" == *"["* ]] && continue   # markdown placeholders
       [[ "$path" == *"{"* ]] && continue   # template variables
       [[ "$path" == "/"* ]] && continue    # absolute paths
+      [[ "$path" == "~"* ]] && continue    # home paths (~/.claude/... — not project-relative)
+      # Skip prose false-positives that look like files:
+      local ext="${path##*.}"
+      [[ "$ext" =~ ^[0-9]+$ ]] && continue  # version numbers: v2.0, 1.2
+      [[ ${#ext} -le 1 ]] && continue       # abbreviations: e.g, i.e
       # Only check paths that look like real file references (have an extension)
       if [[ "$path" == *"."* ]] && [ ! -e "$path" ]; then
         add_finding "ERROR" "$basename" "$line_num" "references $path (file not found)"
@@ -87,13 +96,19 @@ check_branches() {
   local branches md_file line_num branch_ref basename
   branches=$(git branch -a 2>/dev/null | sed 's/^[* ]*//' | sed 's|remotes/origin/||' | sort -u)
 
-  for md_file in "$MEMORY_DIR"/progress.md "$MEMORY_DIR"/activeContext.md .claude/task-context.md; do
+  # task-context.md is the only surviving file that names branches
+  # (activeContext/progress are retired — native auto-memory carries session state).
+  for md_file in .claude/task-context.md; do
     [ -f "$md_file" ] || continue
     basename=$(basename "$md_file")
     # Look for branch-like references: feature/xxx, fix/xxx, task/xxx, claude/xxx
     # One grep pass per file (see check_paths re: bash 3.2 / process substitution).
     while IFS=: read -r line_num branch_ref; do
       [ -z "$branch_ref" ] && continue
+      # Skip filesystem paths that look like branch refs: ".claude/rules",
+      # "~/.claude/context", etc. all match "claude/..." but are paths, not
+      # branches. If the ref appears in the file preceded by a dot, it's a path.
+      if grep -qF ".$branch_ref" "$md_file"; then continue; fi
       if ! printf '%s\n' "$branches" | grep -qF "$branch_ref"; then
         add_finding "WARN" "$basename" "$line_num" "references branch $branch_ref (branch not found)"
       fi
@@ -150,8 +165,10 @@ check_staleness() {
     local basename
     basename=$(basename "$md_file")
 
-    # Skip sessionHistory (it's append-only and can be old)
-    [[ "$basename" == "sessionHistory.md" ]] && continue
+    # Skip durable reference files: projectContext (project identity) and
+    # decisionLog (historical ADRs) legitimately don't change for weeks.
+    # conventions.md should grow, so it stays checked.
+    [[ "$basename" == "projectContext.md" || "$basename" == "decisionLog.md" ]] && continue
 
     local mod_time
     if [[ "$(uname)" == "Darwin" ]]; then
@@ -173,7 +190,7 @@ check_staleness() {
       [ -f "$md_file" ] || continue
       local basename
       basename=$(basename "$md_file")
-      [[ "$basename" == "sessionHistory.md" ]] && continue
+      [[ "$basename" == "projectContext.md" || "$basename" == "decisionLog.md" ]] && continue
 
       # Count commits since file was last modified
       local last_commit

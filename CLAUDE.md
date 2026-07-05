@@ -38,7 +38,6 @@ Every session begins with:
 # Context & Memory
 /memory-init         # Initialize Memory Bank for a project
 /handoff             # Cognitive briefing (mental model, failed approaches, resume prompt)
-/load-context <type> # Load task-specific memory mid-session
 /drift-check         # Validate Memory Bank against the codebase
 
 # Issues & Learning
@@ -59,11 +58,13 @@ Always-on rules live in `~/.claude/rules/` (installed from this repo's `rules/`)
 
 # Memory Bank (Persistent Context)
 
-Per-project memory at `.claude/memory/`: `projectContext.md`, `activeContext.md`, `progress.md`, `decisionLog.md`, `conventions.md`, `sessionHistory.md`, plus `ROUTER.md` (keyword routing to the 2-3 task-relevant files) and `patterns/` (reusable task guides).
+The Memory Bank holds only **structured, human-authored** knowledge that native auto-memory doesn't provide. Per-project at `.claude/memory/`: `projectContext.md` (project identity), `decisionLog.md` (ADRs), `conventions.md` (project-specific lessons).
 
+- **Session continuity** ("where was I", recent work) is native auto-memory (`MEMORY.md` + topic files, loaded every session) + session resume — no activeContext/progress/sessionHistory/ROUTER files.
 - `.claude/task-context.md` (committed, branch-scoped) is the cross-machine handoff — `git pull` the branch on any machine and resume with full task state.
-- `scripts/drift-check.sh` lints the Memory Bank against reality (zero AI tokens); `/session-start` warns below score 80, and a post-commit hook alerts on regressions.
-- Setup: `/memory-init`. Boot: `/session-start`. Save: `/session-end` (updates memory, grows patterns, runs drift check, commits or stashes work).
+- Specialist agents (test-writer, doc-generator, code-architect, oncall-guide) carry their own `memory: project` — they learn this repo's patterns over time.
+- `scripts/drift-check.sh` lints the Memory Bank (and CLAUDE.md, `.claude/rules/`) against reality (zero AI tokens); `/session-start` warns below score 80, and a post-commit hook alerts on regressions.
+- Setup: `/memory-init`. Boot: `/session-start` (or the automatic SessionStart hook). Save: `/session-end` (persists new decisions/conventions, updates task-context, runs drift check).
 
 # Core Principles
 

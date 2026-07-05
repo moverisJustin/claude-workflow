@@ -293,19 +293,17 @@ for f in "$SCRIPT_DIR/rules/"*.md; do
 done
 echo "  Installed $RULES_COUNT rules file(s) to ~/.claude/rules/"
 
-# --- Phase 6.5: Install context templates ---
-echo "--- Phase 6.5: Install context templates ---"
-mkdir -p "$CLAUDE_DIR/context/patterns"
-CONTEXT_COUNT=0
-if [ -f "$SCRIPT_DIR/context/ROUTER.md" ]; then
-  cp "$SCRIPT_DIR/context/ROUTER.md" "$CLAUDE_DIR/context/ROUTER.md"
-  CONTEXT_COUNT=$((CONTEXT_COUNT + 1))
+# --- Phase 6.5: Remove retired context templates from old installs ---
+# The ROUTER context-router and pattern-index templates are retired (Boris v3):
+# native auto-memory (MEMORY.md index + lazy topic files) replaces keyword
+# routing. Clean them off machines upgrading from v2.
+echo "--- Phase 6.5: Remove retired context templates ---"
+if [ -d "$CLAUDE_DIR/context" ]; then
+  rm -rf "$CLAUDE_DIR/context"
+  echo "  Removed retired ~/.claude/context/ (ROUTER, patterns index)"
+else
+  echo "  No retired context templates to remove"
 fi
-if [ -f "$SCRIPT_DIR/context/patterns/INDEX.md" ]; then
-  cp "$SCRIPT_DIR/context/patterns/INDEX.md" "$CLAUDE_DIR/context/patterns/INDEX.md"
-  CONTEXT_COUNT=$((CONTEXT_COUNT + 1))
-fi
-echo "  Installed $CONTEXT_COUNT context templates (ROUTER.md, patterns/INDEX.md)"
 
 # --- Phase 7: Install CLAUDE.md + migrate lessons to the rules file ---
 echo "--- Phase 7: CLAUDE.md + lesson migration ---"
@@ -381,7 +379,6 @@ echo "  - $SKILL_COUNT skills (invoked as /name — commands are fully migrated 
 echo "  - $WF_COUNT workflow script(s)"
 echo "  - $SCRIPT_COUNT hook scripts"
 echo "  - rules/ (git-safety, workflow, learned-patterns — the lesson-capture target)"
-echo "  - $CONTEXT_COUNT context templates"
 echo "  - settings.json (merged with hooks)"
 echo "  - CLAUDE.md (slim v3 core; lessons live in rules/learned-patterns.md)"
 echo ""

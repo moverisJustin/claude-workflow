@@ -111,21 +111,19 @@ What should happen next, in order:
 
 ## Where to Save
 
-Save the cognitive briefing to the appropriate location(s):
+**On a feature branch (has `.claude/task-context.md`):**
+- Write the full briefing into the Notes section of `.claude/task-context.md`.
+  This is the cross-machine handoff — it travels with the branch via git.
 
-**If on a feature branch with task-context.md:**
-- Update the Notes section of `.claude/task-context.md` with the full briefing
-- The briefing travels with the branch via git
-
-**Always update:**
-- `.claude/memory/activeContext.md` — replace with the cognitive briefing
-- This is the primary handoff document for `/session-start`
-
-**Commit the updates:**
 ```bash
-git add .claude/task-context.md .claude/memory/activeContext.md 2>/dev/null
-git commit -m "chore: cognitive handoff briefing" 2>/dev/null || true
+git add .claude/task-context.md
+git commit -m "chore: cognitive handoff briefing"
 ```
+
+**On main (no task-context.md):**
+- Ask Claude to remember the briefing so it lands in native auto-memory
+  (inspect via `/memory`), which loads automatically next session. There is no
+  activeContext.md — session state is native now.
 
 ---
 
@@ -134,12 +132,8 @@ git commit -m "chore: cognitive handoff briefing" 2>/dev/null || true
 ```
 Cognitive Handoff Complete
 
-Resume prompt saved to activeContext.md
-[Task context updated on branch: branch-name | N/A — on main]
-
-The next session can reconstruct full context by reading:
-1. .claude/memory/activeContext.md (resume prompt + briefing)
-2. .claude/task-context.md (if on a feature branch)
+[Briefing saved to .claude/task-context.md on branch <name>
+ | Briefing saved to native auto-memory (on main)]
 
 Key items preserved:
 - Mental model ([X] items)

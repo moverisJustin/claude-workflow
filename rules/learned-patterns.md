@@ -21,7 +21,7 @@ When a workflow generates output files (docx, pdf, etc.) that the user may have 
 When generating prose (especially academic), use em-dashes very sparingly. Prefer commas, parentheses, colons, or sentence restructuring. High em-dash density is a known indicator of LLM-generated text.
 
 ### Always update handoff + lessons at phase boundaries
-After completing any phase of work (implementation, testing, housekeeping, deployment), immediately update `.claude/memory/activeContext.md` and `.claude/memory/conventions.md`. Don't wait until session end. This ensures context is never lost if a session ends unexpectedly or runs out of context.
+After completing any phase of work (implementation, testing, housekeeping, deployment), immediately persist context: update `.claude/memory/conventions.md` with any new lessons and — on a feature branch — `.claude/task-context.md` with the handoff briefing. Don't wait until session end. Session state itself is carried by native auto-memory. This ensures context is never lost if a session ends unexpectedly or runs out of context.
 
 ### Verify the push target before ANY git push
 Always run `git remote -v` and confirm the destination repo matches the user's intent before pushing. Never assume the working directory's remote is the correct push target. The cost of verifying is seconds; the cost of pushing to the wrong repo is trust and potentially broken production.

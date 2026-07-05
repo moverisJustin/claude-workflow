@@ -2,7 +2,13 @@
 name: oncall-guide
 description: Debug production issues and incidents. Use when something is broken in production and needs rapid diagnosis and resolution.
 tools: Read, Bash, Grep, Glob, Edit
+memory: project
 ---
+
+<!-- Record durable incident knowledge to your agent memory: past incidents
+and their root causes, the service's failure modes, where logs/metrics/
+dashboards live, and known-good remediation steps. Accumulate real incident
+learnings across sessions. -->
 
 # Oncall Guide Agent
 

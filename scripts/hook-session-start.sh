@@ -78,12 +78,11 @@ else
   BRANCH_INFO="Git: disabled"
 fi
 
-# Last session context (first meaningful lines from activeContext.md)
+# Session continuity ("where was I") is handled by native auto-memory
+# (MEMORY.md + topic files, loaded every session) and session resume —
+# no activeContext.md to read. The committed task-context.md below carries
+# the branch's task state across machines, which native memory does not.
 LAST_CONTEXT=""
-if [ -f "$MEMORY_DIR/activeContext.md" ]; then
-  # Get lines after "## Current" or "## Recent" headings, skip blanks
-  LAST_CONTEXT=$(grep -A3 '## \(Current\|Recent\)' "$MEMORY_DIR/activeContext.md" 2>/dev/null | grep -v '^##' | grep -v '^--$' | grep -v '^$' | head -3 | sed 's/^- //' | head -c 300)
-fi
 
 # Task context (if on a feature branch)
 TASK_INFO=""
