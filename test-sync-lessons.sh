@@ -168,6 +168,18 @@ else
 fi
 assert_contains "$SYM_REAL" "### Repo-only shared pattern" "lesson written through the symlink to the dotfiles copy"
 
+# --- Empty-section tolerance: a lessons file with a heading but ZERO lessons
+# must be a no-op sync target, not a set -e/pipefail crash (this exact crash
+# once made the installer's migration silently lose every lesson) ---
+EMPTY="$TMP/empty-local.md"
+printf '# Learned Patterns\n' > "$EMPTY"
+if LOCAL_FILE="$EMPTY" REPO_FILE="$REPO" bash "$SYNC" > "$TMP/out4.log" 2>&1; then
+  echo "  PASS: heading-only local file: sync exits 0"; pass=$((pass + 1))
+else
+  echo "  FAIL: heading-only local file crashed the sync"; fail=$((fail + 1))
+fi
+assert_contains "$EMPTY" "### Repo-only shared pattern" "repo lessons flow into an initially empty local file"
+
 echo ""
 echo "Passed: $pass  Failed: $fail"
 if [ "$fail" -ne 0 ]; then

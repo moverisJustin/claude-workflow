@@ -22,6 +22,9 @@ jobs:
       - name: Hook contract tests
         run: /bin/bash ./scripts/test-hooks.sh
 
+      - name: Installer end-to-end test (fake HOME)
+        run: /bin/bash ./scripts/test-install.sh
+
       - name: Drift-check smoke test
         run: /bin/bash ./scripts/drift-check.sh --json
 

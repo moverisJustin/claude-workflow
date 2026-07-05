@@ -1,44 +1,60 @@
-# Task Context — feature/phase2-skills-migration
+# Task Context — feature/phase2b-claude-md-slim
 
 ## Objective
-Boris v3 upgrade, **Phase 2: commands → skills migration + boris consolidation**
-(third PR; Phase 0 = #5, Phase 1 = #6, both merged).
+Boris v3 upgrade, **Phase 2b: CLAUDE.md slimming** (fourth PR; #5-#7 merged).
+The template was 309 lines — 5-10x over the documented ~200-line adherence
+budget — loaded in full into every session on every machine.
+
+## Design (verified against current docs)
+- `~/.claude/rules/` is real (user-level rules, loaded before project rules).
+- Rules without `paths:` load EAGERLY — reorganizing alone saves nothing;
+  the savings come from trimming prose that skills now encode.
+- HTML comments are stripped pre-injection: `<!-- shareable -->` costs 0 tokens.
 
 ## Changes
-- **All 16 remaining commands migrated to `skills/<name>/SKILL.md`** (same `/name`
-  invocation — skills are the successor format and win on name conflicts):
-  - `disable-model-invocation: true` on side-effectful user-timed skills
-    (quick-commit, commit-push-pr, task-branch, task-done, session-end,
-    memory-init, fix-issue, ci-loop, anythingelse)
-  - `allowed-tools` git grants on quick-commit/commit-push-pr/task-branch/
-    task-done (kills the top permission-prompt sources)
-  - `argument-hint` on task-branch/fix-issue/load-context/first-principles
-  - fix-issue: stale `mcp__claude_ai_Linear__*` hardcoded names replaced with
-    capability-level instructions (ToolSearch finds current names); jq-pipe
-    backtick simplified. anythingelse: missing description added.
-  - `context: fork` evaluated and deferred: candidates (memory-init, handoff,
-    session-start) all need main-conversation context or user interaction.
-- **Boris consolidated**: `agents/boris.md` + `commands/boris.md` +
-  `skills/boris-workflow/` (three drifting copies + the persona-indirection
-  hack) → ONE `skills/boris/SKILL.md` (plan mode gate, Agent-tool delegation
-  with forks/background/worktrees/SendMessage, native-skill routing table) +
-  `workflows/boris-build.js` (saved Workflow: partition into file-disjoint
-  items → parallel implement → gates + adversarial per-item review + one fix
-  round; NEVER commits/pushes — that stays in the main conversation).
-- **install.sh**: installs all skills/ dirs + workflows/; Phase 3.5 removes
-  old command flat-copies (derived from skills/ dir, never stale), boris
-  agent, boris-workflow skill; backs up skills/. **uninstall.sh**: removes
-  repo-derived skills + workflows (list derived at runtime).
-- Docs: README/CHEATSHEET/CLAUDE.md — commands → skills language, counts
-  (9 core agents, 17 skills, 1 workflow), backtick-sandbox lesson retargeted
-  at SKILL.md paths.
+- **CLAUDE.md template: 309 → 70 lines** (boot, scope rules, quick reference,
+  rules/memory pointers, core principles).
+- **rules/** (installed to `~/.claude/rules/`): `git-safety.md` (10 lines),
+  `workflow.md` (32), `learned-patterns.md` (the full Learned Patterns section,
+  moved verbatim — now the lesson-capture target and sync point).
+- **sync-lessons.sh** defaults retargeted: `~/.claude/rules/learned-patterns.md`
+  ↔ repo `rules/learned-patterns.md`. Heading-based logic unchanged.
+- **install.sh**: Phase 6.3 installs rules (learned-patterns seeded only when
+  absent — never overwritten); Phase 7 is version-aware ("Quick Reference
+  (Boris v3)" marker): pre-v3 machines get their CLAUDE.md Learned Patterns
+  migrated into the local rules file via the ungated snapshot merge (private
+  lessons preserved locally, never pushed), then the slim template installed.
+- **uninstall.sh**: removes repo-shipped rules, KEEPS learned-patterns.md
+  (the user's accumulated lessons).
+- **scripts/test-install.sh** (new, in CI): fake-HOME end-to-end install —
+  21 assertions covering v2→v3 migration, private-lesson preservation, the
+  no-leak guarantee (repo tree byte-identical after install), retirements,
+  idempotent double-run. Closes most of the long-open "fresh install e2e" item.
+- update-claude-md skill rewritten to route lessons to the right destination;
+  README/CHEATSHEET lesson-location references updated.
+
+## Post-review hardening (12 findings, 0 refuted)
+- CRITICAL fixed: migration used to swallow sync failures (`|| true`), print
+  success, replace CLAUDE.md, and the marker blocked retries — silent loss of
+  every lesson when the machine had a pre-existing heading-only rules file
+  (sync crashed on empty sections under set -e). Now: empty sections are a
+  no-op, migration success is verified before CLAUDE.md is touched, failure
+  is loud and retryable.
+- User-authored custom CLAUDE.md sections are carried over (not silently
+  destroyed); dropped @import lines produce an explicit warning.
+- Version detection moved to an HTML-comment stamp (`boris-version: 3`) —
+  zero tokens, and user edits to prose headings can't trigger re-migration.
+- Three load-bearing instructions restored to rules/workflow.md (specs
+  upfront; plan mode for verification; diff behavior vs main).
+- Stale CLAUDE.md-era messages fixed across sync-lessons/install/CHEATSHEET/
+  session-start; README documents rules/.
 
 ## Verification
-- Conversion validated by a dedicated agent: 16/16 frontmatter + heading-
-  sequence identical to originals; no stale MCP names; no retired-command refs.
-- bash -n install.sh/uninstall.sh; full hook + sync-lessons suites.
+- test-install.sh 22/22, test-sync-lessons.sh 17/17, test-hooks.sh 36/36
+  (all /bin/bash 3.2); installer syntax.
 
 ## Next (plan: ~/.claude/plans/calm-skipping-thunder.md)
-- Phase 2b: CLAUDE.md slimming into rules/skills/memory topics + sync-lessons
-  retarget. Phase 3: memory hybrid. Phase 4: /ci-loop → /loop, model tiers,
-  permissions overhaul, plugin packaging, scheduled maintenance.
+Phase 3: memory hybrid (delete ROUTER/activeContext/sessionHistory machinery,
+keep conventions/decisionLog/projectContext + task-context.md; agent memory
+for specialists; slim session-start/end). Phase 4: /ci-loop → /loop, model
+tiers, permissions overhaul, plugin packaging, scheduled maintenance.

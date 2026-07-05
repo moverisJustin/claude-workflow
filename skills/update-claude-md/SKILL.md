@@ -45,30 +45,27 @@ Significant decisions that affect future work:
 
 ---
 
-## Update CLAUDE.md
+## Write the Learnings — pick the right destination
 
-Based on the analysis, update CLAUDE.md with new learnings.
+Lessons no longer live inside CLAUDE.md (Boris v3 keeps it slim). Route each
+learning to where it loads correctly:
 
-**Format for new entries:**
+| Learning type | Destination |
+|---|---|
+| Project-specific (repo quirks, local tooling, this codebase's conventions) | `.claude/memory/conventions.md` (project Memory Bank) |
+| Universal (workflow patterns, cross-project pitfalls) | `~/.claude/rules/learned-patterns.md` under `# Learned Patterns` |
+| Always-true project facts (build commands, layout) | the project's `CLAUDE.md` — keep it under ~150 lines |
 
-```markdown
-## Mistakes to Avoid
-
-### [Date] - [Brief Title]
-**What happened**: [Description]
-**Why it's wrong**: [Explanation]
-**Do this instead**: [Correct approach]
-```
+**Lesson format** (heading-based — dedup and sync key on the `### ` title):
 
 ```markdown
-## Learned Patterns
-
-### [Pattern Name]
-**When to use**: [Context]
-**How to implement**: [Brief guide]
-**Example**: [Code snippet if helpful]
+### [Short imperative title]
+[What happened, why it's wrong, and the correct approach — 2-5 lines.
+Include the concrete trigger/error so future sessions recognize it.]
 ```
 
-If CLAUDE.md doesn't exist, create it with the standard template structure.
+Publishing a universal lesson to the public workflow repo is OPT-IN: add a
+`<!-- shareable -->` line under its `### ` heading, then run `sync-lessons.sh`.
+Untagged lessons never leave the machine.
 
-Report what was added/updated.
+Report what was added/updated and where.
