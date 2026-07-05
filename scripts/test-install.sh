@@ -140,6 +140,11 @@ if [ -f "$CD/scripts/hook-stop-verify.sh" ]; then ok "current hook scripts insta
 # --- Settings (only when jq available; installer skips the merge without it) ---
 if command -v jq >/dev/null 2>&1; then
   if jq -e '.hooks.Stop' "$CD/settings.json" >/dev/null 2>&1; then ok "settings.json installed with Stop hook wiring"; else bad "settings.json hooks wrong"; fi
+  # Permissions cleanup (Phase 4c)
+  LINEAR=$(jq -r '[.permissions.allow[] | select(test("Linear"))] | length' "$CD/settings.json")
+  if [ "$LINEAR" = "0" ]; then ok "no stale Linear MCP allow entries"; else bad "$LINEAR stale Linear entries remain"; fi
+  if jq -e '[.permissions.deny[] | select(. == "Bash(curl *|bash)")] | length > 0' "$CD/settings.json" >/dev/null; then ok "deny covers no-space pipe-to-shell bypass"; else bad "deny missing pipe bypass hardening"; fi
+  if jq -e '[.permissions.allow[] | select(startswith("Bash(sudo ") and endswith(" *)"))] | length == 0' "$CD/settings.json" >/dev/null; then ok "sudo grants normalized to :* form"; else bad "inconsistent sudo grant syntax remains"; fi
 fi
 
 # --- Idempotency: second run must not duplicate migrated lessons ---
