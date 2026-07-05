@@ -106,6 +106,29 @@ REPO_SKILLS=$(ls -d "$REPO_DIR/skills/"*/ 2>/dev/null | wc -l | tr -d ' ')
 if [ "$SKILLS" -eq "$REPO_SKILLS" ]; then ok "all $REPO_SKILLS skills installed"; else bad "skills installed=$SKILLS expected=$REPO_SKILLS"; fi
 if [ -f "$CD/workflows/boris-build.js" ]; then ok "boris-build workflow installed"; else bad "workflow missing"; fi
 if [ -f "$CD/agents/code-architect.md" ]; then ok "agents installed"; else bad "agents missing"; fi
+# Core agents carry explicit model tiers
+if grep -q '^model: opus' "$CD/agents/code-architect.md"; then ok "core agent has model tier (code-architect: opus)"; else bad "core agent missing model tier"; fi
+# Community: only MANIFEST-active agents install (not all vendored), with tiers
+# injected. Extract slugs the SAME way install.sh does (strip inline comments).
+active_slugs() { sed 's/#.*//' "$REPO_DIR/agents/community/MANIFEST.txt" | while IFS= read -r l; do s=$(printf '%s' "$l" | xargs); [ -n "$s" ] && echo "$s"; done; }
+ACTIVE=$(active_slugs | wc -l | tr -d ' ')
+VENDORED=$(ls "$REPO_DIR/agents/community/"*.md 2>/dev/null | wc -l | tr -d ' ')
+INSTALLED_COMM=0
+while IFS= read -r slug; do
+  [ -f "$CD/agents/$slug.md" ] && INSTALLED_COMM=$((INSTALLED_COMM + 1))
+done < <(active_slugs)
+if [ "$INSTALLED_COMM" -eq "$ACTIVE" ] && [ "$ACTIVE" -lt "$VENDORED" ]; then
+  ok "only active community agents installed ($INSTALLED_COMM of $VENDORED vendored)"
+else
+  bad "community install wrong (installed=$INSTALLED_COMM active=$ACTIVE vendored=$VENDORED)"
+fi
+# A commented-out (opt-in) agent must NOT be installed
+if [ ! -f "$CD/agents/marketing-seo-specialist.md" ]; then ok "opt-in community agent not installed by default"; else bad "opt-in agent installed"; fi
+# An installed community agent got a model tier at deploy time
+SAMPLE=$(active_slugs | head -1)
+if grep -q '^model:' "$CD/agents/$SAMPLE.md" 2>/dev/null; then ok "community agent got a deploy-time model tier ($SAMPLE)"; else bad "community agent missing injected model tier"; fi
+# Vendored repo files stay pristine (tiering is deploy-time only)
+if ! grep -q '^model:' "$REPO_DIR/agents/community/$SAMPLE.md"; then ok "vendored community file stays upstream-pristine (no model: in repo)"; else bad "vendored file was mutated with model:"; fi
 
 # --- Retirements ---
 if [ ! -f "$CD/commands/checkpoint.md" ]; then ok "retired command removed"; else bad "retired checkpoint.md survived"; fi

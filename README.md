@@ -1,6 +1,6 @@
 # Claude Workflow
 
-A shared Claude Code configuration that makes every team member's AI sessions smarter, safer, and continuous. Based on [claude-boris v2.0](https://github.com/llcoolblaze/claude-boris), customized with Linear integration, 114 specialist agents (9 core + 105 community), and cross-machine knowledge syncing.
+A shared Claude Code configuration that makes every team member's AI sessions smarter, safer, and continuous. Based on [claude-boris v2.0](https://github.com/llcoolblaze/claude-boris), customized with Linear integration, model-tiered specialist agents (9 core + 44 dev-focused community active, 105 vendored), and cross-machine knowledge syncing.
 
 ## Why Use This
 
@@ -20,7 +20,7 @@ This workflow fixes that:
 
 - **Safety rails for destructive operations.** Hooks automatically create non-mutating checkpoints before `git reset --hard`, `rm -rf`, or force-pushes, and high-risk `rm -rf` targets require confirmation. Commands and file writes get audit-logged. Claude's own edits are covered by native `/rewind` checkpoints.
 
-- **Complex tasks run themselves.** Instead of manually prompting Claude through multi-step work, `/boris implement user auth` plans the approach, delegates to specialist agents (architect, test-writer), verifies with native `/verify` + `/code-review`, and ships it. 110+ agents cover engineering, design, sales, marketing, product, QA, and more.
+- **Complex tasks run themselves.** Instead of manually prompting Claude through multi-step work, `/boris implement user auth` plans the approach, delegates to specialist agents (architect, test-writer), verifies with native `/verify` + `/code-review`, and ships it. A model-tiered roster of specialist agents (cheap models for search/CRUD, stronger models for judgment) keeps delegation fast and cost-efficient.
 
 - **Context travels with branches.** Each feature branch carries a `.claude/task-context.md` with the objective, plan, decisions, and progress. Switch machines, switch people, `git pull` the branch and Claude has full context.
 
@@ -28,8 +28,8 @@ This workflow fixes that:
 
 | Category | Count | Highlights |
 |---|---|---|
-| Core agents | 9 | code-architect, test-writer, doc-generator, oncall-guide, git-guardian, linear-project-manager |
-| Community agents | 105 | Engineering, design, sales, marketing, product, PM, QA, support, game dev, paid media, specialized |
+| Core agents | 9 | code-architect (opus), test-writer/doc-generator (sonnet), git-guardian/issue-tracker (haiku), ... — each pinned to a cost-appropriate model tier |
+| Community agents | 44 active / 105 vendored | Dev-focused set (engineering, testing, dev design/specialized) installed by default + model-tiered; sales/marketing/product/etc. vendored opt-in |
 | Skills | 16 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/handoff`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
 | Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
@@ -139,25 +139,20 @@ Boris itself is a **skill** now (`skills/boris/SKILL.md`), not an agent — the 
 
 Six former agents are native features now: code-simplifier → `/simplify`, verify-app → `/verify` + `/checks`, pr-reviewer → `/code-review`, security-auditor → `/security-review`, mode-controller → native plan/permission modes, audit-logger → the PreToolUse audit hooks. Native versions are harness-enforced and independently verified -- strictly better than the prompt-based agents they replace.
 
-### Community Agents (105)
+### Community Agents (44 active / 105 vendored)
 
-Sourced from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents), covering 11 domains:
+Sourced from [msitarzewski/agency-agents](https://github.com/msitarzewski/agency-agents) (pinned to a reviewed commit). All 105 are vendored, but only the **dev-focused set installs by default**; the rest are opt-in.
 
-| Category | Count | Examples |
-|---|---|---|
-| Engineering | 22 | database-optimizer, frontend-developer, devops-automator, rapid-prototyper, SRE |
-| Design | 8 | UI designer, UX architect, brand guardian, visual storyteller |
-| Sales | 8 | account strategist, deal strategist, sales engineer, pipeline analyst |
-| Marketing | 14 | SEO specialist, content creator, LinkedIn/Reddit/Twitter, growth hacker |
-| Product | 5 | product manager, sprint prioritizer, feedback synthesizer |
-| Project Management | 5 | project shepherd, experiment tracker, studio producer |
-| Testing & QA | 8 | API tester, performance benchmarker, accessibility auditor |
-| Support | 6 | analytics reporter, finance tracker, legal compliance |
-| Game Development | 8 | game designer, narrative designer, Godot specialists |
-| Paid Media | 7 | PPC strategist, programmatic buyer, creative strategist |
-| Specialized | 15 | MCP builder, workflow architect, developer advocate |
+| Category | Active | Vendored | Default? |
+|---|---|---|---|
+| Engineering | 21 | 21 | ✅ active |
+| Testing & QA | 8 | 8 | ✅ active |
+| Design (UX/UI) | 3 | 8 | ✅ active (brand/visual opt-in) |
+| Specialized (dev/technical) | 12 | 15 | ✅ active (non-dev opt-in) |
+| Sales / Marketing / Product / PM | 0 | 32 | opt-in |
+| Support / Game Dev / Paid Media | 0 | 21 | opt-in |
 
-Manage community agents: edit `agents/community/MANIFEST.txt` and run `scripts/sync-agency-agents.sh` to sync from upstream.
+Manage community agents by editing `agents/community/MANIFEST.txt`: uncomment an opt-in agent and re-run `install.sh` to enable it (offline), or run `scripts/sync-agency-agents.sh` to refresh the vendored files from upstream. install.sh installs only the active (uncommented) agents and applies a model tier to each (dev personas → sonnet, advisory → haiku + read-only tools) at deploy time.
 
 ### Hooks (Automatic)
 
@@ -179,7 +174,7 @@ The SessionStart hook also detects new projects (no `.claude/project-config.json
 ## Customization
 
 - **Add core agents**: Create `.md` files in `agents/` with frontmatter (`name`, `description`, `tools`)
-- **Add/remove community agents**: Edit `agents/community/MANIFEST.txt` and run `scripts/sync-agency-agents.sh`
+- **Add/remove community agents**: Edit `agents/community/MANIFEST.txt` (uncomment to enable, comment to disable) and re-run `install.sh`; use `scripts/sync-agency-agents.sh` to refresh from upstream
 - **Add skills**: Create `skills/<name>/SKILL.md` with frontmatter (`description`, optional `disable-model-invocation`, `allowed-tools`, `argument-hint`); invoke as `/name`. Supporting files can live in the skill's directory.
 - **Add rules**: Drop always-on policy files in `~/.claude/rules/*.md` (project-level: `.claude/rules/`; add `paths:` frontmatter to scope a rule to matching files)
 - **Machine-specific settings**: Edit `~/.claude/settings.json` directly for paths, plugins, MCP permissions. These are preserved across `install.sh` runs.

@@ -2,6 +2,7 @@
 name: oncall-guide
 description: Debug production issues and incidents. Use when something is broken in production and needs rapid diagnosis and resolution.
 tools: Read, Bash, Grep, Glob, Edit
+model: opus
 memory: project
 ---
 

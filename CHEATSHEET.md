@@ -41,7 +41,7 @@ Claude Code now does these natively — harness-enforced, better than the prose 
 
 ## Core Agents (9)
 
-Boris is a **skill** now (`/boris`), not an agent — it plans in native plan mode, delegates via the Agent tool (forks, background, worktree isolation), and launches the `boris-build` saved Workflow for fan-out-scale jobs.
+Boris is a **skill** now (`/boris`), not an agent — it plans in native plan mode, delegates via the Agent tool (forks, background, worktree isolation), and launches the `boris-build` saved Workflow for fan-out-scale jobs. Each core agent is pinned to a model tier (opus for judgment, sonnet for implementers, haiku for CRUD/deterministic work).
 
 | Agent | Role |
 |---|---|
@@ -57,9 +57,9 @@ Boris is a **skill** now (`/boris`), not an agent — it plans in native plan mo
 
 Retired agents (native now): code-simplifier → `/simplify`, verify-app → `/verify` + `/checks`, pr-reviewer → `/code-review`, security-auditor → `/security-review`, mode-controller → native plan/permission modes, audit-logger → the audit hooks.
 
-## Community Agents (105)
+## Community Agents (44 active / 105 vendored)
 
-From [agency-agents](https://github.com/msitarzewski/agency-agents). Key ones for dev work:
+From [agency-agents](https://github.com/msitarzewski/agency-agents), pinned to a reviewed commit. The dev-focused set (engineering, testing, dev design/specialized) installs by default, each with a model tier applied at deploy time (dev → sonnet, advisory → haiku + read-only tools). Sales/marketing/product/support/game/paid-media stay vendored but opt-in — uncomment in `MANIFEST.txt` and re-run `install.sh`. Key active ones:
 
 | Agent | Use For |
 |---|---|
@@ -71,8 +71,8 @@ From [agency-agents](https://github.com/msitarzewski/agency-agents). Key ones fo
 | `testing-accessibility-auditor` | WCAG 2.2 compliance |
 | `specialized-mcp-builder` | Building new MCP servers |
 | `engineering-sre` | SLO definitions, error budgets, observability |
-| `product-manager` | Product strategy, prioritization |
-| `marketing-content-creator` | Blog posts, marketing copy |
+| `engineering-security-engineer` | Threat modeling, secure code review |
+| `blockchain-security-auditor` | Smart-contract audit, exploit analysis |
 
 Full list: `ls agents/community/` or see `agents/community/MANIFEST.txt`
 

@@ -57,20 +57,34 @@ for f in "$SCRIPT_DIR/agents/"*.md; do
   cp "$f" "$CLAUDE_DIR/agents/$(basename "$f")"
   AGENT_COUNT=$((AGENT_COUNT + 1))
 done
-# Community agents (from agency-agents) — never allowed to shadow a core agent
+# Community agents (from agency-agents) — install ONLY the agents listed as
+# active (uncommented) in MANIFEST.txt, not every vendored file. Each installed
+# copy gets a model tier + (for advisory personas) a read-only tool set applied
+# at deploy time. Never allowed to shadow a core agent.
+. "$SCRIPT_DIR/scripts/agent-tier.sh"
+CORE_COUNT=$(ls "$SCRIPT_DIR/agents/"*.md 2>/dev/null | wc -l | xargs)
 COLLISIONS=0
-for f in "$SCRIPT_DIR/agents/community/"*.md; do
-  [ -f "$f" ] || continue
-  base=$(basename "$f")
-  if [ -f "$SCRIPT_DIR/agents/$base" ]; then
-    echo "  WARNING: community agent '$base' collides with a core agent -- skipped"
-    COLLISIONS=$((COLLISIONS + 1))
-    continue
-  fi
-  cp "$f" "$CLAUDE_DIR/agents/$base"
-  AGENT_COUNT=$((AGENT_COUNT + 1))
-done
-echo "  Installed $AGENT_COUNT agents ($(ls "$SCRIPT_DIR/agents/"*.md 2>/dev/null | wc -l | xargs) core + $(ls "$SCRIPT_DIR/agents/community/"*.md 2>/dev/null | wc -l | xargs) community, $COLLISIONS collision(s) skipped)"
+COMMUNITY_COUNT=0
+MANIFEST="$SCRIPT_DIR/agents/community/MANIFEST.txt"
+if [ -f "$MANIFEST" ]; then
+  while IFS= read -r slug; do
+    slug=$(printf '%s' "$slug" | sed 's/#.*//' | xargs)
+    [ -z "$slug" ] && continue
+    src="$SCRIPT_DIR/agents/community/$slug.md"
+    [ -f "$src" ] || continue
+    if [ -f "$SCRIPT_DIR/agents/$slug.md" ]; then
+      echo "  WARNING: community agent '$slug' collides with a core agent -- skipped"
+      COLLISIONS=$((COLLISIONS + 1))
+      continue
+    fi
+    cp "$src" "$CLAUDE_DIR/agents/$slug.md"
+    inject_agent_frontmatter "$CLAUDE_DIR/agents/$slug.md" "$slug"
+    COMMUNITY_COUNT=$((COMMUNITY_COUNT + 1))
+    AGENT_COUNT=$((AGENT_COUNT + 1))
+  done < "$MANIFEST"
+fi
+echo "  Installed $AGENT_COUNT agents ($CORE_COUNT core + $COMMUNITY_COUNT community active, $COLLISIONS collision(s) skipped)"
+echo "  ($(ls "$SCRIPT_DIR/agents/community/"*.md 2>/dev/null | wc -l | xargs) community agents vendored; enable more by uncommenting them in agents/community/MANIFEST.txt and re-running)"
 
 # --- Phase 3: Install workflows ---
 echo "--- Phase 3: Install workflows ---"

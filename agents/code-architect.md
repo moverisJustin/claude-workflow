@@ -2,6 +2,7 @@
 name: code-architect
 description: Senior architect for design reviews, system design, architectural decisions, and technical planning. Use when planning significant changes, evaluating approaches, or reviewing design patterns.
 tools: Read, Grep, Glob, Bash
+model: opus
 memory: project
 ---
 

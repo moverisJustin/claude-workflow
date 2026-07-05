@@ -1,6 +1,7 @@
 ---
 name: ci-integrator
 description: CI/CD feedback loop automation. Pushes code, monitors CI pipelines, parses failures, auto-fixes issues, and iterates until green. Integrates with GitHub Actions, GitLab CI, and other CI systems.
+model: sonnet
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
