@@ -1,10 +1,12 @@
 # Boris v3 Cheat Sheet
 
-Quick reference for all slash commands, specialist agents, and native replacements.
+Quick reference for all skills, specialist agents, and native replacements.
 
-## Slash Commands
+## Skills (invoke as `/name`)
 
-| Command | What it does |
+Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` invocation, plus tool grants (fewer permission prompts on git skills), argument hints, and invocation control (side-effectful skills are user-invoked only; Claude can auto-load the rest when relevant).
+
+| Skill | What it does |
 |---|---|
 | `/boris <task>` | Full orchestrated workflow — plan, delegate, verify, ship |
 | `/session-start` | Load Memory Bank, check project status, orient to continue |
@@ -38,11 +40,12 @@ Claude Code now does these natively — harness-enforced, better than the prose 
 | `/mode audit` | PreToolUse audit hooks (`.claude/audit/`, self-gitignored) + `/security-review` |
 | `/context` | Native `/context` + statusline (live context %, real numbers) |
 
-## Core Agents (10)
+## Core Agents (9)
+
+Boris is a **skill** now (`/boris`), not an agent — it plans in native plan mode, delegates via the Agent tool (forks, background, worktree isolation), and launches the `boris-build` saved Workflow for fan-out-scale jobs.
 
 | Agent | Role |
 |---|---|
-| **boris** | Master orchestrator — plans, delegates to specialists, verifies |
 | **code-architect** | System design, architecture decisions, technical planning |
 | **test-writer** | Generate comprehensive tests (JS/TS/Python) |
 | **doc-generator** | Generate/update docs (Divio system, docs-as-code) |

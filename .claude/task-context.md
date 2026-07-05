@@ -1,45 +1,44 @@
-# Task Context — feature/phase1-retire-native-superseded
+# Task Context — feature/phase2-skills-migration
 
 ## Objective
-Boris v3 upgrade, **Phase 1: retire what native Claude Code strictly dominates**
-(second PR of the approved plan; Phase 0 = PR #5, merged). Docs updated in the
-same commit so nothing mandates deleted machinery.
+Boris v3 upgrade, **Phase 2: commands → skills migration + boris consolidation**
+(third PR; Phase 0 = #5, Phase 1 = #6, both merged).
 
-## Retired (9 commands, 6 agents)
-| Was | Native replacement |
-|---|---|
-| /checkpoint, /rollback, /undo | /rewind (Esc-Esc); `git reset --soft HEAD^` for commits; auto-checkpoint tags for bash destruction |
-| /mode + mode-controller agent | Native plan mode / permission modes (harness-enforced) |
-| /review-changes + pr-reviewer | /code-review <effort> (--comment, --fix, ultra) |
-| /security-scan + security-auditor | /security-review |
-| /verify-all, /test-and-fix + verify-app | /verify + new /checks command |
-| code-simplifier agent | /simplify |
-| audit-logger agent | Working PreToolUse audit hooks (Phase 0) |
-| /context | Native /context + statusline |
-
-## Added
-- `commands/checks.md`: stack-DETECTED quality gates (no blind npm+pytest
-  volleys; includes `ruff format --check`); arms `.claude/audit/verify-gate`
-  (self-gitignored dir, root-anchored via `git rev-parse --show-toplevel`).
-- `scripts/hook-stop-verify.sh` + Stop hook wiring: blocks turn-end while the
-  gate is armed (opt-in per /checks run, never blocks normal turns); escape
-  hatch after 3 attempts + 2h staleness disarm so the agent is never trapped.
-- `install.sh` Phase 3.5: removes retired files from existing installs.
-- git-guardian rewritten slim: push-target/staging verification + branch
-  protection + recovery routing table (its checkpoint/undo core is gone).
-
-## Docs updated in lockstep
-CLAUDE.md (quick ref, §2, §4, §7, §10), README.md (counts 16→10 agents /
-25→17 commands, tables, modes), CHEATSHEET.md ("Native Replacements" table),
-boris.md + skills/boris-workflow delegation tables, session-end.md,
-task-done.md (the `|| true` verification chain is gone), and the user-global
-~/.claude/CLAUDE.md (2 stale references, machine-local, not in this diff).
+## Changes
+- **All 16 remaining commands migrated to `skills/<name>/SKILL.md`** (same `/name`
+  invocation — skills are the successor format and win on name conflicts):
+  - `disable-model-invocation: true` on side-effectful user-timed skills
+    (quick-commit, commit-push-pr, task-branch, task-done, session-end,
+    memory-init, fix-issue, ci-loop, anythingelse)
+  - `allowed-tools` git grants on quick-commit/commit-push-pr/task-branch/
+    task-done (kills the top permission-prompt sources)
+  - `argument-hint` on task-branch/fix-issue/load-context/first-principles
+  - fix-issue: stale `mcp__claude_ai_Linear__*` hardcoded names replaced with
+    capability-level instructions (ToolSearch finds current names); jq-pipe
+    backtick simplified. anythingelse: missing description added.
+  - `context: fork` evaluated and deferred: candidates (memory-init, handoff,
+    session-start) all need main-conversation context or user interaction.
+- **Boris consolidated**: `agents/boris.md` + `commands/boris.md` +
+  `skills/boris-workflow/` (three drifting copies + the persona-indirection
+  hack) → ONE `skills/boris/SKILL.md` (plan mode gate, Agent-tool delegation
+  with forks/background/worktrees/SendMessage, native-skill routing table) +
+  `workflows/boris-build.js` (saved Workflow: partition into file-disjoint
+  items → parallel implement → gates + adversarial per-item review + one fix
+  round; NEVER commits/pushes — that stays in the main conversation).
+- **install.sh**: installs all skills/ dirs + workflows/; Phase 3.5 removes
+  old command flat-copies (derived from skills/ dir, never stale), boris
+  agent, boris-workflow skill; backs up skills/. **uninstall.sh**: removes
+  repo-derived skills + workflows (list derived at runtime).
+- Docs: README/CHEATSHEET/CLAUDE.md — commands → skills language, counts
+  (9 core agents, 17 skills, 1 workflow), backtick-sandbox lesson retargeted
+  at SKILL.md paths.
 
 ## Verification
-- test-hooks.sh: 34/34 (/bin/bash 3.2) incl. 4 new verify-gate tests
-- test-sync-lessons.sh: 15/15; settings.base.json valid; install/uninstall bash -n
+- Conversion validated by a dedicated agent: 16/16 frontmatter + heading-
+  sequence identical to originals; no stale MCP names; no retired-command refs.
+- bash -n install.sh/uninstall.sh; full hook + sync-lessons suites.
 
-## Next phases (plan: ~/.claude/plans/calm-skipping-thunder.md)
-2. commands/ → skills/ migration; boris consolidation; CLAUDE.md slimming.
-3. Memory hybrid; agent memory for specialists.
-4. /ci-loop → /loop; model tiers; permissions overhaul; plugin packaging.
+## Next (plan: ~/.claude/plans/calm-skipping-thunder.md)
+- Phase 2b: CLAUDE.md slimming into rules/skills/memory topics + sync-lessons
+  retarget. Phase 3: memory hybrid. Phase 4: /ci-loop → /loop, model tiers,
+  permissions overhaul, plugin packaging, scheduled maintenance.

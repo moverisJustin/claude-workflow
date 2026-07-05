@@ -1,4 +1,5 @@
 ---
+name: drift-check
 description: Run drift detection on Memory Bank files. Validates that documentation matches codebase reality and suggests fixes.
 ---
 

@@ -1,5 +1,7 @@
 ---
+name: memory-init
 description: Initialize Memory Bank for a new project. Creates memory structure and populates with project context.
+disable-model-invocation: true
 ---
 
 # Initialize Memory Bank

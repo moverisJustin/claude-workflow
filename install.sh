@@ -2,7 +2,8 @@
 set -euo pipefail
 
 # Claude Workflow Installer
-# Installs agents, commands, skills, and merges settings into ~/.claude/
+# Installs agents, skills, workflows, and hook scripts, and merges settings
+# into ~/.claude/. Commands are fully migrated to skills (same /name).
 # Safe to run multiple times (idempotent)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,6 +39,11 @@ if [ -d "$CLAUDE_DIR/commands" ]; then
   echo "  Backed up commands/"
 fi
 
+if [ -d "$CLAUDE_DIR/skills" ]; then
+  cp -r "$CLAUDE_DIR/skills" "$BACKUP_DIR/skills"
+  echo "  Backed up skills/"
+fi
+
 echo "  Backups saved to: $BACKUP_DIR"
 echo ""
 
@@ -66,16 +72,16 @@ for f in "$SCRIPT_DIR/agents/community/"*.md; do
 done
 echo "  Installed $AGENT_COUNT agents ($(ls "$SCRIPT_DIR/agents/"*.md 2>/dev/null | wc -l | xargs) core + $(ls "$SCRIPT_DIR/agents/community/"*.md 2>/dev/null | wc -l | xargs) community, $COLLISIONS collision(s) skipped)"
 
-# --- Phase 3: Install commands ---
-echo "--- Phase 3: Install commands ---"
-mkdir -p "$CLAUDE_DIR/commands"
-CMD_COUNT=0
-for f in "$SCRIPT_DIR/commands/"*.md; do
+# --- Phase 3: Install workflows ---
+echo "--- Phase 3: Install workflows ---"
+mkdir -p "$CLAUDE_DIR/workflows"
+WF_COUNT=0
+for f in "$SCRIPT_DIR/workflows/"*.js; do
   [ -f "$f" ] || continue
-  cp "$f" "$CLAUDE_DIR/commands/$(basename "$f")"
-  CMD_COUNT=$((CMD_COUNT + 1))
+  cp "$f" "$CLAUDE_DIR/workflows/$(basename "$f")"
+  WF_COUNT=$((WF_COUNT + 1))
 done
-echo "  Installed $CMD_COUNT commands"
+echo "  Installed $WF_COUNT workflow script(s)"
 
 # --- Phase 3.5: Remove retired files from previous installs ---
 echo "--- Phase 3.5: Remove retired files ---"
@@ -89,6 +95,7 @@ for f in \
   commands/test-and-fix.md commands/context.md \
   agents/mode-controller.md agents/pr-reviewer.md agents/security-auditor.md \
   agents/verify-app.md agents/code-simplifier.md agents/audit-logger.md \
+  agents/boris.md \
   scripts/hook-branch-switch.sh; do
   if [ -f "$CLAUDE_DIR/$f" ]; then
     rm -f "$CLAUDE_DIR/$f"
@@ -99,11 +106,43 @@ echo "  Removed $RETIRED retired file(s) from ~/.claude"
 
 # --- Phase 4: Install skills ---
 echo "--- Phase 4: Install skills ---"
-mkdir -p "$CLAUDE_DIR/skills/boris-workflow"
-if [ -f "$SCRIPT_DIR/skills/boris-workflow/SKILL.md" ]; then
-  cp "$SCRIPT_DIR/skills/boris-workflow/SKILL.md" "$CLAUDE_DIR/skills/boris-workflow/SKILL.md"
-  echo "  Installed boris-workflow skill"
+mkdir -p "$CLAUDE_DIR/skills"
+SKILL_COUNT=0
+for d in "$SCRIPT_DIR/skills/"*/; do
+  [ -f "$d/SKILL.md" ] || continue
+  name=$(basename "$d")
+  # Replace, don't merge: a merged copy would keep supporting files that
+  # newer repo versions deleted or renamed (stale-file shadowing).
+  rm -rf "$CLAUDE_DIR/skills/$name"
+  mkdir -p "$CLAUDE_DIR/skills/$name"
+  cp -R "$d/." "$CLAUDE_DIR/skills/$name/"
+  SKILL_COUNT=$((SKILL_COUNT + 1))
+done
+echo "  Installed $SKILL_COUNT skills"
+
+# --- Phase 4.5: Remove command flat-copies now superseded by skills ---
+# Runs AFTER the skills install so an aborted run can never leave a machine
+# with neither the old command nor its skill replacement. Skills win on name
+# conflict anyway; this just clears the stale shadow copies.
+echo "--- Phase 4.5: Remove superseded command copies ---"
+SUPERSEDED=0
+for d in "$SCRIPT_DIR/skills/"*/; do
+  name=$(basename "$d")
+  if [ -f "$CLAUDE_DIR/commands/$name.md" ]; then
+    rm -f "$CLAUDE_DIR/commands/$name.md"
+    SUPERSEDED=$((SUPERSEDED + 1))
+  fi
+done
+if [ -f "$CLAUDE_DIR/commands/boris.md" ]; then
+  rm -f "$CLAUDE_DIR/commands/boris.md"
+  SUPERSEDED=$((SUPERSEDED + 1))
 fi
+if [ -d "$CLAUDE_DIR/skills/boris-workflow" ]; then
+  rm -rf "$CLAUDE_DIR/skills/boris-workflow"
+  SUPERSEDED=$((SUPERSEDED + 1))
+fi
+rmdir "$CLAUDE_DIR/commands" 2>/dev/null || true
+echo "  Removed $SUPERSEDED superseded command cop(ies)"
 
 # --- Phase 5: Merge settings.json ---
 echo "--- Phase 5: Merge settings.json ---"
@@ -283,8 +322,8 @@ echo "=== Installation Complete ==="
 echo ""
 echo "Installed:"
 echo "  - $AGENT_COUNT agents"
-echo "  - $CMD_COUNT commands"
-echo "  - 1 skill (boris-workflow)"
+echo "  - $SKILL_COUNT skills (invoked as /name — commands are fully migrated to skills)"
+echo "  - $WF_COUNT workflow script(s)"
 echo "  - $SCRIPT_COUNT hook scripts"
 echo "  - $CONTEXT_COUNT context templates"
 echo "  - settings.json (merged with hooks)"

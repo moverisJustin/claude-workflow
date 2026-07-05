@@ -1,5 +1,9 @@
 ---
+name: task-branch
 description: Create a feature branch with task context. Initializes .claude/task-context.md for cross-machine handoff.
+argument-hint: [branch-name]
+disable-model-invocation: true
+allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git branch:*), Bash(git status:*), Bash(git push:*)
 ---
 
 # Create Task Branch

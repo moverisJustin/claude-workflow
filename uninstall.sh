@@ -9,8 +9,9 @@ BACKUP_BASE="$CLAUDE_DIR/backups"
 
 echo "=== Claude Workflow Uninstaller ==="
 
-# Find most recent backup
-LATEST_BACKUP=$(ls -dt "$BACKUP_BASE"/workflow-* 2>/dev/null | head -1)
+# Find most recent backup (|| true: under set -e/pipefail a missing backup
+# dir would otherwise kill the script before the friendly message below)
+LATEST_BACKUP=$(ls -dt "$BACKUP_BASE"/workflow-* 2>/dev/null | head -1 || true)
 
 if [ -z "$LATEST_BACKUP" ]; then
   echo "No backups found in $BACKUP_BASE/workflow-*"
@@ -50,11 +51,35 @@ if [ -d "$LATEST_BACKUP/commands" ]; then
   echo "  Restored commands/"
 fi
 
-# Remove skills added by workflow
+# Skills: restore the backup snapshot when one exists (symmetric with agents/ —
+# a user's pre-existing same-named skill comes back); otherwise remove exactly
+# what this repo installed (derived from the repo's own skills/ dir so the
+# list never goes stale; boris-workflow covers old installs)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -d "$LATEST_BACKUP/skills" ]; then
+  rm -rf "$CLAUDE_DIR/skills"
+  cp -r "$LATEST_BACKUP/skills" "$CLAUDE_DIR/skills"
+  echo "  Restored skills/ from backup"
+else
+  for d in "$SCRIPT_DIR/skills/"*/; do
+    name=$(basename "$d")
+    if [ -d "$CLAUDE_DIR/skills/$name" ]; then
+      rm -rf "$CLAUDE_DIR/skills/$name"
+      echo "  Removed skill: $name"
+    fi
+  done
+fi
 if [ -d "$CLAUDE_DIR/skills/boris-workflow" ]; then
   rm -rf "$CLAUDE_DIR/skills/boris-workflow"
   echo "  Removed boris-workflow skill"
 fi
+for f in "$SCRIPT_DIR/workflows/"*.js; do
+  [ -f "$f" ] || continue
+  if [ -f "$CLAUDE_DIR/workflows/$(basename "$f")" ]; then
+    rm -f "$CLAUDE_DIR/workflows/$(basename "$f")"
+    echo "  Removed workflow: $(basename "$f")"
+  fi
+done
 
 # Remove workflow-installed hook scripts and context templates.
 # hook-*.sh is globbed so future hooks (and long-retired ones from old

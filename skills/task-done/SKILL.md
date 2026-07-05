@@ -1,5 +1,8 @@
 ---
+name: task-done
 description: Complete a task branch - verify, create PR, and clean up task-context.md for merge.
+disable-model-invocation: true
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git commit:*), Bash(git remote:*), Bash(git push:*), Bash(git rm:*), Bash(gh pr create:*)
 ---
 
 # Complete Task Branch

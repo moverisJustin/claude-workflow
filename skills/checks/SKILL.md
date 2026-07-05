@@ -1,4 +1,5 @@
 ---
+name: checks
 description: Run the project's own quality gates (tests, types, lint, format, build) - stack-detected, no blind polyglot volleys. Sets a verify gate the Stop hook enforces until green.
 ---
 

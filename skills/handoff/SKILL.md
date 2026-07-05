@@ -1,4 +1,5 @@
 ---
+name: handoff
 description: Generate a cognitive briefing for seamless session handoff. Captures mental model, failed approaches, active hypotheses, and a resume prompt — not just file lists.
 ---
 

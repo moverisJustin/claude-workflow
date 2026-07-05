@@ -1,4 +1,5 @@
 ---
+name: session-start
 description: Start a new session by loading Memory Bank context, checking project status, and orienting Claude to continue work seamlessly
 ---
 

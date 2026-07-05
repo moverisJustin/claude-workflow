@@ -1,5 +1,7 @@
 ---
+name: ci-loop
 description: Push code, wait for CI, parse failures, auto-fix, and iterate until green. Automated CI feedback loop.
+disable-model-invocation: true
 ---
 
 # CI Loop
