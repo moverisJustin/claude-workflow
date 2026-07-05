@@ -18,9 +18,9 @@ This workflow fixes that:
 
 - **Patterns compound from real work.** After each session, the GROW step evaluates whether the task should become a reusable pattern. Over time, your project accumulates step-by-step guides for common task types (adding an API endpoint, debugging a pipeline, writing integration tests).
 
-- **Safety rails for destructive operations.** Hooks automatically create non-mutating checkpoints before `git reset --hard`, `rm -rf`, or force-pushes, and high-risk `rm -rf` targets require confirmation. Commands and file writes get audit-logged. You can always `/undo` or `/rollback`.
+- **Safety rails for destructive operations.** Hooks automatically create non-mutating checkpoints before `git reset --hard`, `rm -rf`, or force-pushes, and high-risk `rm -rf` targets require confirmation. Commands and file writes get audit-logged. Claude's own edits are covered by native `/rewind` checkpoints.
 
-- **Complex tasks run themselves.** Instead of manually prompting Claude through multi-step work, `/boris implement user auth` plans the approach, delegates to specialist agents (architect, test-writer, security-auditor), verifies the result, and ships it. 120+ agents cover engineering, design, sales, marketing, product, QA, and more.
+- **Complex tasks run themselves.** Instead of manually prompting Claude through multi-step work, `/boris implement user auth` plans the approach, delegates to specialist agents (architect, test-writer), verifies with native `/verify` + `/code-review`, and ships it. 110+ agents cover engineering, design, sales, marketing, product, QA, and more.
 
 - **Context travels with branches.** Each feature branch carries a `.claude/task-context.md` with the objective, plan, decisions, and progress. Switch machines, switch people, `git pull` the branch and Claude has full context.
 
@@ -28,10 +28,10 @@ This workflow fixes that:
 
 | Category | Count | Highlights |
 |---|---|---|
-| Core agents | 16 | Boris orchestrator, code-architect, test-writer, verify-app, security-auditor, linear-project-manager |
+| Core agents | 10 | Boris orchestrator, code-architect, test-writer, doc-generator, oncall-guide, linear-project-manager |
 | Community agents | 105 | Engineering, design, sales, marketing, product, PM, QA, support, game dev, paid media, specialized |
-| Slash commands | 25 | `/boris`, `/session-start`, `/verify-all`, `/fix-issue`, `/task-branch`, `/drift-check`, `/load-context`, and more |
-| Hook scripts | 7 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery |
+| Slash commands | 17 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/load-context`, and more |
+| Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
 | Context templates | 2 | ROUTER.md (context routing), patterns/INDEX.md (pattern registry) |
 | Skills | 1 | Boris workflow methodology |
 | Settings | -- | Wildcard permissions, Prettier hook, audit logging, deny list for dangerous ops |
@@ -64,13 +64,13 @@ Then in any Claude Code session:
 | Complex task | `/boris implement user authentication` |
 | Bug from Linear | `/fix-issue PROJ-123` |
 | Switch task type | `/load-context debug` or `/load-context deploy` |
-| Before merging | `/verify-all` then `/review-changes` then `/commit-push-pr` |
-| Something broke | `/mode debug` then investigate then `/mode code` then fix |
+| Before merging | `/checks` then `/code-review medium` then `/commit-push-pr` |
+| Something broke | Point Claude at the logs/error (plan mode first for read-only investigation) |
 | Task complete | `/task-done` (verify, PR, cleanup) |
 | Docs drifting? | `/drift-check` (validates Memory Bank against codebase) |
 | Context getting full | `/handoff` (compaction itself is auto-covered by the PreCompact snapshot + post-compaction recovery hooks) |
 | End of day | `/session-end` (saves state, grows patterns, checks drift) |
-| Oops | `/undo` or `/rollback` |
+| Oops | `/rewind` (Esc-Esc) for Claude's edits; `git reset --soft HEAD^` for a bad commit |
 
 ## Key Concepts
 
@@ -92,8 +92,8 @@ When you correct Claude ("don't mock the database in tests", "always check colum
 ### Task Context
 Feature branches carry `.claude/task-context.md` with the objective, plan, key decisions, and current progress. Created by `/task-branch`, auto-loaded by `/session-start`, removed when the branch merges. This means anyone (or any machine) can pick up a branch cold and Claude has full context.
 
-### Modes
-`/mode architect` (read-only design), `/mode code` (full implementation), `/mode debug` (investigation), `/mode review` (read-only code review), `/mode audit` (security scanning). Each mode restricts tool access to prevent accidents.
+### Modes (Native)
+The old prose `/mode` system is retired — it promised restrictions the model could only honor, not enforce. Use the platform's real modes: **plan mode** (Shift+Tab or `/plan`) for read-only design and review — enforced by the harness, not by a promise — default/acceptEdits permission modes for implementation, the audit hooks for a real command/file-write trail, and `/security-review` for the security pass.
 
 ---
 
@@ -108,49 +108,39 @@ Feature branches carry `.claude/task-context.md` with the objective, plan, key d
 | `/boris <task>` | Full orchestrated workflow -- plan, delegate, verify, ship |
 | `/session-start` | Load Memory Bank, check project status, orient to continue |
 | `/session-end` | Save Memory Bank state, create session summary for next time |
-| `/verify-all` | Run tests, types, lint, build -- full verification suite |
-| `/test-and-fix` | Run tests, analyze failures, fix, repeat until green |
-| `/security-scan` | SAST, dependency CVEs, secrets detection, OWASP checks |
+| `/checks` | Stack-detected quality gates (tests, types, lint, format, build) with a Stop-hook verify gate |
 | `/task-branch <name>` | Create feature branch with task context for cross-machine handoff |
 | `/task-done` | Complete task: verify, create PR, clean up task-context.md |
 | `/commit-push-pr` | Stage, commit, push, create PR -- full git workflow |
 | `/quick-commit` | Fast local commit with auto-generated message (no push) |
-| `/undo` | Revert the last Claude-made change safely |
-| `/checkpoint <name>` | Create a named save point for easy rollback |
-| `/rollback` | Restore a previous checkpoint or go back N commits |
-| `/mode <mode>` | Switch mode: `architect`, `code`, `debug`, `review`, `audit` |
 | `/fix-issue <id>` | Fetch issue from Linear/GitHub, implement fix, create PR |
 | `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
-| `/context` | Show context window usage and Memory Bank status |
 | `/memory-init` | Initialize Memory Bank for a new project |
 | `/handoff` | Cognitive briefing -- saves mental model, failed approaches, resume prompt |
 | `/load-context <type>` | Load task-specific context mid-session (feature/debug/test/deploy/etc) |
 | `/drift-check` | Validate Memory Bank accuracy against codebase, suggest and auto-fix drift |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
 | `/first-principles` | Break down a complex problem from fundamentals |
-| `/review-changes` | Review uncommitted changes before committing |
 | `/anythingelse` | Creative wildcard prompt |
 
-### Core Agents (16)
+Retired in favor of native Claude Code features: `/verify-all` + `/test-and-fix` → `/verify` + `/checks`; `/review-changes` → `/code-review <effort>` (`ultra` for cloud review); `/security-scan` → `/security-review`; `/undo`/`/checkpoint`/`/rollback` → `/rewind`; `/mode` → native plan/permission modes; `/context` → native `/context` + statusline.
+
+### Core Agents (10)
 
 | Agent | Role |
 |---|---|
 | **boris** | Master orchestrator -- plans, delegates to specialists, verifies |
 | **code-architect** | System design, architecture decisions, technical planning |
-| **code-simplifier** | Clean up code after implementation -- reduce complexity |
 | **test-writer** | Generate comprehensive tests (JS/TS/Python) |
-| **verify-app** | End-to-end verification before shipping |
-| **pr-reviewer** | Automated code review -- bugs, security, style |
 | **doc-generator** | Generate/update README, API docs, CLAUDE.md |
 | **ci-integrator** | CI pipeline automation -- push, monitor, fix, iterate |
 | **issue-tracker** | Linear/GitHub issue management and lifecycle |
-| **git-guardian** | Safe git ops -- dirty file protection, checkpoints, attribution |
+| **git-guardian** | Git safety -- push-target/staging verification, branch protection |
 | **memory-bank** | Cross-session context persistence |
-| **mode-controller** | Behavioral mode switching with tool access restrictions |
-| **security-auditor** | Vulnerability scanning and security assessment |
-| **audit-logger** | Compliance audit trails (SOC 2, ISO 27001, HIPAA) |
 | **oncall-guide** | Production incident debugging and rapid resolution |
 | **linear-project-manager** | Linear-native issue, sprint, and project management |
+
+Six former agents are native features now: code-simplifier → `/simplify`, verify-app → `/verify` + `/checks`, pr-reviewer → `/code-review`, security-auditor → `/security-review`, mode-controller → native plan/permission modes, audit-logger → the PreToolUse audit hooks. Native versions are harness-enforced and independently verified -- strictly better than the prompt-based agents they replace.
 
 ### Community Agents (105)
 

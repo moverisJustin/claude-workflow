@@ -26,7 +26,7 @@ If not in a git repo, note that and proceed with Memory Bank updates only.
 Option A - Ready to commit:
 ```bash
 # Verify first
-/verify-all
+/checks
 # Then commit
 /commit-push-pr
 ```

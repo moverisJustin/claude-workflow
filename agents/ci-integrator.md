@@ -311,7 +311,7 @@ npm run test:e2e -- --headed tests/e2e/checkout.spec.ts
 - Called by `/ci-loop` command
 - Part of `/commit-push-pr` workflow option
 - Memory Bank tracks CI patterns
-- Git Guardian creates checkpoints before CI loops
+- The destructive-guard hook auto-checkpoints risky git operations during CI fix loops; native /rewind covers Claude's own edits
 
 ## Configuration
 

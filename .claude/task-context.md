@@ -1,52 +1,45 @@
-# Task Context — claude/festive-pike-877a96
+# Task Context — feature/phase1-retire-native-superseded
 
 ## Objective
-Boris v3 upgrade, **Phase 0: fix what's silently broken**. First PR of the approved
-upgrade path (plan: "delete the machinery, keep the opinions") that modernizes the
-repo against 2026 Claude Code — later phases adopt skills, native plan mode, /rewind,
-/loop, the Workflow tool, plugins, and native memory.
+Boris v3 upgrade, **Phase 1: retire what native Claude Code strictly dominates**
+(second PR of the approved plan; Phase 0 = PR #5, merged). Docs updated in the
+same commit so nothing mandates deleted machinery.
 
-## Why Phase 0 first
-A 9-agent review found the hook layer — the repo's advertised safety net — was inert:
-`settings.base.json` used object-form matchers and `$CLAUDE_TOOL_INPUT`/`$CLAUDE_FILE_PATH`
-env vars that don't exist in the real hooks contract (string matchers, JSON on stdin).
-Every reactive hook silently no-opped. Everything downstream assumes working hooks.
+## Retired (9 commands, 6 agents)
+| Was | Native replacement |
+|---|---|
+| /checkpoint, /rollback, /undo | /rewind (Esc-Esc); `git reset --soft HEAD^` for commits; auto-checkpoint tags for bash destruction |
+| /mode + mode-controller agent | Native plan mode / permission modes (harness-enforced) |
+| /review-changes + pr-reviewer | /code-review <effort> (--comment, --fix, ultra) |
+| /security-scan + security-auditor | /security-review |
+| /verify-all, /test-and-fix + verify-app | /verify + new /checks command |
+| code-simplifier agent | /simplify |
+| audit-logger agent | Working PreToolUse audit hooks (Phase 0) |
+| /context | Native /context + statusline |
 
-## Changes in this branch
-- **Hook contract rewrite** (stdin JSON, python3 parsing, fail-open):
-  - `hook-destructive-guard.sh`: compound-command detection; NON-mutating checkpoint
-    (`git tag` + `git stash create/store` — never `stash push`, which yanked dirty work
-    out of the tree); `permissionDecision: ask` for high-risk `rm -rf` targets;
-    `-c tag.gpgsign=false` so signed-tag machines don't fail.
-  - `hook-audit.sh` (new): replaces the two inert inline audit hooks.
-  - `hook-prettier.sh` (new): replaces inline prettier hook; `npx --no-install`.
-  - `hook-drift-watch.sh`: finally wired (PostToolUse + `if: Bash(git commit*)`),
-    emits JSON `additionalContext` (plain stdout never reached context on PostToolUse).
-  - `hook-precompact.sh` (new): PreCompact briefing-preservation directive — the
-    mechanical replacement for the unenforceable 60%/75% Context Guardian protocol.
-  - `hook-branch-switch.sh`: retired (log-only; advertised auto-stash never existed).
-  - `settings.base.json`: hooks block rewritten to the documented format.
-- **Latent bugs / supply chain**:
-  - `sync-lessons.sh`: lessons now insert INSIDE the Learned Patterns section (EOF
-    append broke dedup when a trailing section existed → infinite re-appends).
-  - `test-sync-lessons.sh`: placement + idempotency assertions added.
-  - `sync-agency-agents.sh`: upstream pinned to reviewed SHA 217a63b (env-overridable).
-  - `install.sh`: community agents can no longer shadow core agents on basename collision.
-- **CI**: `.github/workflows/ci.yml` — sync-lessons + hook-contract tests + drift-check
-  smoke on ubuntu AND macos (`/bin/bash` = bash 3.2 floor). New `scripts/test-hooks.sh`.
-- Docs updated in lockstep (README, CHEATSHEET, CLAUDE.md §7).
+## Added
+- `commands/checks.md`: stack-DETECTED quality gates (no blind npm+pytest
+  volleys; includes `ruff format --check`); arms `.claude/audit/verify-gate`
+  (self-gitignored dir, root-anchored via `git rev-parse --show-toplevel`).
+- `scripts/hook-stop-verify.sh` + Stop hook wiring: blocks turn-end while the
+  gate is armed (opt-in per /checks run, never blocks normal turns); escape
+  hatch after 3 attempts + 2h staleness disarm so the agent is never trapped.
+- `install.sh` Phase 3.5: removes retired files from existing installs.
+- git-guardian rewritten slim: push-target/staging verification + branch
+  protection + recovery routing table (its checkpoint/undo core is gone).
+
+## Docs updated in lockstep
+CLAUDE.md (quick ref, §2, §4, §7, §10), README.md (counts 16→10 agents /
+25→17 commands, tables, modes), CHEATSHEET.md ("Native Replacements" table),
+boris.md + skills/boris-workflow delegation tables, session-end.md,
+task-done.md (the `|| true` verification chain is gone), and the user-global
+~/.claude/CLAUDE.md (2 stale references, machine-local, not in this diff).
 
 ## Verification
-- `scripts/test-hooks.sh`: 19/19 with /bin/bash 3.2
-- `test-sync-lessons.sh`: 10/10 (new assertions fail against the old code)
-- `drift-check.sh --json` smoke: OK; `settings.base.json` valid JSON
-- Pinned-SHA fetch verified against GitHub
+- test-hooks.sh: 34/34 (/bin/bash 3.2) incl. 4 new verify-gate tests
+- test-sync-lessons.sh: 15/15; settings.base.json valid; install/uninstall bash -n
 
-## Next phases (see ~/.claude/plans/calm-skipping-thunder.md)
-1. Retirements: /checkpoint//rollback//undo → /rewind; mode system → plan mode;
-   review/security commands → /code-review //security-review; verify-all → /verify.
-2. commands/ → skills/ migration; boris → plan mode + Agent tool + saved Workflow.
-3. Memory hybrid (keep conventions/decisionLog/projectContext + task-context.md;
-   delete router/activeContext/sessionHistory machinery).
-4. /ci-loop → /loop; model tiers; permissions overhaul; plugin packaging; scheduled
-   maintenance routine.
+## Next phases (plan: ~/.claude/plans/calm-skipping-thunder.md)
+2. commands/ → skills/ migration; boris consolidation; CLAUDE.md slimming.
+3. Memory hybrid; agent memory for specialists.
+4. /ci-loop → /loop; model tiers; permissions overhaul; plugin packaging.

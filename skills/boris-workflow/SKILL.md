@@ -37,7 +37,7 @@ This skill documents the workflow used by Boris Cherny, creator of Claude Code. 
 - This compounds over time
 
 ### 4. Delegate to Specialists
-> "I use subagents regularly: code-simplifier, verify-app, and so on."
+> "I use subagents regularly" — and native skills where the platform now covers the job: /simplify, /verify, /code-review.
 
 **Implementation:**
 - Use Task tool to invoke specialist agents
@@ -77,9 +77,9 @@ When handling a task as the Boris orchestrator:
    - Track progress
 
 4. VERIFY
-   - Run all automated checks
-   - Invoke verify-app agent
-   - Use code-simplifier to clean up
+   - Run /checks (stack-detected quality gates)
+   - Run /verify for behavioral verification (run the app, observe it)
+   - Run /simplify to clean up the implementation
    - Iterate until all checks pass
 
 5. SHIP
@@ -91,15 +91,16 @@ When handling a task as the Boris orchestrator:
 
 ## Agent Selection Guide
 
-| Task Type | Agent | When to Use |
-|-----------|-------|-------------|
-| Design decisions | code-architect | Before major implementations |
-| Writing tests | test-writer | New features need tests |
-| Code review | pr-reviewer | Before merging any PR |
-| Cleanup | code-simplifier | After implementation complete |
-| Verification | verify-app | Before shipping anything |
-| Documentation | doc-generator | After significant changes |
-| Incidents | oncall-guide | Production issues |
+| Task Type | Use | When |
+|-----------|-----|------|
+| Design decisions | code-architect agent | Before major implementations |
+| Writing tests | test-writer agent | New features need tests |
+| Code review | `/code-review <effort>` (native) | Before merging any PR |
+| Cleanup | `/simplify` (native) | After implementation complete |
+| Verification | `/verify` + `/checks` (native) | Before shipping anything |
+| Security | `/security-review` (native) | Branch-level security pass |
+| Documentation | doc-generator agent | After significant changes |
+| Incidents | oncall-guide agent | Production issues |
 
 ## Verification Checklist
 

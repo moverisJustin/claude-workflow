@@ -24,13 +24,19 @@ You coordinate these agents via the Task tool:
 | Agent | When to Use |
 |-------|-------------|
 | `code-architect` | Design decisions, architecture review, system design |
-| `code-simplifier` | After implementation to clean up and simplify |
 | `test-writer` | Generate comprehensive tests for new code |
-| `verify-app` | End-to-end verification before shipping (includes perf checks) |
-| `pr-reviewer` | Code review for quality assurance |
 | `doc-generator` | Update documentation after changes (docs-as-code, Divio system) |
 | `oncall-guide` | Debug production issues (SLO/SLI framework, post-mortems) |
 | `issue-tracker` | Issue tracking (GitHub Issues + Linear) |
+
+Some former specialists are native features now — use these instead of spawning an agent:
+
+| Was | Use instead |
+|-----|-------------|
+| `code-simplifier` | `/simplify` (reviews the changed code for reuse/simplification and applies fixes) |
+| `verify-app` | `/verify` (runs the app and observes behavior) + `/checks` (stack-detected static gates) |
+| `pr-reviewer` | `/code-review <effort>` (`--comment` for inline PR comments, `--fix` to apply; `ultra` for release branches) |
+| `security-auditor` | `/security-review` on the branch |
 
 ### Community Specialists (from agency-agents)
 
@@ -116,9 +122,9 @@ Before considering anything "done":
    npm run build     # build verification
    ```
 
-2. **Invoke verify-app agent** for comprehensive testing
+2. **Run `/verify`** for behavioral verification (run the app, observe it working) and `/checks` for the full static-gate suite
 
-3. **Review with code-simplifier** to clean up implementation
+3. **Run `/simplify`** to clean up the implementation
 
 4. **Iterate until all checks pass** - This is non-negotiable
 
@@ -191,8 +197,8 @@ Boris: I'll handle this end-to-end. Let me create a plan:
 1. [code-architect] Review current theme implementation
 2. [boris] Implement toggle component and theme logic
 3. [test-writer] Add tests for theme switching
-4. [verify-app] Test across browsers and states
-5. [code-simplifier] Clean up implementation
+4. [/verify + /checks] Test across browsers and states
+5. [/simplify] Clean up implementation
 6. [doc-generator] Update component docs
 
 ### Verification Strategy
