@@ -1,265 +1,78 @@
 ---
 name: session-end
-description: End session by saving Memory Bank state, creating session summary, and preserving context for seamless continuation
+description: End a session cleanly - commit or stash work, persist any new decisions/conventions, update the branch task-context, and run a drift check.
 disable-model-invocation: true
 ---
 
 # Session End
 
-## Current State
+Session state ("what happened / where I am") is captured by **native
+auto-memory** automatically — this skill handles the things that aren't
+automatic: committing work, persisting *structured* knowledge (ADRs,
+project-specific conventions), and updating the committed task-context so the
+branch resumes cleanly on any machine.
 
-Gather the current state by running these git commands (skip any that fail — the working directory may not be a git repo):
+## 1. Handle uncommitted work
 
-1. `git status --short` — uncommitted changes
-2. `git diff --stat` — change summary
-3. `git log --oneline -10` — recent commits
-4. `git diff --name-only HEAD~5` — recently modified files
-
-If not in a git repo, note that and proceed with Memory Bank updates only.
-
----
-
-## Session Wrap-up Protocol
-
-### 1. Handle Uncommitted Work
-
-**If uncommitted changes exist:**
-
-Option A - Ready to commit:
 ```bash
-# Verify first
-/checks
-# Then commit
-/commit-push-pr
+git status --short
+git diff --stat
 ```
 
-Option B - Work in progress:
-```bash
-# Create checkpoint
-git stash push -m "session-end-$(date +%Y%m%d-%H%M%S)"
-```
+- **Ready to ship**: `/checks` then `/commit-push-pr`.
+- **Work in progress**: `git commit -m "wip: session checkpoint - [what]"` (or
+  `git stash push -m "session-end-<desc>"` if you don't want a commit).
 
-Option C - Save as WIP commit:
-```bash
-git add -A
-git commit -m "wip: session checkpoint - [brief description]"
-```
+## 2. Persist structured knowledge (only if new this session)
 
-### 2. Generate Session Summary
+- **New decision / trade-off / architectural choice** → add an ADR entry to
+  `.claude/memory/decisionLog.md`.
+- **New project-specific convention or a correction worth keeping** → add it to
+  `.claude/memory/conventions.md` (format: `### short title` + what/why/instead).
+  If it's a *universal* lesson, put it in `~/.claude/rules/learned-patterns.md`
+  instead (see `/update-claude-md` for routing), and tag `<!-- shareable -->`
+  only if it's safe to publish.
+- **A repeatable multi-step procedure emerged** → capture it as a **skill**
+  (`skills/<name>/SKILL.md`), not a memory file — skills load on demand and are
+  invocable. (This replaces the old GROW/patterns step.)
 
-Analyze this session and document:
+Skip anything with nothing new. Don't manufacture entries.
 
-**What Was Accomplished**
-- List completed tasks
-- Note features implemented
-- Record bugs fixed
-- Count commits made
+## 3. Update task-context (if on a feature branch)
 
-**Key Decisions Made**
-- Any architectural choices
-- Technical trade-offs decided
-- Patterns established
+If `.claude/task-context.md` exists:
+- Update Progress (mark completed, add new items), append any new Decisions,
+  refresh Notes with a resume prompt for the next session.
+- Keep the Objective/Plan structure intact.
 
-**Files Modified**
-- List significant file changes
-- Note new files created
-- Flag deleted files
-
-### 2.3. Generate Cognitive Briefing
-
-Before saving to Memory Bank, generate a cognitive briefing (same format as `/handoff`):
-
-**Resume Prompt** (3-5 sentences):
-Write a single paragraph that a fresh session could read to instantly reconstruct the full mental model. Include: what we're building, where we are, current approach, immediate next step.
-
-**Failed Approaches** (if any this session):
-Document what was tried and didn't work, so the next session doesn't retry it.
-
-**Active Hypotheses** (if exploring something):
-What theories are being tested, evidence for/against, next validation step.
-
-This cognitive briefing goes into `.claude/memory/activeContext.md` as part of step 3.
-
-### 2.5. Update Task Context (if on feature branch)
-
-If `.claude/task-context.md` exists on this branch:
-
-**Update `.claude/task-context.md`:**
-- Update Progress section (mark completed items, add new ones)
-- Add any new Decisions made this session
-- Update Notes with context for next session
-- Do NOT change the Objective or Plan structure
-
-**Commit task-context.md update:**
 ```bash
 git add .claude/task-context.md
 git commit -m "chore: update task context - session end"
 ```
 
-This ensures cross-machine handoff works: just `git pull` on the branch.
+This is the cross-machine handoff — `git pull` the branch elsewhere and resume
+with full state.
 
-### Legacy Support
-If this project has `tasks/` files alongside or instead of Memory Bank:
-- Also update `tasks/handoff.md` with current state
-- Also update `tasks/todo.md` with progress
-- Also update `tasks/lessons.md` with new conventions/lessons
+## 4. Drift check
 
-### 3. Update Memory Bank
-
-**Update `.claude/memory/activeContext.md`:**
-- Current working state
-- Files in focus
-- Open questions
-- Next steps
-
-**Update `.claude/memory/progress.md`:**
-- Mark completed items as done
-- Add newly discovered tasks
-- Update in-progress items
-
-**Append to `.claude/memory/sessionHistory.md`:**
-```markdown
-## [Today's Date] [Time] - Session Summary
-
-### Duration
-[Approximate session length]
-
-### What Was Accomplished
-- [Task 1]
-- [Task 2]
-
-### Key Decisions Made
-- [Decision if any]
-
-### Files Modified
-- `path/file.ts` - [change summary]
-
-### Commits Created
-- `SHA` message
-
-### Context for Next Session
-[Critical info the next Claude needs]
-
-### Open Items
-- [ ] [Unfinished work]
-- [ ] [Questions to resolve]
-```
-
-**Update `.claude/memory/conventions.md`** (if learned something new):
-- New patterns discovered
-- Mistakes to avoid
-- Best practices identified
-
-**Update `.claude/memory/decisionLog.md`** (if significant decision made):
-- Add new ADR entry
-
-### 3.5. GROW Step — Pattern Accumulation
-
-After updating Memory Bank files, evaluate whether this session's work should become a reusable pattern:
-
-**Ask yourself**: "Did this session involve a task type that could be repeated? Is there a step-by-step approach worth capturing?"
-
-**If yes**:
-1. Check if `.claude/memory/patterns/` exists (create it if not, along with `INDEX.md`)
-2. Check `patterns/INDEX.md` — does a pattern already exist for this task type?
-   - **If yes**: Update the existing pattern file with any new steps, conventions, or mistakes learned
-   - **If no**: Create a new pattern file using this template:
-     ```markdown
-     # Pattern: [Name]
-
-     ## When to Use
-     [1 sentence — what task type triggers this pattern]
-
-     ## Steps
-     1. [Step-by-step guide]
-
-     ## Conventions
-     - [Rules that apply to this task type]
-
-     ## Common Mistakes
-     - [Things that went wrong]
-
-     ## Verify
-     - [ ] [Checklist items]
-     ```
-3. Update `patterns/INDEX.md` with the new/updated pattern entry
-
-**If no**: Skip this step. Not every session produces a pattern. Simple bug fixes, doc updates, and one-off tasks usually don't need one.
-
-### 3.6. Update ROUTER.md — Current Project State
-
-Update the "Current Project State" section in `.claude/memory/ROUTER.md` (if it exists) with:
-- What is currently working
-- What is not yet built
-- Known issues
-
-This re-grounds the next session's agent to the actual state of the project.
-
-### 3.7. Drift Check (Post-Update)
-
-After all Memory Bank updates are written, run a quick drift check:
+Run the project-local script if present, else the global one:
 ```bash
-bash .claude/scripts/drift-check.sh --quiet
+bash .claude/scripts/drift-check.sh --quiet 2>/dev/null \
+  || bash ~/.claude/scripts/drift-check.sh --quiet 2>/dev/null \
+  || true
 ```
+If this session's own edits dropped the score below 80 (e.g. referencing a file
+that was deleted), fix it before finishing. Skip if neither script exists.
 
-If the score dropped below 80 due to this session's own updates (e.g., referencing a file that was just deleted), fix the drift before finalizing. If the script doesn't exist, skip this step.
-
-### 4. Final Checks
-
-Before ending:
-- [ ] All work committed or stashed?
-- [ ] Memory Bank files updated?
-- [ ] Patterns updated (GROW step)?
-- [ ] ROUTER.md project state refreshed?
-- [ ] Any blockers documented?
-- [ ] Drift score healthy (>= 80)?
-- [ ] Push to remote if ready?
-
-### 5. Report to User
+## 5. Report
 
 ```
-Session Complete
+Session complete
 
-Duration: [time]
-Commits: [count]
-Files changed: [count]
+Committed: [count] | Stashed/WIP: [yes/no]
+Persisted: [decisionLog / conventions entries added, or "nothing new"]
+Task context: [updated on <branch> / N/A (on main)]
+Drift: [X/100]
 
-Memory Bank Updated:
-- activeContext.md - Current state saved
-- progress.md - Tasks updated
-- sessionHistory.md - Summary added
-
-Task Context: [Updated on branch / Not applicable (on main)]
-
-Work Status:
-[All committed / Stashed for later / WIP commit created]
-
-Resume with: /session-start
+Resume with /session-start.
 ```
-
----
-
-## Session Summary Template
-
-```markdown
-## Session Summary
-
-### Accomplished
-- [What was done]
-
-### In Progress
-- [Partially complete work]
-
-### Next Steps
-- [What to do next time]
-
-### Blockers
-- [Anything blocking progress]
-
-### Notes
-- [Any other context]
-```
-
----
-
-**Memory Bank preserves your context.** Next session will pick up right where you left off.

@@ -28,5 +28,8 @@ jobs:
       - name: Drift-check smoke test
         run: /bin/bash ./scripts/drift-check.sh --json
 
+      - name: Drift-check precision regression tests
+        run: /bin/bash ./scripts/test-drift-check.sh
+
       - name: settings.base.json is valid JSON
         run: python3 -c "import json; json.load(open('settings.base.json'))"

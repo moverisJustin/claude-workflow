@@ -10,13 +10,13 @@ This workflow fixes that:
 
 - **No more session amnesia.** The Memory Bank gives Claude persistent context per project. It remembers what was decided, what failed, and what's next. `/session-start` picks up exactly where you left off.
 
-- **Smart context loading.** The Context Router loads only the memory files relevant to your current task (2-3 files instead of all 6+). A debug task loads conventions and decision log; a new feature loads project context and patterns. Less token waste, better AI attention.
+- **Small, structured memory.** The Memory Bank holds only what native auto-memory can't: project identity, architecture decisions, and project-specific conventions. Session continuity is delegated to Claude Code's native auto-memory, so nothing is duplicated and no keyword router is needed.
 
 - **Documentation stays honest.** Drift Detection validates your Memory Bank against the actual codebase -- catching dead file paths, deleted branches, missing dependencies, and stale docs. Zero AI tokens, pure bash. Runs automatically at session start and end.
 
 - **Mistakes happen once, not twice.** When Claude makes a mistake and you correct it, the lesson gets saved to Learned Patterns. Those patterns sync across machines via git, so the entire team benefits from every correction. Claude gets better the more you use it.
 
-- **Patterns compound from real work.** After each session, the GROW step evaluates whether the task should become a reusable pattern. Over time, your project accumulates step-by-step guides for common task types (adding an API endpoint, debugging a pipeline, writing integration tests).
+- **Specialists that learn your repo.** The recurring specialist agents carry their own persistent memory (`memory: project`), so test-writer remembers your mock factories and oncall-guide accumulates real incident history — they get better at your codebase over time.
 
 - **Safety rails for destructive operations.** Hooks automatically create non-mutating checkpoints before `git reset --hard`, `rm -rf`, or force-pushes, and high-risk `rm -rf` targets require confirmation. Commands and file writes get audit-logged. Claude's own edits are covered by native `/rewind` checkpoints.
 
@@ -30,11 +30,10 @@ This workflow fixes that:
 |---|---|---|
 | Core agents | 9 | code-architect, test-writer, doc-generator, oncall-guide, git-guardian, linear-project-manager |
 | Community agents | 105 | Engineering, design, sales, marketing, product, PM, QA, support, game dev, paid media, specialized |
-| Skills | 17 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/load-context`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
+| Skills | 16 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/handoff`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
 | Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
 | Rules | 3 | `git-safety.md`, `workflow.md` (always-on policy), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
-| Context templates | 2 | ROUTER.md (context routing), patterns/INDEX.md (pattern registry) |
 | Settings | -- | Wildcard permissions, Prettier hook, audit logging, deny list for dangerous ops |
 
 ## Quick Start
@@ -60,32 +59,29 @@ Then in any Claude Code session:
 
 | Situation | Skill |
 |---|---|
-| Start of day | `/session-start` (routes to task-relevant context, checks drift) |
+| Start of day | `/session-start` (loads the Memory Bank, checks drift) |
 | New task | `/task-branch feature/auth` then start building |
 | Complex task | `/boris implement user authentication` |
 | Bug from Linear | `/fix-issue PROJ-123` |
-| Switch task type | `/load-context debug` or `/load-context deploy` |
+| Switch focus | Just tell Claude — native auto-memory and the Memory Bank carry the context |
 | Before merging | `/checks` then `/code-review medium` then `/commit-push-pr` |
 | Something broke | Point Claude at the logs/error (plan mode first for read-only investigation) |
 | Task complete | `/task-done` (verify, PR, cleanup) |
 | Docs drifting? | `/drift-check` (validates Memory Bank against codebase) |
 | Context getting full | `/handoff` (compaction itself is auto-covered by the PreCompact snapshot + post-compaction recovery hooks) |
-| End of day | `/session-end` (saves state, grows patterns, checks drift) |
+| End of day | `/session-end` (persists decisions, updates task-context, checks drift) |
 | Oops | `/rewind` (Esc-Esc) for Claude's edits; `git reset --soft HEAD^` for a bad commit |
 
 ## Key Concepts
 
 ### Memory Bank
-Each project gets a `.claude/memory/` directory with persistent files: project context, active session state, progress tracking, decision log, conventions, session history, and a context router. Claude reads these at session start and writes them at session end. The result is continuity across sessions without you re-explaining anything.
+Each project gets a `.claude/memory/` directory with three **structured, human-authored** files: `projectContext.md` (project identity), `decisionLog.md` (architecture decisions), and `conventions.md` (project-specific conventions and lessons). These hold what native auto-memory doesn't. Session continuity — "where was I", recent work, rolling summaries — is handled by Claude Code's **native auto-memory** (`MEMORY.md` + topic files, loaded every session) plus session resume, so the Memory Bank stays small and doesn't duplicate it.
 
-### Context Router
-`ROUTER.md` is loaded first every session. It classifies your task by keywords and loads only the 2-3 relevant memory files instead of everything. A debug task loads conventions and the decision log. A new feature loads project context and the pattern index. This keeps token usage low and AI attention focused. Auto-generated for existing projects on their first session after install -- no manual setup required. Use `/load-context <type>` to switch context mid-session.
+### Agent Memory
+The recurring specialist agents (test-writer, doc-generator, code-architect, oncall-guide) carry `memory: project` — they accumulate this repo's testing patterns, doc structure, architecture, and incident history across sessions, so they get better at *your* codebase over time instead of rediscovering it each run.
 
 ### Drift Detection
-`/drift-check` validates that your Memory Bank still matches reality. Five static checkers (zero AI tokens, pure bash) catch dead file paths, deleted branches, missing dependencies, stale docs, and undefined commands. Scoring starts at 100 and deducts per finding. Integrated into `/session-start` (warns if score drops below 80) and `/session-end` (catches drift introduced by the session itself). Optional post-commit hook for continuous monitoring.
-
-### Task Patterns
-Patterns are task-specific step-by-step guides that accumulate from real work. After each session, the GROW step in `/session-end` evaluates whether the task should become a reusable pattern (e.g., "add an API endpoint", "debug a streaming pipeline"). Patterns are registered in `patterns/INDEX.md` and loaded on demand by the router when a matching task comes up. Over time, your project builds a playbook that makes repeated task types faster.
+`/drift-check` validates that your Memory Bank, `CLAUDE.md`, and project `.claude/rules/` still match reality. Five static checkers (zero AI tokens, pure bash) catch dead file paths, deleted branches, missing dependencies, stale docs, and undefined commands. Scoring starts at 100 and deducts per finding. Integrated into `/session-start` (warns if score drops below 80) and `/session-end` (catches drift introduced by the session itself). A post-commit hook alerts on regressions.
 
 ### Learned Patterns
 When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns go to your private `~/.claude/rules/learned-patterns.md` and stay on your machine by default. Sharing to this **public** repo is opt-in: `sync-lessons.sh` only promotes a pattern whose block carries a `<!-- shareable -->` marker, so private/org-specific notes never leak. Shared patterns then sync back to every machine via git. Over time, Claude stops making the mistakes your team has already caught.
@@ -118,7 +114,6 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 | `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
 | `/memory-init` | Initialize Memory Bank for a new project |
 | `/handoff` | Cognitive briefing -- saves mental model, failed approaches, resume prompt |
-| `/load-context <type>` | Load task-specific context mid-session (feature/debug/test/deploy/etc) |
 | `/drift-check` | Validate Memory Bank accuracy against codebase, suggest and auto-fix drift |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
 | `/first-principles` | Break down a complex problem from fundamentals |
@@ -168,7 +163,7 @@ Manage community agents: edit `agents/community/MANIFEST.txt` and run `scripts/s
 
 | Hook | Trigger | What it does |
 |---|---|---|
-| **SessionStart loader** | Every new session | Auto-loads project name, branch, last session state |
+| **SessionStart loader** | Every new session | Auto-loads project name, branch, task-context objective, drift/signing warnings |
 | **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push | Creates a non-mutating checkpoint (tag + `git stash create` snapshot — the working tree is never touched); escalates to a confirmation prompt for high-risk `rm -rf` targets (absolute paths, `~`, `..`, `*`) |
 | **Audit logger** | Before Bash / Edit / Write | Appends a command and file-write trail to `.claude/audit/` |
 | **Drift watcher** | After `git commit` | Runs drift check, alerts Claude if the Memory Bank score drops below 80 |

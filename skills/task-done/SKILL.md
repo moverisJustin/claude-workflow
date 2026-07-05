@@ -97,17 +97,15 @@ gh pr create \
 [Verification results from step 2]"
 ```
 
-### 7. Update Memory Bank
+### 7. Persist what's durable
 
-**Update `.claude/memory/progress.md`:**
-- Move the task to "Completed" section
-
-**Update `.claude/memory/activeContext.md`:**
-- Clear branch-specific context
-- Note the task completion and PR
-
-**Append to `.claude/memory/sessionHistory.md`:**
-- Task completion entry with branch name and PR link
+- If the task produced a **decision** worth keeping → add an ADR to
+  `.claude/memory/decisionLog.md`.
+- If it surfaced a **project-specific convention or lesson** → add it to
+  `.claude/memory/conventions.md`.
+- The task's own progress/state lived in `.claude/task-context.md` (removed in
+  step 5 for merge) and in native auto-memory — nothing else to update. There
+  is no progress/activeContext/sessionHistory to touch.
 
 ### 8. Report
 
@@ -120,7 +118,7 @@ Commits: [count]
 Verification: [pass/fail summary]
 
 Task context captured in PR description.
-Memory Bank updated.
+Durable decisions/conventions persisted (if any).
 
 Next: Review and merge the PR, then delete the remote branch.
 ```

@@ -2,7 +2,13 @@
 name: test-writer
 description: Generate comprehensive tests for code. Use when new features need tests, coverage is low, or critical paths need better testing.
 tools: Read, Write, Edit, Grep, Glob, Bash
+memory: project
 ---
+
+<!-- Record durable, repo-specific testing knowledge to your agent memory as
+you work: the test runner + exact invocation, mock/factory patterns, fixture
+locations, framework quirks, and what tends to break. Recall it on future runs
+instead of rediscovering the suite from scratch. -->
 
 # Test Writer Agent
 
