@@ -1,4 +1,5 @@
 ---
+name: update-claude-md
 description: Update CLAUDE.md with learnings from recent work - mistakes to avoid, new patterns, updated commands
 ---
 

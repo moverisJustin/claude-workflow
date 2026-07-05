@@ -1,5 +1,7 @@
 ---
+name: load-context
 description: Load task-specific context mid-session using the Router. Use when switching task types without restarting the session.
+argument-hint: [type]
 ---
 
 # Load Context

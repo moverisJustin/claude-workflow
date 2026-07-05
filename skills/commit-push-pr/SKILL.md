@@ -1,5 +1,8 @@
 ---
+name: commit-push-pr
 description: Complete git workflow - stage changes, commit with conventional message, push to remote, and create a pull request
+disable-model-invocation: true
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git commit:*), Bash(git remote:*), Bash(git push:*), Bash(gh pr create:*)
 ---
 
 # Git Context

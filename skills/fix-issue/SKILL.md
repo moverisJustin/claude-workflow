@@ -1,5 +1,8 @@
 ---
+name: fix-issue
 description: Fetch a GitHub/Linear issue, understand requirements, implement the fix, and create a PR. End-to-end issue resolution.
+argument-hint: [issue-id]
+disable-model-invocation: true
 ---
 
 # Fix Issue: $ARGUMENTS
@@ -9,13 +12,15 @@ description: Fetch a GitHub/Linear issue, understand requirements, implement the
 !`gh issue view $ARGUMENTS --json number,title,body,labels,assignees,state`
 
 ## Linear Issue (if GitHub issue not found)
-If the issue number starts with a project prefix (e.g., PROJ-123), use Linear MCP tools instead:
-- Use `mcp__claude_ai_Linear__get_issue` to fetch issue details
-- Use `mcp__claude_ai_Linear__update_issue` to update status
-- Use `mcp__claude_ai_Linear__create_comment` to add comments
+If the issue number starts with a project prefix (e.g., PROJ-123), use the connected Linear MCP tools instead (find them via tool search — exact names vary by server version):
+- Fetch the issue details
+- Update the issue status
+- Add a comment on the issue
 
 ## Issue Comments (Context)
-!`gh issue view $ARGUMENTS --json comments -q '.comments[-3:] | .[].body'`
+!`gh issue view $ARGUMENTS --json comments`
+
+Focus on the most recent comments for context.
 
 ---
 

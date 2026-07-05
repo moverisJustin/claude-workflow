@@ -1,6 +1,6 @@
 # Claude Workflow
 
-A shared Claude Code configuration that makes every team member's AI sessions smarter, safer, and continuous. Based on [claude-boris v2.0](https://github.com/llcoolblaze/claude-boris), customized with Linear integration, 120+ specialist agents, and cross-machine knowledge syncing.
+A shared Claude Code configuration that makes every team member's AI sessions smarter, safer, and continuous. Based on [claude-boris v2.0](https://github.com/llcoolblaze/claude-boris), customized with Linear integration, 114 specialist agents (9 core + 105 community), and cross-machine knowledge syncing.
 
 ## Why Use This
 
@@ -28,12 +28,12 @@ This workflow fixes that:
 
 | Category | Count | Highlights |
 |---|---|---|
-| Core agents | 10 | Boris orchestrator, code-architect, test-writer, doc-generator, oncall-guide, linear-project-manager |
+| Core agents | 9 | code-architect, test-writer, doc-generator, oncall-guide, git-guardian, linear-project-manager |
 | Community agents | 105 | Engineering, design, sales, marketing, product, PM, QA, support, game dev, paid media, specialized |
-| Slash commands | 17 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/load-context`, and more |
+| Skills | 17 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/load-context`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
+| Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
 | Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
 | Context templates | 2 | ROUTER.md (context routing), patterns/INDEX.md (pattern registry) |
-| Skills | 1 | Boris workflow methodology |
 | Settings | -- | Wildcard permissions, Prettier hook, audit logging, deny list for dangerous ops |
 
 ## Quick Start
@@ -45,7 +45,7 @@ chmod +x install.sh sync-lessons.sh uninstall.sh
 ./install.sh
 ```
 
-The installer backs up your existing `~/.claude/` config, copies agents/commands/skills/hooks, merges settings (preserving your machine-specific paths and MCP permissions), and syncs Learned Patterns.
+The installer backs up your existing `~/.claude/` config, copies agents/skills/workflows/hooks, removes files retired by newer versions, merges settings (preserving your machine-specific paths and MCP permissions), and syncs Learned Patterns.
 
 Then in any Claude Code session:
 
@@ -57,7 +57,7 @@ Then in any Claude Code session:
 
 ## Daily Workflow
 
-| Situation | Command |
+| Situation | Skill |
 |---|---|
 | Start of day | `/session-start` (routes to task-relevant context, checks drift) |
 | New task | `/task-branch feature/auth` then start building |
@@ -101,9 +101,9 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 
 > Full reference with all details: **[CHEATSHEET.md](CHEATSHEET.md)**
 
-### Slash Commands
+### Skills (invoke as `/name`)
 
-| Command | What it does |
+| Skill | What it does |
 |---|---|
 | `/boris <task>` | Full orchestrated workflow -- plan, delegate, verify, ship |
 | `/session-start` | Load Memory Bank, check project status, orient to continue |
@@ -125,11 +125,12 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 
 Retired in favor of native Claude Code features: `/verify-all` + `/test-and-fix` → `/verify` + `/checks`; `/review-changes` → `/code-review <effort>` (`ultra` for cloud review); `/security-scan` → `/security-review`; `/undo`/`/checkpoint`/`/rollback` → `/rewind`; `/mode` → native plan/permission modes; `/context` → native `/context` + statusline.
 
-### Core Agents (10)
+### Core Agents (9)
+
+Boris itself is a **skill** now (`skills/boris/SKILL.md`), not an agent — the 2025 persona-indirection hack (main thread "becoming" boris by reading an agent file) is gone. It plans in native plan mode, delegates via the Agent tool (forks, background agents, worktree isolation), and launches the `boris-build` saved Workflow for fan-out-scale jobs.
 
 | Agent | Role |
 |---|---|
-| **boris** | Master orchestrator -- plans, delegates to specialists, verifies |
 | **code-architect** | System design, architecture decisions, technical planning |
 | **test-writer** | Generate comprehensive tests (JS/TS/Python) |
 | **doc-generator** | Generate/update README, API docs, CLAUDE.md |
@@ -173,6 +174,7 @@ Manage community agents: edit `agents/community/MANIFEST.txt` and run `scripts/s
 | **Prettier formatter** | After Edit/Write of js/ts/css/md files | Formats with the project's own prettier; projects without prettier are skipped |
 | **Compaction snapshot** | Before context compaction | Writes a git-state snapshot (branch, uncommitted files, recent commits) to `.claude/memory/compaction-snapshot.md` |
 | **Post-compaction recovery** | After context compaction | Injects a directive to verify the summary against the snapshot and save a cognitive handoff to `task-context.md` |
+| **Verify gate** | Turn end (Stop), only while `/checks` has the gate armed | Blocks ending the turn until quality gates pass or are explicitly waived; 3-attempt escape hatch, 2h staleness disarm |
 
 Hooks read the tool payload as JSON on stdin per the current Claude Code hooks contract and are covered by `scripts/test-hooks.sh` in CI, so a contract change can never silently disable them again.
 
@@ -182,7 +184,7 @@ The SessionStart hook also detects new projects (no `.claude/project-config.json
 
 - **Add core agents**: Create `.md` files in `agents/` with frontmatter (`name`, `description`, `tools`)
 - **Add/remove community agents**: Edit `agents/community/MANIFEST.txt` and run `scripts/sync-agency-agents.sh`
-- **Add commands**: Create `.md` files in `commands/` with frontmatter (`description`)
+- **Add skills**: Create `skills/<name>/SKILL.md` with frontmatter (`description`, optional `disable-model-invocation`, `allowed-tools`, `argument-hint`); invoke as `/name`. Supporting files can live in the skill's directory.
 - **Machine-specific settings**: Edit `~/.claude/settings.json` directly for paths, plugins, MCP permissions. These are preserved across `install.sh` runs.
 - **New lessons**: Just work with Claude -- lessons are added to your private `~/.claude/CLAUDE.md` during sessions. To publish one to this public repo, add a `<!-- shareable -->` marker under its `### ` heading, then run `sync-lessons.sh` (untagged lessons stay local)
 

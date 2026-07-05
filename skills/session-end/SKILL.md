@@ -1,5 +1,7 @@
 ---
+name: session-end
 description: End session by saving Memory Bank state, creating session summary, and preserving context for seamless continuation
+disable-model-invocation: true
 ---
 
 # Session End

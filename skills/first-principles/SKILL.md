@@ -1,5 +1,7 @@
 ---
+name: first-principles
 description: Apply first principles thinking to break down complex problems and find optimal solutions
+argument-hint: [problem]
 ---
 
 # First Principles Analysis

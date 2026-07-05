@@ -1,3 +1,8 @@
+> **Historical design document** (pre-Boris v3, June 2026). The Router and
+> Drift Detection features described here SHIPPED. File paths referencing
+> `commands/*.md` predate the Phase 2 skills migration — those files now live
+> at `skills/<name>/SKILL.md`. Do not create new `commands/` files.
+
 # Plan: Integrate Router & Drift Detection into Claude Workflow
 
 ## Goal

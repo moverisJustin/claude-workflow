@@ -1,5 +1,8 @@
 ---
+name: quick-commit
 description: Fast commit - stage all changes and commit with a descriptive message (no push, no PR)
+disable-model-invocation: true
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git commit:*)
 ---
 
 # Changes
