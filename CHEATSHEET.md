@@ -17,7 +17,7 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 | `/commit-push-pr` | Stage, commit, push, create PR — full git workflow |
 | `/quick-commit` | Fast local commit with auto-generated message (no push) |
 | `/fix-issue <id>` | Fetch issue from Linear/GitHub, implement fix, create PR |
-| `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
+| `/ci-loop` | Push, watch CI in the **background** (no blocked turn), fix failures, repeat until green |
 | `/memory-init` | Initialize Memory Bank for a new project |
 | `/handoff` | Cognitive briefing — saves mental model, failed approaches, resume prompt |
 | `/drift-check` | Validate Memory Bank accuracy against codebase — suggest and auto-fix drift |
@@ -39,7 +39,7 @@ Claude Code now does these natively — harness-enforced, better than the prose 
 | `/mode audit` | PreToolUse audit hooks (`.claude/audit/`, self-gitignored) + `/security-review` |
 | `/context` | Native `/context` + statusline (live context %, real numbers) |
 
-## Core Agents (9)
+## Core Agents (8)
 
 Boris is a **skill** now (`/boris`), not an agent — it plans in native plan mode, delegates via the Agent tool (forks, background, worktree isolation), and launches the `boris-build` saved Workflow for fan-out-scale jobs. Each core agent is pinned to a model tier (opus for judgment, sonnet for implementers, haiku for CRUD/deterministic work).
 
@@ -48,7 +48,6 @@ Boris is a **skill** now (`/boris`), not an agent — it plans in native plan mo
 | **code-architect** | System design, architecture decisions, technical planning |
 | **test-writer** | Generate comprehensive tests (JS/TS/Python) |
 | **doc-generator** | Generate/update docs (Divio system, docs-as-code) |
-| **ci-integrator** | CI pipeline automation — push, monitor, fix, iterate |
 | **issue-tracker** | Linear/GitHub issue management and lifecycle |
 | **git-guardian** | Git safety — push-target/staging verification, branch protection |
 | **memory-bank** | Cross-session context persistence |
