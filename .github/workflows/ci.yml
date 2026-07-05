@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS runs /bin/bash 3.2 — the repo's compatibility floor
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lesson-sync privacy guard test
+        run: /bin/bash ./test-sync-lessons.sh
+
+      - name: Hook contract tests
+        run: /bin/bash ./scripts/test-hooks.sh
+
+      - name: Drift-check smoke test
+        run: /bin/bash ./scripts/drift-check.sh --json
+
+      - name: settings.base.json is valid JSON
+        run: python3 -c "import json; json.load(open('settings.base.json'))"

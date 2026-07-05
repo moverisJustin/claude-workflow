@@ -87,8 +87,12 @@ Full list: `ls agents/community/` or see `agents/community/MANIFEST.txt`
 | Hook | Trigger | What it does | Context impact |
 |---|---|---|---|
 | **SessionStart loader** | Every new session | Auto-loads project name, branch, last session state | ~200 chars |
-| **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push | Auto-checkpoint tag + stash dirty tree | Zero |
-| **Branch switch logger** | After `git switch`/`git checkout <branch>` | Audit-logs branch transitions | Zero |
+| **Destructive ops guard** | Before `git reset --hard`, `rm -rf`, force-push | Non-mutating checkpoint (tag + stash snapshot); asks for confirmation on high-risk `rm -rf` targets | Zero |
+| **Audit logger** | Before Bash / Edit / Write | Appends command + file-write trail to `.claude/audit/` | Zero |
+| **Drift watcher** | After `git commit` | Runs drift check, alerts if Memory Bank score < 80 | Zero when healthy |
+| **Prettier** | After Edit/Write of js/ts/css/md | Formats with the project's prettier (skips projects without it) | Zero |
+| **Compaction snapshot** | Before context compaction | Writes git state to `.claude/memory/compaction-snapshot.md` (PreCompact consumes no hook output — this is a side effect) | Zero |
+| **Post-compaction recovery** | After compaction (SessionStart `compact`) | Injects "verify summary against snapshot, save handoff to task-context.md" | ~300 chars, post-compaction only |
 
 Non-git projects: set `"git_enabled": false` in `.claude/project-config.json`.
 
@@ -116,7 +120,7 @@ Non-git projects: set `"git_enabled": false` in `.claude/project-config.json`.
 `/task-done` (verify, PR, cleanup)
 
 **Context getting full:**
-`/handoff` (auto-suggested at 60%, auto-runs at 75%)
+`/handoff` (run it before breaks; compaction is auto-covered by the PreCompact snapshot + post-compaction recovery hooks)
 
 **End of day:**
 `/session-end`

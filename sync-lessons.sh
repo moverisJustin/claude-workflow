@@ -22,17 +22,19 @@ SHAREABLE_MARKER='<!-- shareable -->'
 # --- Helpers ---
 
 # Extract the Learned Patterns section from a CLAUDE.md file
-# Returns everything from "# Learned Patterns" to the next "# " heading (or EOF)
+# Returns everything from "# Learned Patterns" to the next "# " heading (or EOF).
+# Fence-aware: a "# comment" line inside a ``` code block is lesson content,
+# not a section boundary.
 extract_lessons_section() {
   local file="$1"
   if [ ! -f "$file" ]; then
     echo ""
     return
   fi
-  # Get content between "# Learned Patterns" and the next top-level heading (or EOF)
   awk '
-    /^# Learned Patterns/ { found=1; next }
-    found && /^# [^#]/ { exit }
+    /^```/ { fence = !fence }
+    !fence && /^# Learned Patterns/ { found=1; next }
+    found && !fence && /^# [^#]/ { exit }
     found { print }
   ' "$file"
 }
@@ -44,13 +46,14 @@ extract_lesson_titles() {
   echo "$section" | grep "^### " | sed 's/^### //'
 }
 
-# Extract a full lesson block (### title + body) by title
+# Extract a full lesson block (### title + body) by title (fence-aware)
 extract_lesson_block() {
   local section="$1"
   local title="$2"
   echo "$section" | awk -v title="### $title" '
-    $0 == title { found=1; print; next }
-    found && /^### / { exit }
+    /^```/ { fence = !fence }
+    !fence && $0 == title { found=1; print; next }
+    found && !fence && /^### / { exit }
     found { print }
   '
 }
@@ -59,6 +62,36 @@ extract_lesson_block() {
 # Keeps private / org-specific lessons local by default.
 is_shareable() {
   printf '%s\n' "$1" | grep -qiF "$SHAREABLE_MARKER"
+}
+
+# Insert a lesson block INSIDE the "# Learned Patterns" section — before the
+# next top-level "# " heading — never at end-of-file. An EOF append lands
+# after any trailing section, where extract_lessons_section can't see it, so
+# dedup misses it and every future sync re-appends the same lesson forever.
+append_lesson() {
+  local file="$1" block="$2" insert_before tmp
+  if ! grep -q '^# Learned Patterns' "$file"; then
+    { echo ""; echo "# Learned Patterns"; } >> "$file"
+  fi
+  # Line number of the first top-level heading AFTER the section start.
+  # Fence-aware: "# comment" inside a ``` code block is not a boundary.
+  insert_before=$(awk '
+    /^```/ { fence = !fence }
+    !fence && /^# Learned Patterns/ { found=1; next }
+    found && !fence && /^# [^#]/ { print NR; exit }
+  ' "$file")
+  if [ -z "$insert_before" ]; then
+    # Section runs to EOF — appending is inside the section
+    { echo ""; printf '%s\n' "$block"; } >> "$file"
+  else
+    tmp=$(mktemp)
+    head -n $((insert_before - 1)) "$file" > "$tmp"
+    printf '%s\n\n' "$block" >> "$tmp"
+    tail -n +"$insert_before" "$file" >> "$tmp"
+    # cat-over, not mv: preserves the target inode, permissions, and — when
+    # the file is a symlink into a dotfiles repo — the symlink itself
+    cat "$tmp" > "$file" && rm -f "$tmp"
+  fi
 }
 
 # --- Main ---
@@ -106,8 +139,7 @@ if [ -n "$LOCAL_TITLES" ]; then
         echo "  Kept local (no $SHAREABLE_MARKER marker): $title"
         continue
       fi
-      echo "" >> "$REPO_FILE"
-      echo "$BLOCK" >> "$REPO_FILE"
+      append_lesson "$REPO_FILE" "$BLOCK"
       REPO_ADDED=$((REPO_ADDED + 1))
       echo "  Local -> Repo: $title"
     fi
@@ -128,8 +160,7 @@ if [ -n "$REPO_TITLES" ]; then
       # New lesson from repo, append to local
       BLOCK=$(extract_lesson_block "$REPO_SECTION" "$title")
       if [ -n "$BLOCK" ]; then
-        echo "" >> "$LOCAL_FILE"
-        echo "$BLOCK" >> "$LOCAL_FILE"
+        append_lesson "$LOCAL_FILE" "$BLOCK"
         LOCAL_ADDED=$((LOCAL_ADDED + 1))
         echo "  Repo -> Local: $title"
       fi

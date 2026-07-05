@@ -4,3 +4,4 @@
 .env
 .env.*
 .claude/memory/
+.claude/audit/

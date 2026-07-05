@@ -51,13 +51,20 @@ for f in "$SCRIPT_DIR/agents/"*.md; do
   cp "$f" "$CLAUDE_DIR/agents/$(basename "$f")"
   AGENT_COUNT=$((AGENT_COUNT + 1))
 done
-# Community agents (from agency-agents)
+# Community agents (from agency-agents) — never allowed to shadow a core agent
+COLLISIONS=0
 for f in "$SCRIPT_DIR/agents/community/"*.md; do
   [ -f "$f" ] || continue
-  cp "$f" "$CLAUDE_DIR/agents/$(basename "$f")"
+  base=$(basename "$f")
+  if [ -f "$SCRIPT_DIR/agents/$base" ]; then
+    echo "  WARNING: community agent '$base' collides with a core agent -- skipped"
+    COLLISIONS=$((COLLISIONS + 1))
+    continue
+  fi
+  cp "$f" "$CLAUDE_DIR/agents/$base"
   AGENT_COUNT=$((AGENT_COUNT + 1))
 done
-echo "  Installed $AGENT_COUNT agents ($(ls "$SCRIPT_DIR/agents/"*.md 2>/dev/null | wc -l | xargs) core + $(ls "$SCRIPT_DIR/agents/community/"*.md 2>/dev/null | wc -l | xargs) community)"
+echo "  Installed $AGENT_COUNT agents ($(ls "$SCRIPT_DIR/agents/"*.md 2>/dev/null | wc -l | xargs) core + $(ls "$SCRIPT_DIR/agents/community/"*.md 2>/dev/null | wc -l | xargs) community, $COLLISIONS collision(s) skipped)"
 
 # --- Phase 3: Install commands ---
 echo "--- Phase 3: Install commands ---"

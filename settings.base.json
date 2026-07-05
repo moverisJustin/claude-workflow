@@ -259,69 +259,74 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "startup|resume|clear",
         "hooks": [
           {
             "type": "command",
             "command": "bash ~/.claude/scripts/hook-session-start.sh"
           }
         ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": {
-          "tool": ["Edit", "Write"]
-        },
-        "hooks": [
-          {
-            "type": "command",
-            "command": "case \"$CLAUDE_FILE_PATH\" in *.js|*.ts|*.jsx|*.tsx|*.json|*.css|*.scss|*.md) npx prettier --write \"$CLAUDE_FILE_PATH\" 2>/dev/null || true ;; esac"
-          }
-        ]
       },
       {
-        "matcher": {
-          "tool": ["Bash"]
-        },
+        "matcher": "compact",
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/scripts/hook-branch-switch.sh"
+            "command": "bash ~/.claude/scripts/hook-compact-resume.sh"
           }
         ]
       }
     ],
     "PreToolUse": [
       {
-        "matcher": {
-          "tool": ["Bash"]
-        },
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "mkdir -p .claude/audit && echo \"$(date -u +%Y-%m-%dT%H:%M:%SZ) BASH $CLAUDE_TOOL_INPUT\" >> .claude/audit/commands.log 2>/dev/null || true"
-          }
-        ]
-      },
-      {
-        "matcher": {
-          "tool": ["Edit", "Write"]
-        },
-        "hooks": [
-          {
-            "type": "command",
-            "command": "mkdir -p .claude/audit && echo \"$(date -u +%Y-%m-%dT%H:%M:%SZ) FILE_WRITE $CLAUDE_FILE_PATH\" >> .claude/audit/files.log 2>/dev/null || true"
-          }
-        ]
-      },
-      {
-        "matcher": {
-          "tool": ["Bash"]
-        },
-        "hooks": [
+            "command": "bash ~/.claude/scripts/hook-audit.sh"
+          },
           {
             "type": "command",
             "command": "bash ~/.claude/scripts/hook-destructive-guard.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/hook-audit.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/hook-prettier.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/hook-drift-watch.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/hook-precompact.sh"
           }
         ]
       }
