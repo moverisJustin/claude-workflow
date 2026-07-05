@@ -2,7 +2,10 @@
 set -euo pipefail
 
 # Bidirectional Lesson Sync
-# Merges "Learned Patterns" between local ~/.claude/CLAUDE.md and repo CLAUDE.md
+# Merges "Learned Patterns" between the machine-local rules file
+# (~/.claude/rules/learned-patterns.md) and the repo's rules/learned-patterns.md.
+# (Boris v3: lessons moved out of CLAUDE.md into a dedicated rules file —
+#  install.sh migrates a machine's old CLAUDE.md lessons on upgrade.)
 # - Local -> repo: OPT-IN. A local lesson is promoted to the (public) repo ONLY if its
 #   block contains the marker "<!-- shareable -->". Untagged lessons stay local, so
 #   private / org-specific notes never leak into the public repo. (Default-safe.)
@@ -10,11 +13,12 @@ set -euo pipefail
 # - Never overwrites or removes existing lessons
 # - Deduplicates by ### heading
 #
-# Paths are overridable via the LOCAL_FILE / REPO_FILE env vars (used by test-sync-lessons.sh).
+# Paths are overridable via the LOCAL_FILE / REPO_FILE env vars (used by test-sync-lessons.sh
+# and by install.sh's one-time migration).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOCAL_FILE="${LOCAL_FILE:-$HOME/.claude/CLAUDE.md}"
-REPO_FILE="${REPO_FILE:-$SCRIPT_DIR/CLAUDE.md}"
+LOCAL_FILE="${LOCAL_FILE:-$HOME/.claude/rules/learned-patterns.md}"
+REPO_FILE="${REPO_FILE:-$SCRIPT_DIR/rules/learned-patterns.md}"
 
 # A local lesson is promoted to the repo only if its block contains this marker.
 SHAREABLE_MARKER='<!-- shareable -->'
@@ -40,10 +44,13 @@ extract_lessons_section() {
 }
 
 # Extract individual lesson blocks as: TITLE\nBODY
-# Each lesson starts with "### " and continues until the next "### " or EOF
+# Each lesson starts with "### " and continues until the next "### " or EOF.
+# `|| true`: a section with ZERO lessons makes grep exit 1, which under
+# set -euo pipefail would kill the whole script inside the command
+# substitution — an empty lessons file must be a no-op, not a crash.
 extract_lesson_titles() {
   local section="$1"
-  echo "$section" | grep "^### " | sed 's/^### //'
+  echo "$section" | grep "^### " | sed 's/^### //' || true
 }
 
 # Extract a full lesson block (### title + body) by title (fence-aware)
@@ -99,13 +106,13 @@ append_lesson() {
 echo "=== Lesson Sync ==="
 
 if [ ! -f "$LOCAL_FILE" ]; then
-  echo "No local CLAUDE.md found at $LOCAL_FILE"
-  echo "Run install.sh first."
+  echo "No local lessons file found at $LOCAL_FILE"
+  echo "Run install.sh first (it seeds the rules file and migrates lessons from an old CLAUDE.md)."
   exit 1
 fi
 
 if [ ! -f "$REPO_FILE" ]; then
-  echo "No repo CLAUDE.md found at $REPO_FILE"
+  echo "No repo lessons file found at $REPO_FILE"
   exit 1
 fi
 
@@ -175,8 +182,8 @@ if [ $LOCAL_ADDED -eq 0 ] && [ $REPO_ADDED -eq 0 ]; then
   echo "No new lessons synced. Files are in sync."
 else
   echo "Sync complete:"
-  [ $REPO_ADDED -gt 0 ] && echo "  $REPO_ADDED lesson(s) added to repo CLAUDE.md"
-  [ $LOCAL_ADDED -gt 0 ] && echo "  $LOCAL_ADDED lesson(s) added to local ~/.claude/CLAUDE.md"
+  [ $REPO_ADDED -gt 0 ] && echo "  $REPO_ADDED lesson(s) added to the repo lessons file ($REPO_FILE)"
+  [ $LOCAL_ADDED -gt 0 ] && echo "  $LOCAL_ADDED lesson(s) added to the local lessons file ($LOCAL_FILE)"
 fi
 
 if [ $HELD_BACK -gt 0 ]; then
@@ -188,5 +195,5 @@ fi
 if [ $REPO_ADDED -gt 0 ]; then
   echo ""
   echo "Don't forget to commit and push the repo changes:"
-  echo "  git add CLAUDE.md && git commit -m 'sync lessons' && git push"
+  echo "  git add rules/learned-patterns.md && git commit -m 'sync lessons' && git push"
 fi

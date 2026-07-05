@@ -81,6 +81,18 @@ for f in "$SCRIPT_DIR/workflows/"*.js; do
   fi
 done
 
+# Rules: remove the repo-shipped rule files, but KEEP learned-patterns.md —
+# it accumulates the machine's own private lessons and is not replaceable.
+for r in git-safety.md workflow.md; do
+  if [ -f "$CLAUDE_DIR/rules/$r" ]; then
+    rm -f "$CLAUDE_DIR/rules/$r"
+    echo "  Removed rules/$r"
+  fi
+done
+if [ -f "$CLAUDE_DIR/rules/learned-patterns.md" ]; then
+  echo "  Kept rules/learned-patterns.md (your accumulated lessons — delete manually if desired)"
+fi
+
 # Remove workflow-installed hook scripts and context templates.
 # hook-*.sh is globbed so future hooks (and long-retired ones from old
 # installs) are covered without maintaining an enumerated list.

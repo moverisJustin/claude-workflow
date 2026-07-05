@@ -1,309 +1,72 @@
+<!-- boris-version: 3 — machine-readable upgrade stamp for install.sh; do not remove.
+     (HTML comments are stripped before context injection, so this costs zero tokens.) -->
 # Session Boot (MANDATORY)
 
-**Every session MUST begin with these two actions before doing anything else:**
-
-1. **Load context**: Execute the `/session-start` protocol — read `.claude/memory/activeContext.md`, `progress.md`, `conventions.md`, `projectContext.md` (or fall back to `tasks/handoff.md`, `tasks/todo.md`, `tasks/lessons.md`). Check `git status`, `git branch`, and recent commits. Synthesize and present a brief summary to the user.
-
-2. **Enter plan mode**: After presenting the session summary, enter plan mode. Stay in plan mode until the user provides a task and approves a plan. Do NOT begin implementation without an approved plan.
-
-This applies to every new session — CLI, desktop app, and IDE. No exceptions. If the user's first message is a task, load context silently and present the plan for that task (combining steps 1 and 2). If the user's first message is a greeting or question, load context first and then respond.
-
----
+Every session begins with:
+1. **Load context**: run the `/session-start` protocol — Memory Bank (`.claude/memory/`), `git status`/branch/recent commits, `.claude/task-context.md` if present. Present a brief summary.
+2. **Enter plan mode** and stay there until the user provides a task and approves a plan. If the first message IS a task, load context silently and present the plan for it.
 
 # User Preferences
 
 ## Scope Rules
-- ONLY look at tools, repositories, files, and resources that the user specifically links or points to. Do NOT explore adjacent repos, plugins, or codebases on your own initiative.
-- Do not assume what the user wants — ask if unclear rather than guessing and going off on tangents.
-- Stay focused on the exact question asked. Do not expand scope beyond what was requested.
+- ONLY look at tools, repos, files, and resources the user specifically points to. Do NOT explore adjacent codebases uninvited.
+- Do not assume what the user wants — ask if unclear rather than guessing.
+- Stay focused on the exact question asked.
 
----
-
-# Quick Reference (Boris v2.0)
+# Quick Reference (Boris v3)
 
 ```bash
-# Boris Workflow
-/boris <task>        # Full orchestrated workflow with planning
+# Orchestration
+/boris <task>        # Plan (plan mode) -> delegate -> verify -> ship; fan-out via boris-build Workflow
 /session-start       # Load Memory Bank, orient to project
 /session-end         # Save context for next session
 
-# Verification & Quality (native skills + /checks)
-/checks              # Stack-detected quality gates (tests, types, lint, format, build)
+# Verification & Quality
+/checks              # Stack-detected gates (tests/types/lint/format/build) + Stop-hook verify gate
 /verify              # Native: run the app, observe behavior
 /code-review <level> # Native: review the diff (--comment, --fix; "ultra" for cloud review)
 /security-review     # Native: security review of the branch
 /simplify            # Native: simplification pass on changed code
 
-# Git Workflow
-/task-branch <name>  # Create feature branch + task context
-/task-done           # Complete task: verify, PR, cleanup
+# Git
+/task-branch <name>  # Feature branch + committed task context
+/task-done           # Verify, PR, task-context cleanup
 /commit-push-pr      # Full git workflow with PR
 /quick-commit        # Fast local commit
-/rewind              # Native: restore Claude's edits (Esc-Esc; automatic per-prompt checkpoints)
-                     # Undo a commit: git reset --soft HEAD^ (rewind restores files, not history)
-                     # Bash-destroyed files: git tag -l 'auto-checkpoint/*' (destructive-guard hook)
+/rewind              # Native: restore Claude's edits (Esc-Esc). Bad COMMIT: git reset --soft HEAD^
 
 # Context & Memory
-/context             # Native: real context-window usage (statusline shows it live)
-/memory-init         # Initialize Memory Bank for project
-/handoff             # Cognitive briefing for seamless session handoff
-/load-context <type> # Load task-specific context mid-session (feature/debug/test/etc)
-/drift-check         # Validate Memory Bank accuracy against codebase
+/memory-init         # Initialize Memory Bank for a project
+/handoff             # Cognitive briefing (mental model, failed approaches, resume prompt)
+/load-context <type> # Load task-specific memory mid-session
+/drift-check         # Validate Memory Bank against the codebase
 
-# Modes (native, harness-enforced — the prose /mode system is retired)
-# plan mode           # architect/review: read-only, enforced by the harness (Shift+Tab or /plan)
-# acceptEdits/default # code: normal development
-# audit trail         # PreToolUse hooks log all commands/file-writes to .claude/audit/
-
-# Issue Tracking
-/fix-issue <num>     # End-to-end issue resolution
+# Issues & Learning
+/fix-issue <id>      # End-to-end issue resolution
 /ci-loop             # Push, wait for CI, fix, repeat
-
-# Learning
-/update-claude-md    # Learn from mistakes
+/update-claude-md    # Capture lessons from recent work
 /first-principles    # Break down complex problems
 ```
 
----
+Modes are native and harness-enforced: plan mode (Shift+Tab or `/plan`) for read-only design/review; default/acceptEdits for implementation; the audit hooks log every command and file-write to `.claude/audit/`.
 
-# Workflow Orchestration (Boris v2.0)
+# Rules
 
-## 1. Plan Mode Default
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity
-
-## 2. Subagent Strategy
-- Use subagents liberally to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-- Use specialist agents: code-architect, test-writer, doc-generator, oncall-guide
-- Use native skills where the platform covers the job: /simplify (cleanup), /verify + /checks (verification), /code-review (review), /security-review (security)
-- Match agent to task type (see agents in ~/.claude/agents/)
-
-## 3. Self-Improvement Loop
-- After ANY correction from the user: update `.claude/memory/conventions.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review conventions at session start for relevant project
-- **Lesson promotion:** When writing to `.claude/memory/conventions.md`, evaluate if the lesson is project-specific or universal
-  - **Universal lessons** (workflow patterns, common pitfalls, user preferences, cross-project mistakes) → also add to the "Learned Patterns" section in `~/.claude/CLAUDE.md`
-  - **Project-specific lessons** (repo quirks, specific APIs, local tooling) → stay in `.claude/memory/conventions.md` only
-  - **Sharing to the public repo is opt-in:** lessons added to `~/.claude/CLAUDE.md` stay on this machine by default. `sync-lessons.sh` promotes a lesson to the public repo's `CLAUDE.md` only if its block carries a `<!-- shareable -->` marker. When — and only when — a universal lesson is safe to publish, add that marker on the line under its `### ` heading; leave private/org-specific lessons untagged so they never leak into the public repo.
-
-## 4. Verification Before Done
-- Never mark a task complete without proving it works
-- Use `/checks` for automated gates (stack-detected: tests, types, lint, format, build) — it arms a Stop-hook verify gate that pushes back if the turn ends before gates are green
-- Use native `/verify` for behavioral verification: run the app, observe it working
-- Use native `/code-review <effort>` before merging (`ultra` for release branches)
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-- Run tests, check logs, demonstrate correctness
-
-## 5. Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
-
-## 6. Autonomous Bug Fixing
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests — then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
-
-## 7. Git Safety
-- Native checkpoints cover Claude's edits: `/rewind` (Esc-Esc) restores per-prompt snapshots automatically — no manual checkpoint command needed
-- To undo a commit: `git reset --soft HEAD^` explicitly (`/rewind` restores files, not git history)
-- The destructive-command hook auto-checkpoints (tag + non-mutating stash snapshot) before `git reset --hard`/`rm -rf` and asks for confirmation on high-risk `rm -rf` targets; recovery via `git tag -l 'auto-checkpoint/*'`
-- Never force-push to main/master
-- Always verify push target with `git remote -v` before pushing
-- **Signed commits required**: all commits must carry a verified signature (org security protocol). Signing is SSH-based and on by default (`commit.gpgsign true`, `gpg.format ssh`); `install.sh` configures it per-machine. Never disable it with `--no-gpg-sign`. If a commit fails to sign, fix the key/agent — don't bypass.
-- **PR-based external review**: every change ships through a PR for external review. Claude may **merge** a PR after an external reviewer approves it (`gh pr merge` produces a GitHub-signed, Verified merge commit) — but must **never approve its own PR**. Approval is human-only; merging-after-approval is permitted.
-
-## 8. Branch Strategy (Feature-Branch-by-Default)
-- ALL work happens on feature branches, NOT main
-- Exception: initial build phase of a new project (< 5 commits) may use main
-- Every feature branch gets `.claude/task-context.md` (committed, not gitignored)
-- `/task-branch <name>` to start, `/task-done` to finish
-- Cross-machine handoff: just `git pull` on the branch
-- When branch merges to main, task-context.md is removed
-- `/fix-issue` auto-creates task context from issue details
-- Branch naming: `feature/`, `fix/`, `task/` prefixes
-
-## 9. Compaction Recovery (Mechanical, Hook-Driven)
-- The old 60%/75% "Context Guardian" percentages are retired: the model cannot observe its own context usage, so those triggers could never fire. The replacement is mechanical:
-- **PreCompact hook** writes a git-state snapshot to `.claude/memory/compaction-snapshot.md` immediately before any compaction (branch, uncommitted files, recent commits)
-- **Post-compaction hook** (SessionStart, `compact` source) injects a recovery directive: verify the summary against real state, compare with the snapshot, and update `.claude/task-context.md` with a cognitive handoff before continuing
-- **Before any `/session-end`**: Generate the cognitive briefing (resume prompt, mental model, failed approaches, active hypotheses) as part of the session-end flow
-- **Priority**: If context is critically low, saving the handoff briefing is MORE important than finishing the current subtask. A lost mental model costs more than a half-finished function.
-- The cognitive briefing captures THINKING (why, how, what failed) not just DOING (which files changed)
-- `/handoff` can be run manually at any time for an immediate cognitive snapshot
-
-## 10. Modes (Native, Harness-Enforced)
-The prose `/mode` system is retired — it promised restrictions ("I WILL NOT edit files") the model could only honor, not enforce. Use the platform's real modes, which the harness enforces:
-- **architect / review** → native plan mode (Shift+Tab or `/plan`; or `claude --permission-mode plan`) — read-only is guaranteed, not promised
-- **code** → default / acceptEdits permission modes
-- **debug** → default mode; keep edits minimal by intent
-- **audit** → the PreToolUse audit hooks log every command and file-write to `.claude/audit/` (self-gitignored), and `/security-review` covers the security pass
-
----
+Always-on rules live in `~/.claude/rules/` (installed from this repo's `rules/`):
+- `git-safety.md` — branch strategy, push-target verification, signed commits, PR review policy, recovery routing
+- `workflow.md` — plan-first, delegation, verify-before-done, self-improvement loop, compaction recovery
+- `learned-patterns.md` — accumulated cross-project lessons. This is the lesson-capture target and the `sync-lessons.sh` sync point (public-repo promotion is opt-in via `<!-- shareable -->`)
 
 # Memory Bank (Persistent Context)
 
-Per-project memory at `.claude/memory/`:
-- `ROUTER.md` — Context routing table (loaded first, routes to relevant files)
-- `projectContext.md` — What this project is and why
-- `activeContext.md` — Current session state (replaces tasks/handoff.md)
-- `progress.md` — Task tracking (replaces tasks/todo.md)
-- `decisionLog.md` — Architecture decisions with rationale
-- `conventions.md` — Learned patterns and mistakes (replaces tasks/lessons.md)
-- `sessionHistory.md` — Rolling session summaries
-- `patterns/INDEX.md` — Registry of task-specific reusable guides
-- `patterns/*.md` — Individual pattern files (grow from real work)
+Per-project memory at `.claude/memory/`: `projectContext.md`, `activeContext.md`, `progress.md`, `decisionLog.md`, `conventions.md`, `sessionHistory.md`, plus `ROUTER.md` (keyword routing to the 2-3 task-relevant files) and `patterns/` (reusable task guides).
 
-### Context Router
-- `ROUTER.md` maps task types to relevant memory files via keyword matching
-- `/session-start` reads ROUTER.md first, classifies the task, loads only 2-3 relevant files
-- Auto-generated for existing projects on first session (no manual setup needed)
-- Falls back to loading everything if ROUTER.md is missing or unreadable
-- `/load-context <type>` switches context mid-session without restarting
-
-### Drift Detection
-- `scripts/drift-check.sh` validates Memory Bank accuracy (zero AI tokens, pure bash)
-- 5 checkers: dead paths, dead branches, missing deps, staleness, dead commands
-- Integrated into `/session-start` (warns if score < 80) and `/session-end` (catches self-introduced drift)
-- Run manually with `/drift-check` for details and auto-fix
-
-### Task Context (Branch-Specific)
-- `.claude/task-context.md` — Per-branch task state (objective, plan, decisions, progress)
-- Committed to git for cross-machine handoff
-- Auto-loaded by `/session-start` when present
-- Auto-updated by `/session-end` when on a feature branch
-- Removed when branch merges to main
-- Complements Memory Bank: Memory Bank = project-level, task-context = branch-level
-
-**Setup**: Run `/memory-init` in any project to create the structure.
-**Usage**: `/session-start` at beginning, `/session-end` at end.
-
-## Session Start Protocol
-At the beginning of every working session in a project:
-1. Run `/session-start` (reads ROUTER.md, loads only task-relevant memory files, runs drift check)
-2. If ROUTER.md doesn't exist yet, it's auto-generated from existing Memory Bank files
-3. Falls back to `tasks/` if no Memory Bank exists
-4. Summarize what you know and confirm direction before diving in
-
-## Session End Protocol
-At session end or when approaching 75% context usage:
-1. Run `/session-end` (saves everything automatically)
-2. GROW step: evaluate if this session's work should become a reusable pattern
-3. Update ROUTER.md "Current Project State" section
-4. Run drift check to catch self-introduced drift
-5. Commit or stash all work
-
----
+- `.claude/task-context.md` (committed, branch-scoped) is the cross-machine handoff — `git pull` the branch on any machine and resume with full task state.
+- `scripts/drift-check.sh` lints the Memory Bank against reality (zero AI tokens); `/session-start` warns below score 80, and a post-commit hook alerts on regressions.
+- Setup: `/memory-init`. Boot: `/session-start`. Save: `/session-end` (updates memory, grows patterns, runs drift check, commits or stashes work).
 
 # Core Principles
 
-- **Simplicity First:** Make every change as simple as possible. Impact minimal code.
-- **No Laziness:** Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact:** Changes should only touch what's necessary. Avoid introducing bugs.
-
----
-
-# Learned Patterns
-
-> Universal lessons promoted from project-level `.claude/memory/conventions.md`. These persist across all projects.
-
-### Always commit source files at phase boundaries
-Before deploying or moving to the next phase, verify all source files are committed and pushed. Don't assume files are in the repo just because they're on disk.
-
-### Use subagents for Linear/project-management updates
-Offload Linear issue creation, status updates, and comments to background subagents. This keeps the main conversation context clean for implementation work.
-
-### Google Drive paths are too slow for Docker builds
-Never run `docker build` or `fly deploy` from a Google Drive FUSE-mounted path. Clone to a local temp directory (e.g., `/tmp/`) first — the FUSE latency causes context upload timeouts.
-
-### Phase completion checklist
-At the end of every implementation phase: (1) commit + push code, (2) update Linear issues via subagent, (3) use branches for WIP and merge to main at milestones.
-
-### Check for user edits before regenerating output files
-When a workflow generates output files (docx, pdf, etc.) that the user may have annotated, always read the output file for comments/edits BEFORE regenerating. Regeneration overwrites user work.
-
-### Em-dashes are an LLM writing tell
-When generating prose (especially academic), use em-dashes very sparingly. Prefer commas, parentheses, colons, or sentence restructuring. High em-dash density is a known indicator of LLM-generated text.
-
-### Always update handoff + lessons at phase boundaries
-After completing any phase of work (implementation, testing, housekeeping, deployment), immediately update `.claude/memory/activeContext.md` and `.claude/memory/conventions.md`. Don't wait until session end. This ensures context is never lost if a session ends unexpectedly or runs out of context.
-
-### Verify the push target before ANY git push
-Always run `git remote -v` and confirm the destination repo matches the user's intent before pushing. Never assume the working directory's remote is the correct push target. The cost of verifying is seconds; the cost of pushing to the wrong repo is trust and potentially broken production.
-
-### Separate products need separate repos from day one
-If something has its own Dockerfile, its own deployment config (fly.toml), its own DB migrations, and its own test suite, it is a separate product. Ask about repo strategy before writing the first line of code. Don't develop a new product inside an existing production repo and sort it out later.
-
-### Never push to a production repo without explicit confirmation
-Even if the user says "push to GitHub," confirm the specific repo and branch. "Push this" is ambiguous when multiple repos are involved. Show the user `git remote -v` output and get a yes before `git push`.
-
-### Always update README when pushing to main
-Every push to main should include README updates for any new features, changed behavior, or new configuration. Don't let documentation drift from the code. Update the README in the same commit or immediately after the feature commit.
-
-### Always check SDK type signatures, not just API docs
-When using an SDK that wraps an API, the SDK's public types may differ from the raw API field names (e.g., camelCase `timestampMs` in the SDK vs snake_case `timestamp_ms` in the API). Always read the SDK's type definitions (`.d.ts` files) to confirm the expected input format. Passing raw API field names to an SDK method causes silent `undefined` values and cryptic errors.
-
-### Don't kill processes by port when tunnels share that port
-Running `kill $(lsof -ti :PORT)` kills everything connected to that port, including tunnel processes (cloudflared, ngrok) that proxy to it. Always kill by specific PID instead.
-
-### Verify DB column names before writing queries
-Never assume column names based on what "makes sense." Always check `information_schema.columns` or the ORM schema first. Getting a column name wrong (e.g., `prolific_pid` vs `participant_id`) causes hard failures and wastes time debugging.
-
-### For non-trivial Node scripts, write to a temp file instead of `-e`
-Node.js inline eval (`node -e '...'`) breaks on anything beyond trivial code, especially with special characters, escaping, and newer Node versions. For multi-line scripts with template literals, write to `/tmp/script.mjs` and run that. Saves debugging escaping issues.
-
-### Keep slash command `!` backtick commands simple — no redirects, pipes, or quoted strings
-Claude Code's sandbox flags `!` backtick commands in skill/command markdown (`skills/*/SKILL.md`, legacy `.claude/commands/*.md`) as "multiple operations" if they contain `2>/dev/null`, `| head -N`, `| tail -N`, `| wc -l`, `|| echo "..."`, `|| true`, or quoted strings inside backticks (`--since="8 hours ago"`). Strip all of these. Use git's native flags (e.g., `git log --oneline -10` instead of `git log | head -10`). Let commands fail naturally — Claude handles missing files/repos gracefully without needing `2>/dev/null` fallbacks.
-
-### Linear issue audits must include ALL statuses, not just active
-When auditing Linear issues, check Backlog issues too — not just In Progress/Todo. Work often gets done without the issue being moved from Backlog. Cross-reference every issue against the actual DB/codebase state regardless of its Linear status.
-
-### Be precise about data flow direction
-When describing data movement, always be explicit: "Source: X → Destination: Y". Saying "copying from X to Y" can be misread. Ambiguous phrasing wastes time on clarification.
-
-### Verify storage layout before destructive operations — never trust cached notes
-Symlinks, mount points, and directory layouts change over time. Always verify with `ls -la` and `readlink -f` before proposing deletions. Memory notes about storage go stale fast — a "symlinked" dir may actually be a real dir (or vice versa), and deleting a "backup" could destroy the only copy.
-
-### multiprocessing.Pool.imap_unordered needs chunksize for large workloads
-Without `chunksize`, Python serializes the entire iterable into the parent process memory. With tens of thousands of items, the parent can balloon to 10x+ the expected RAM and crash the machine. Always pass a reasonable `chunksize` (e.g., 50-100) and `del` large intermediate lists before spawning the pool.
-
-### Prefer rsync over SSH instead of rsync over CIFS/SMB mounts
-Rsync to a CIFS-mounted NAS is dramatically slower (~5 MB/s) than rsync over SSH (~80 MB/s) on the same link due to per-file SMB protocol overhead. Always check if the NAS supports SSH and use `rsync -e ssh` when possible.
-
-### Always test cron commands manually before deploying
-Invalid flags (like `--no-delete` for rsync) cause silent failures in cron jobs. Run the exact command interactively first and verify it completes successfully before adding to crontab.
-
-### Validate computed values on a small sample before large backfills
-When computing new metrics (angles, distances, scores) across tens of thousands of records, always test on 5-10 samples first and verify the values make sense. Coordinate system conventions (e.g., solvePnP Euler angles wrapping at ±180°) can produce technically correct but semantically wrong results that corrupt the entire dataset.
-
-### Config files must be loaded by the code that creates work items
-A config file that defines parameters is useless if the code that creates work items uses a hardcoded list instead. Always verify end-to-end that config values actually reach the consumer. A hardcoded list that shadows a config file will silently diverge — the config becomes dead code.
-
-### Always commit AND PUSH source files at phase boundaries
-Before deploying or moving to the next phase, verify all source files are committed and **pushed to the remote**. Don't assume files are in the repo just because they're on disk. Work in `/tmp/` is ephemeral — if a branch isn't pushed, it's lost on reboot. Always `git push -u origin <branch>` after creating a feature branch.
-
-### Update README on session-end, not just Memory Bank
-On `/session-end`, update README.md (and CHEATSHEET.md if relevant) alongside Memory Bank files. The README is the first thing people see on the repo — if it doesn't reflect the current state, new users and future sessions start with a wrong mental model. Memory Bank is for Claude; README is for humans. Both must stay in sync.
-
-### Never re-propose approaches that have been ruled out
-If conventions.md or memory documents say an approach doesn't work or is infeasible, DO NOT suggest it again. Read conventions at session start and respect established constraints. Re-proposing ruled-out approaches wastes the user's time and erodes trust. The entire point of the memory bank is to prevent repeating mistakes.
-
-### Claude Code permission wildcard `(*)` only works for Bash
-In settings.json permissions, `ToolName(*)` is ONLY valid for Bash (e.g., `Bash(git *)`). For all other tools — Read, Glob, Grep, Task, WebFetch, WebSearch — use the bare tool name without parentheses. `Read(*)`, `Glob(*)`, `WebFetch(*)` are silently ignored and cause constant permission prompts. Edit/Write path patterns like `Edit(src/**)` and `Write(*.ts)` ARE valid because they match file paths.
-
-### SSH commit signing is the default — verified signatures required
-All commits must carry a verified signature (GitHub security protocol). Signing is SSH-based: `git config --global gpg.format ssh`, `user.signingkey ~/.ssh/<key>.pub`, `commit.gpgsign true`, `tag.gpgsign true`. `install.sh` (Phase 5.5) configures this per-machine, idempotently, and prints the key to register on GitHub as a **Signing Key** (Settings → SSH and GPG keys, type: Signing Key — or `gh ssh-key add <key> --type signing` after `gh auth refresh -s admin:ssh_signing_key`). For the "Verified" badge the committer email must be a verified account email (a `…@users.noreply.github.com` address qualifies). Never bypass with `--no-gpg-sign`; if signing fails, fix the key/agent. Merges via `gh pr merge` / the GitHub UI are signed by GitHub's web-flow key and show Verified automatically. A key with no passphrase (or one loaded into the macOS Keychain agent) is required so Claude Code's non-interactive commits don't hang.
-
-### Lesson sync to the public repo is opt-in
-<!-- shareable -->
-Lesson sync between `~/.claude/CLAUDE.md` (private, per-machine) and this public repo's `CLAUDE.md` is **opt-in** in the Local→Repo direction: `sync-lessons.sh` promotes a lesson to the repo only if its block contains a `<!-- shareable -->` marker (placed on the line under its `### ` heading). Untagged lessons stay local, so private/org-specific notes never leak into the public repo. Repo→Local promotion is unchanged (shared lessons still flow to every machine) and dedup-by-heading is preserved. `install.sh` calls `sync-lessons.sh`, so the installer is protected too. Guard test: `./test-sync-lessons.sh`. This pattern is tagged as a live example of the marker.
+- **Simplicity First:** every change as simple as possible; minimal code impact.
+- **No Laziness:** find root causes; no temporary fixes; senior developer standards.
+- **Minimal Impact:** touch only what's necessary.

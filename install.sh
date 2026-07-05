@@ -271,6 +271,28 @@ for f in "$SCRIPT_DIR/scripts/"*.sh; do
 done
 echo "  Installed $SCRIPT_COUNT hook scripts"
 
+# --- Phase 6.3: Install rules ---
+echo "--- Phase 6.3: Install rules ---"
+mkdir -p "$CLAUDE_DIR/rules"
+RULES_COUNT=0
+for f in "$SCRIPT_DIR/rules/"*.md; do
+  [ -f "$f" ] || continue
+  base=$(basename "$f")
+  if [ "$base" = "learned-patterns.md" ]; then
+    # The lessons file is the sync target and accumulates the machine's own
+    # (private) lessons — seed it only when absent, never overwrite.
+    if [ ! -f "$CLAUDE_DIR/rules/$base" ]; then
+      cp "$f" "$CLAUDE_DIR/rules/$base"
+      RULES_COUNT=$((RULES_COUNT + 1))
+      echo "  Seeded rules/learned-patterns.md from repo"
+    fi
+  else
+    cp "$f" "$CLAUDE_DIR/rules/$base"
+    RULES_COUNT=$((RULES_COUNT + 1))
+  fi
+done
+echo "  Installed $RULES_COUNT rules file(s) to ~/.claude/rules/"
+
 # --- Phase 6.5: Install context templates ---
 echo "--- Phase 6.5: Install context templates ---"
 mkdir -p "$CLAUDE_DIR/context/patterns"
@@ -285,37 +307,70 @@ if [ -f "$SCRIPT_DIR/context/patterns/INDEX.md" ]; then
 fi
 echo "  Installed $CONTEXT_COUNT context templates (ROUTER.md, patterns/INDEX.md)"
 
-# --- Phase 7: Merge CLAUDE.md (with lesson sync) ---
-echo "--- Phase 7: Merge CLAUDE.md ---"
+# --- Phase 7: Install CLAUDE.md + migrate lessons to the rules file ---
+echo "--- Phase 7: CLAUDE.md + lesson migration ---"
 
-if [ -f "$CLAUDE_DIR/CLAUDE.md" ]; then
-  # Sync lessons between repo and local. Local -> repo promotion is OPT-IN: only lessons
-  # tagged "<!-- shareable -->" are written to the (public) repo, so private/org-specific
-  # notes in ~/.claude/CLAUDE.md never leak into the repo.
-  "$SCRIPT_DIR/sync-lessons.sh" || echo "  Lesson sync skipped (sync-lessons.sh not found or failed)"
-
-  # The repo owns CLAUDE.md's structural sections; lessons are handled by sync-lessons.sh above.
-
-  # Check if local CLAUDE.md has the Boris sections
-  if ! grep -q "Quick Reference (Boris v2.0)" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
-    # Local CLAUDE.md predates Boris -- install the repo structure, preserving local lessons.
-    # Opt-in means untagged local lessons are NOT in the repo, so round-tripping them through
-    # the repo (the old behavior) would silently drop them on the overwrite below. Instead,
-    # snapshot the old file and pull its lessons back in via the ungated Repo->Local merge
-    # (REPO_FILE here = the snapshot temp, never the public repo), keeping them local.
-    SNAPSHOT="$(mktemp)"
-    cp "$CLAUDE_DIR/CLAUDE.md" "$SNAPSHOT"
-    cp "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
-    LOCAL_FILE="$CLAUDE_DIR/CLAUDE.md" REPO_FILE="$SNAPSHOT" "$SCRIPT_DIR/sync-lessons.sh" >/dev/null 2>&1 || true
-    rm -f "$SNAPSHOT"
-    echo "  Installed CLAUDE.md with Boris workflow (local lessons preserved, none promoted to repo)"
-  else
-    echo "  CLAUDE.md already has Boris sections (lessons synced)"
+# Boris v3: lessons live in ~/.claude/rules/learned-patterns.md, not CLAUDE.md.
+# The version stamp is an HTML comment ("boris-version: 3") because users edit
+# prose headings; the stamp is the one line they're told not to remove.
+if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ! grep -q "boris-version: 3" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
+  # Pre-v3 (or pre-Boris) CLAUDE.md: migrate its Learned Patterns into the
+  # local rules file BEFORE replacing the structure. The merge is the ungated
+  # Repo->Local direction (REPO_FILE = the old file snapshot, never the public
+  # repo), so private/untagged lessons are preserved locally and never leak.
+  SNAPSHOT="$(mktemp)"
+  cp "$CLAUDE_DIR/CLAUDE.md" "$SNAPSHOT"
+  MIGRATION_OK=true
+  if grep -q '^# Learned Patterns' "$SNAPSHOT" 2>/dev/null; then
+    [ -f "$CLAUDE_DIR/rules/learned-patterns.md" ] || printf '# Learned Patterns\n' > "$CLAUDE_DIR/rules/learned-patterns.md"
+    if LOCAL_FILE="$CLAUDE_DIR/rules/learned-patterns.md" REPO_FILE="$SNAPSHOT" \
+       "$SCRIPT_DIR/sync-lessons.sh" >/dev/null 2>&1; then
+      echo "  Migrated Learned Patterns from old CLAUDE.md into rules/learned-patterns.md"
+    else
+      MIGRATION_OK=false
+    fi
   fi
-else
+
+  if [ "$MIGRATION_OK" = "true" ]; then
+    # Preserve user-authored content: carry over any top-level section whose
+    # heading is not part of the known template, appending it to the new file.
+    CUSTOM="$(mktemp)"
+    awk '
+      /^# / {
+        keep = 1
+        if ($0 ~ /^# (Session Boot|User Preferences|Quick Reference|Workflow Orchestration|Memory Bank|Core Principles|Learned Patterns|Rules)/) keep = 0
+      }
+      keep { print }
+    ' "$SNAPSHOT" > "$CUSTOM"
+    cp "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
+    if [ -s "$CUSTOM" ]; then
+      { echo ""; cat "$CUSTOM"; } >> "$CLAUDE_DIR/CLAUDE.md"
+      echo "  Carried over custom section(s) from your old CLAUDE.md:"
+      grep '^# ' "$CUSTOM" | sed 's/^/    /'
+    fi
+    rm -f "$CUSTOM"
+    # @imports inside template-owned sections do not survive the replacement
+    if grep -qE '^\s*@[~./]' "$SNAPSHOT" && ! grep -qE '^\s*@[~./]' "$CLAUDE_DIR/CLAUDE.md"; then
+      echo "  WARNING: your old CLAUDE.md contained @import lines that were not carried over."
+      echo "  Re-add them from the backup if still needed: $BACKUP_DIR/CLAUDE.md"
+    fi
+    echo "  Installed slim Boris v3 CLAUDE.md (old version in backup: $BACKUP_DIR)"
+  else
+    echo "  ERROR: lesson migration FAILED — your existing CLAUDE.md was left unchanged."
+    echo "  No lessons were lost. Fix the issue (run ./sync-lessons.sh manually to see the"
+    echo "  error with LOCAL_FILE=$CLAUDE_DIR/rules/learned-patterns.md) and re-run install.sh."
+  fi
+  rm -f "$SNAPSHOT"
+elif [ ! -f "$CLAUDE_DIR/CLAUDE.md" ]; then
   cp "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
   echo "  Installed CLAUDE.md (fresh install)"
+else
+  echo "  CLAUDE.md already at Boris v3"
 fi
+
+# Sync lessons between the repo and the machine rules file. Local -> repo
+# promotion stays OPT-IN via the <!-- shareable --> marker.
+"$SCRIPT_DIR/sync-lessons.sh" || echo "  WARNING: lesson sync failed — run ./sync-lessons.sh manually to see the error"
 
 echo ""
 echo "=== Installation Complete ==="
@@ -325,9 +380,10 @@ echo "  - $AGENT_COUNT agents"
 echo "  - $SKILL_COUNT skills (invoked as /name — commands are fully migrated to skills)"
 echo "  - $WF_COUNT workflow script(s)"
 echo "  - $SCRIPT_COUNT hook scripts"
+echo "  - rules/ (git-safety, workflow, learned-patterns — the lesson-capture target)"
 echo "  - $CONTEXT_COUNT context templates"
 echo "  - settings.json (merged with hooks)"
-echo "  - CLAUDE.md (with lessons synced)"
+echo "  - CLAUDE.md (slim v3 core; lessons live in rules/learned-patterns.md)"
 echo ""
 echo "Backup at: $BACKUP_DIR"
 echo ""
@@ -338,4 +394,4 @@ echo "  3. Run /memory-init in any project to set up Memory Bank"
 echo "  4. Run /session-start to begin a session"
 echo ""
 echo "To sync lessons across machines (only <!-- shareable --> lessons reach the public repo):"
-echo "  ./sync-lessons.sh && git add CLAUDE.md && git commit -m 'sync lessons' && git push"
+echo "  ./sync-lessons.sh && git add rules/learned-patterns.md && git commit -m 'sync lessons' && git push"

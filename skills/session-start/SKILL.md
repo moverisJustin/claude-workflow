@@ -101,7 +101,7 @@ git config --get commit.gpgsign
 ```
 
 - **Returns `true`**: Proceed silently.
-- **Empty or not `true`**: Warn in the state summary: "Commit signing is not configured — commits will land Unverified. Run `install.sh` (Phase 5.5) to set up SSH signing, or see CLAUDE.md → Git Safety."
+- **Empty or not `true`**: Warn in the state summary: "Commit signing is not configured — commits will land Unverified. Run `install.sh` (Phase 5.5) to set up SSH signing, or see `~/.claude/rules/git-safety.md`."
 
 ---
 
