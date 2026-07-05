@@ -42,7 +42,7 @@ Every session begins with:
 
 # Issues & Learning
 /fix-issue <id>      # End-to-end issue resolution
-/ci-loop             # Push, wait for CI, fix, repeat
+/ci-loop             # Push, watch CI in the background (non-blocking), fix, repeat
 /update-claude-md    # Capture lessons from recent work
 /first-principles    # Break down complex problems
 ```

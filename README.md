@@ -1,6 +1,6 @@
 # Claude Workflow
 
-A shared Claude Code configuration that makes every team member's AI sessions smarter, safer, and continuous. Based on [claude-boris v2.0](https://github.com/llcoolblaze/claude-boris), customized with Linear integration, model-tiered specialist agents (9 core + 44 dev-focused community active, 105 vendored), and cross-machine knowledge syncing.
+A shared Claude Code configuration that makes every team member's AI sessions smarter, safer, and continuous. Based on [claude-boris v2.0](https://github.com/llcoolblaze/claude-boris), customized with Linear integration, model-tiered specialist agents (8 core + 44 dev-focused community active, 105 vendored), and cross-machine knowledge syncing.
 
 ## Why Use This
 
@@ -28,7 +28,7 @@ This workflow fixes that:
 
 | Category | Count | Highlights |
 |---|---|---|
-| Core agents | 9 | code-architect (opus), test-writer/doc-generator (sonnet), git-guardian/issue-tracker (haiku), ... — each pinned to a cost-appropriate model tier |
+| Core agents | 8 | code-architect (opus), test-writer/doc-generator (sonnet), git-guardian/issue-tracker (haiku), ... — each pinned to a cost-appropriate model tier |
 | Community agents | 44 active / 105 vendored | Dev-focused set (engineering, testing, dev design/specialized) installed by default + model-tiered; sales/marketing/product/etc. vendored opt-in |
 | Skills | 16 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/handoff`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
@@ -111,7 +111,7 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 | `/commit-push-pr` | Stage, commit, push, create PR -- full git workflow |
 | `/quick-commit` | Fast local commit with auto-generated message (no push) |
 | `/fix-issue <id>` | Fetch issue from Linear/GitHub, implement fix, create PR |
-| `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
+| `/ci-loop` | Push, watch CI in the background (no blocked turn), fix failures, repeat until green |
 | `/memory-init` | Initialize Memory Bank for a new project |
 | `/handoff` | Cognitive briefing -- saves mental model, failed approaches, resume prompt |
 | `/drift-check` | Validate Memory Bank accuracy against codebase, suggest and auto-fix drift |
@@ -121,7 +121,7 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 
 Retired in favor of native Claude Code features: `/verify-all` + `/test-and-fix` → `/verify` + `/checks`; `/review-changes` → `/code-review <effort>` (`ultra` for cloud review); `/security-scan` → `/security-review`; `/undo`/`/checkpoint`/`/rollback` → `/rewind`; `/mode` → native plan/permission modes; `/context` → native `/context` + statusline.
 
-### Core Agents (9)
+### Core Agents (8)
 
 Boris itself is a **skill** now (`skills/boris/SKILL.md`), not an agent — the 2025 persona-indirection hack (main thread "becoming" boris by reading an agent file) is gone. It plans in native plan mode, delegates via the Agent tool (forks, background agents, worktree isolation), and launches the `boris-build` saved Workflow for fan-out-scale jobs.
 
@@ -130,7 +130,6 @@ Boris itself is a **skill** now (`skills/boris/SKILL.md`), not an agent — the 
 | **code-architect** | System design, architecture decisions, technical planning |
 | **test-writer** | Generate comprehensive tests (JS/TS/Python) |
 | **doc-generator** | Generate/update README, API docs, CLAUDE.md |
-| **ci-integrator** | CI pipeline automation -- push, monitor, fix, iterate |
 | **issue-tracker** | Linear/GitHub issue management and lifecycle |
 | **git-guardian** | Git safety -- push-target/staging verification, branch protection |
 | **memory-bank** | Cross-session context persistence |

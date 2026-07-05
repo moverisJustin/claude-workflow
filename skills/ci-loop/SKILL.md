@@ -1,203 +1,102 @@
 ---
 name: ci-loop
-description: Push code, wait for CI, parse failures, auto-fix, and iterate until green. Automated CI feedback loop.
+description: Push, then watch CI in the BACKGROUND (no blocked turn), parse failures, auto-fix, and iterate until green. Non-blocking CI feedback loop.
+argument-hint: [optional PR# or branch]
 disable-model-invocation: true
 ---
 
 # CI Loop
 
-## Pre-flight Check
+Push and drive CI to green **without blocking the session**. The old version
+ran `gh run watch --exit-status` in a foreground command, freezing the whole
+turn for the entire CI run (often 10+ minutes). This version watches in the
+background, so you stay free to work and are re-invoked when CI finishes.
+
+## Pre-flight
 
 !`git status --short`
 !`git branch --show-current`
-!`gh run list --limit 3`
 
----
+Config: max 5 fix iterations; auto-fix lint/format/types; tests and E2E need
+analysis (never blindly "fix" a failing test).
 
-## CI Loop Protocol
-
-### Configuration
-- **Max Iterations**: 5
-- **Poll Interval**: 30 seconds
-- **Auto-fix**: Lint, Types (Tests require confirmation)
-
-### 1. Initial Push
+## 1. Push
 
 ```bash
 BRANCH=$(git branch --show-current)
-echo "🚀 Pushing to $BRANCH..."
 git push origin "$BRANCH"
 ```
 
-### 2. Wait for CI
+## 2. Watch CI in the background (do NOT block the turn)
+
+Get the run id, then watch it as a **background task** — run this Bash with
+`run_in_background: true` so the harness re-invokes you on completion instead of
+freezing the session:
 
 ```bash
-echo "⏳ Waiting for CI..."
-
-# Get latest run
 RUN_ID=$(gh run list --branch "$BRANCH" --limit 1 --json databaseId -q '.[0].databaseId')
-
-# Watch and wait
 gh run watch "$RUN_ID" --exit-status
 ```
 
-### 3. Parse Results
+- **Background task exits 0** → CI is green. Go to step 5 (success).
+- **Background task exits non-zero** → CI failed. Go to step 3.
 
-If CI fails:
+While it runs, you can keep working on other things; you'll be notified when it
+exits. (For a persistent "keep this branch green" watcher across many pushes,
+`/loop` is the right tool; for a single push→green cycle, the background task
+above is simpler and event-driven.)
+
+## 3. Parse the failure
 
 ```bash
-# Get failure logs
-gh run view "$RUN_ID" --log-failed > /tmp/ci-failure.log
-
-# Parse for actionable errors
-echo "=== TypeScript Errors ==="
-grep -E "error TS[0-9]+:" /tmp/ci-failure.log | head -10
-
-echo "=== Test Failures ==="
-grep -A 3 "FAIL\|✕" /tmp/ci-failure.log | head -20
-
-echo "=== Lint Errors ==="
-grep -E "error\s+" /tmp/ci-failure.log | head -10
-
-echo "=== Build Errors ==="
-grep -E "Error:|BUILD FAILED" /tmp/ci-failure.log | head -10
+gh run view "$RUN_ID" --log-failed > /tmp/ci-failure-$RUN_ID.log
 ```
 
-### 4. Auto-Fix Attempt
+Classify (github-actions primary; the same parse applies to gitlab/circle/azure
+logs — detect from `.github/workflows`, `.gitlab-ci.yml`, `.circleci/`, etc.):
 
-**Lint Errors** (auto-fixable):
-```bash
-npm run lint:fix
-```
+| Signal | Category | Auto-fix? |
+|---|---|---|
+| `error TS####:` | TypeScript | yes — fix the type at the location |
+| `ruff`/`eslint` `error` | Lint | yes — run the fixer, then re-check |
+| format check failed | Format | yes — run the formatter |
+| `FAIL` / `✕` / assertion | Test | analyze — is it the test or the code? |
+| `Module not found` / build error | Build | usually deps/config — investigate |
+| timeout / flaky / missing secret | Infra/E2E | do NOT auto-fix — report |
 
-**Type Errors** (analyze and fix):
-- Parse error location
-- Determine fix
-- Apply carefully
+## 4. Fix, commit, re-watch
 
-**Test Failures** (requires analysis):
-- Understand what failed
-- Determine if test or code issue
-- Fix accordingly
-
-**Build Errors** (investigate):
-- Usually dependency or config
-- May need manual intervention
-
-### 5. Commit Fixes
+Apply the fix (lint/format via the project's fixer; types/tests by editing the
+root cause — run `/checks` locally first to confirm before pushing), then:
 
 ```bash
 git add -A
-git commit -m "fix: address CI failures
-
-Auto-fixes applied:
-- [List what was fixed]
-
-🤖 CI Loop iteration $ITERATION"
+git commit -m "fix: address CI failure (ci-loop iteration N)"
+git push origin "$BRANCH"
 ```
 
-### 6. Iterate
+Re-watch from step 2 (again in the background). Increment N. **Circuit breaker:
+stop after 5 iterations** and report — repeated failure means the auto-fix
+isn't converging.
 
-Repeat steps 1-5 until:
-- ✅ All checks pass, or
-- ⚠️ Max iterations reached, or
-- ❌ Non-auto-fixable issue found
+## 5. Report
 
----
-
-## Iteration Tracking
-
-| Iteration | Status | Fixes Applied |
-|-----------|--------|---------------|
-| 1 | [Pass/Fail] | [What was fixed] |
-| 2 | [Pass/Fail] | [What was fixed] |
-| ... | ... | ... |
-
----
-
-## Circuit Breaker
-
-After 5 iterations without success:
-
+**Green:**
 ```
-⚠️ CI Loop: Maximum iterations reached
-
-Status: Still failing after 5 attempts
-Blocker: [What's still failing]
-
-This issue requires manual intervention.
-
-Suggestions:
-1. [Specific suggestion based on failure]
-2. Run locally to debug
-3. Check CI configuration
+CI Loop: green
+Iterations: N | Run: <url>
+Fixes: [what was changed each iteration, or "none — passed first try"]
 ```
 
----
-
-## Output Format
-
-### Success
-```markdown
-## ✅ CI Loop Complete
-
-### Summary
-- **Iterations**: 2
-- **Duration**: 5m 30s
-- **Final Status**: All checks passing
-
-### Fixes Applied
-#### Iteration 1
-- ESLint: Fixed 3 unused variable warnings
-- Prettier: Formatted 2 files
-
-#### Iteration 2
-- TypeScript: Added missing type annotation
-
-### CI Run
-- **Run ID**: 12345678
-- **Link**: [URL]
-
-### Ready for Review
-All checks are green. PR is ready for review.
+**Stuck (circuit breaker or non-auto-fixable):**
+```
+CI Loop: manual fix required
+Iterations: N | Still failing: <job/step>
+Category: [test/E2E/infra/config/secret]
+Log: <url>
+Why it can't auto-fix: [flaky state, external dep, missing secret, ...]
+Suggested next steps: [1-3 concrete actions; e.g. run the failing job locally]
 ```
 
-### Failure
-```markdown
-## ❌ CI Loop: Manual Fix Required
-
-### Summary
-- **Iterations**: 5 (max reached)
-- **Status**: Still failing
-
-### Blocker
-E2E test failure in `checkout.spec.ts`:
-```
-Timeout waiting for element [data-testid="submit-btn"]
-```
-
-### Analysis
-This appears to be a flaky test or timing issue.
-Cannot auto-fix - requires investigation.
-
-### Suggestions
-1. Check if selector changed
-2. Add explicit wait for element
-3. Run E2E locally: `npm run test:e2e -- --headed`
-
-### CI Logs
-[Link to failed run]
-```
-
----
-
-## Manual Intervention Points
-
-Some issues cannot be auto-fixed:
-- E2E test failures (complex state)
-- Integration test failures (external deps)
-- Configuration errors
-- Missing secrets/env vars
-- Flaky tests
-
-When encountered, report clearly and provide debugging suggestions.
+Never claim green without the background watch actually exiting 0. If tests were
+skipped or a job was cancelled, say so — don't report a cancelled run as passing.
