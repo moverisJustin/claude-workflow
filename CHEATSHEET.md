@@ -1,6 +1,6 @@
-# Boris v2.0 Cheat Sheet
+# Boris v3 Cheat Sheet
 
-Quick reference for all slash commands, specialist agents, and modes.
+Quick reference for all slash commands, specialist agents, and native replacements.
 
 ## Slash Commands
 
@@ -9,49 +9,51 @@ Quick reference for all slash commands, specialist agents, and modes.
 | `/boris <task>` | Full orchestrated workflow — plan, delegate, verify, ship |
 | `/session-start` | Load Memory Bank, check project status, orient to continue |
 | `/session-end` | Save Memory Bank state, create session summary for next time |
-| `/verify-all` | Run tests, types, lint, build — full verification suite |
-| `/test-and-fix` | Run tests, analyze failures, fix, repeat until green |
-| `/security-scan` | SAST, dependency CVEs, secrets detection, OWASP checks |
+| `/checks` | Stack-detected quality gates (tests, types, lint, format, build) + Stop-hook verify gate |
 | `/task-branch <name>` | Create feature branch with task context for cross-machine handoff |
 | `/task-done` | Complete task: verify, create PR, clean up task-context.md |
 | `/commit-push-pr` | Stage, commit, push, create PR — full git workflow |
 | `/quick-commit` | Fast local commit with auto-generated message (no push) |
-| `/undo` | Revert the last Claude-made change safely |
-| `/checkpoint <name>` | Create a named save point for easy rollback |
-| `/rollback` | Restore a previous checkpoint or go back N commits |
-| `/mode <mode>` | Switch mode: `architect`, `code`, `debug`, `review`, `audit` |
 | `/fix-issue <id>` | Fetch issue from Linear/GitHub, implement fix, create PR |
 | `/ci-loop` | Push, wait for CI, parse failures, fix, repeat |
-| `/context` | Show context window usage and Memory Bank status |
 | `/memory-init` | Initialize Memory Bank for a new project |
 | `/handoff` | Cognitive briefing — saves mental model, failed approaches, resume prompt |
 | `/load-context <type>` | Load task-specific context mid-session (feature/debug/test/deploy/etc) |
 | `/drift-check` | Validate Memory Bank accuracy against codebase — suggest and auto-fix drift |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
 | `/first-principles` | Break down a complex problem from fundamentals |
-| `/review-changes` | Review uncommitted changes before committing |
 | `/anythingelse` | Creative wildcard prompt |
 
-## Core Agents (16)
+## Native Replacements (retired workflow commands)
+
+Claude Code now does these natively — harness-enforced, better than the prose versions they replace:
+
+| Was | Now (native) |
+|---|---|
+| `/verify-all`, `/test-and-fix` | `/verify` (runs the app, observes behavior) + `/checks` (this repo's stack-detected gates) |
+| `/review-changes` | `/code-review <effort>` — `--comment` posts inline PR comments, `--fix` applies findings, `ultra` = multi-agent cloud review |
+| `/security-scan` | `/security-review` on the branch |
+| `/undo`, `/checkpoint`, `/rollback` | `/rewind` (Esc-Esc) — automatic per-prompt checkpoints, survive `/clear`, 30 days. Undo a *commit*: `git reset --soft HEAD^`. Bash-destroyed files: `git tag -l 'auto-checkpoint/*'` |
+| `/mode architect`, `/mode review` | Native plan mode (Shift+Tab or `/plan`) — read-only enforced by the harness |
+| `/mode audit` | PreToolUse audit hooks (`.claude/audit/`, self-gitignored) + `/security-review` |
+| `/context` | Native `/context` + statusline (live context %, real numbers) |
+
+## Core Agents (10)
 
 | Agent | Role |
 |---|---|
 | **boris** | Master orchestrator — plans, delegates to specialists, verifies |
 | **code-architect** | System design, architecture decisions, technical planning |
-| **code-simplifier** | Clean up code after implementation — reduce complexity |
 | **test-writer** | Generate comprehensive tests (JS/TS/Python) |
-| **verify-app** | End-to-end verification + performance checks |
-| **pr-reviewer** | Automated code review — bugs, security, style |
 | **doc-generator** | Generate/update docs (Divio system, docs-as-code) |
 | **ci-integrator** | CI pipeline automation — push, monitor, fix, iterate |
 | **issue-tracker** | Linear/GitHub issue management and lifecycle |
-| **git-guardian** | Safe git ops — dirty file protection, checkpoints, attribution |
+| **git-guardian** | Git safety — push-target/staging verification, branch protection |
 | **memory-bank** | Cross-session context persistence |
-| **mode-controller** | Behavioral mode switching with tool access restrictions |
-| **security-auditor** | Vulnerability scanning and security assessment |
-| **audit-logger** | Compliance audit trails (SOC 2, ISO 27001, HIPAA) |
 | **oncall-guide** | Production incidents + SLO/SLI framework + post-mortems |
 | **linear-project-manager** | Linear-native issue, sprint, and project management |
+
+Retired agents (native now): code-simplifier → `/simplify`, verify-app → `/verify` + `/checks`, pr-reviewer → `/code-review`, security-auditor → `/security-review`, mode-controller → native plan/permission modes, audit-logger → the audit hooks.
 
 ## Community Agents (105)
 
@@ -72,15 +74,14 @@ From [agency-agents](https://github.com/msitarzewski/agency-agents). Key ones fo
 
 Full list: `ls agents/community/` or see `agents/community/MANIFEST.txt`
 
-## Modes (`/mode <name>`)
+## Modes (Native, Harness-Enforced)
 
-| Mode | Focus |
+| Need | Use |
 |---|---|
-| `architect` | Design and planning only — no code edits |
-| `code` | Implementation — full tool access |
-| `debug` | Diagnosis — read-heavy, minimal edits |
-| `review` | Code review — read-only with comments |
-| `audit` | Compliance and security review |
+| Design/review without edits | Plan mode (Shift+Tab or `/plan`) — read-only guaranteed by the harness |
+| Implementation | Default / acceptEdits permission modes |
+| Audit trail | PreToolUse hooks log commands + file-writes to `.claude/audit/` |
+| Security pass | `/security-review` |
 
 ## Hooks (Automatic)
 
@@ -93,6 +94,7 @@ Full list: `ls agents/community/` or see `agents/community/MANIFEST.txt`
 | **Prettier** | After Edit/Write of js/ts/css/md | Formats with the project's prettier (skips projects without it) | Zero |
 | **Compaction snapshot** | Before context compaction | Writes git state to `.claude/memory/compaction-snapshot.md` (PreCompact consumes no hook output — this is a side effect) | Zero |
 | **Post-compaction recovery** | After compaction (SessionStart `compact`) | Injects "verify summary against snapshot, save handoff to task-context.md" | ~300 chars, post-compaction only |
+| **Verify gate** | Turn end (Stop), only while `/checks` has the gate armed | Blocks ending the turn until quality gates pass or are explicitly waived; 3-attempt escape hatch, 2h staleness disarm | Zero on normal turns |
 
 Non-git projects: set `"git_enabled": false` in `.claude/project-config.json`.
 
@@ -111,10 +113,10 @@ Non-git projects: set `"git_enabled": false` in `.claude/project-config.json`.
 `/fix-issue PROJ-123`
 
 **Before merging:**
-`/verify-all` → `/review-changes` → `/commit-push-pr`
+`/checks` → `/code-review medium` → `/commit-push-pr`
 
 **Something broke:**
-`/mode debug` → investigate → `/mode code` → fix
+Point Claude at the logs/error — it diagnoses and fixes (plan mode first if you want read-only investigation)
 
 **Task complete:**
 `/task-done` (verify, PR, cleanup)
@@ -126,7 +128,7 @@ Non-git projects: set `"git_enabled": false` in `.claude/project-config.json`.
 `/session-end`
 
 **Oops:**
-`/undo` or `/rollback`
+`/rewind` (Esc-Esc) for Claude's edits; `git reset --soft HEAD^` for a bad commit; `git tag -l 'auto-checkpoint/*'` for bash-destroyed files
 
 ## Memory Bank
 

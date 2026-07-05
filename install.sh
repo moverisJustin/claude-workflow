@@ -77,6 +77,26 @@ for f in "$SCRIPT_DIR/commands/"*.md; do
 done
 echo "  Installed $CMD_COUNT commands"
 
+# --- Phase 3.5: Remove retired files from previous installs ---
+echo "--- Phase 3.5: Remove retired files ---"
+RETIRED=0
+# Commands/agents superseded by native Claude Code features (Boris v3), plus
+# retired hook scripts. Flat-copy installs leave stale files behind otherwise —
+# and a stale /checkpoint or /mode shadowing the native behavior is worse than none.
+for f in \
+  commands/checkpoint.md commands/rollback.md commands/undo.md commands/mode.md \
+  commands/review-changes.md commands/security-scan.md commands/verify-all.md \
+  commands/test-and-fix.md commands/context.md \
+  agents/mode-controller.md agents/pr-reviewer.md agents/security-auditor.md \
+  agents/verify-app.md agents/code-simplifier.md agents/audit-logger.md \
+  scripts/hook-branch-switch.sh; do
+  if [ -f "$CLAUDE_DIR/$f" ]; then
+    rm -f "$CLAUDE_DIR/$f"
+    RETIRED=$((RETIRED + 1))
+  fi
+done
+echo "  Removed $RETIRED retired file(s) from ~/.claude"
+
 # --- Phase 4: Install skills ---
 echo "--- Phase 4: Install skills ---"
 mkdir -p "$CLAUDE_DIR/skills/boris-workflow"

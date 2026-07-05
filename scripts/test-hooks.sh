@@ -187,6 +187,51 @@ else
   bad "compact-resume output wrong: $OUT"
 fi
 
+# ─── Stop-hook verify gate ───
+echo "--- hook-stop-verify.sh ---"
+STOP_VERIFY="$SCRIPT_DIR/hook-stop-verify.sh"
+GATEPROJ="$TMP/gate-project"
+GATEFILE="$GATEPROJ/.claude/audit/verify-gate"
+mkdir -p "$GATEPROJ/.claude/audit"
+
+OUT=$(echo '{"hook_event_name":"Stop"}' | CLAUDE_PROJECT_DIR="$GATEPROJ" bash "$STOP_VERIFY")
+if [ -z "$OUT" ]; then ok "no gate armed: silent (normal turns never blocked)"; else bad "blocked a stop with no gate armed"; fi
+
+echo "attempts=0" > "$GATEFILE"
+OUT=$(echo '{"hook_event_name":"Stop"}' | CLAUDE_PROJECT_DIR="$GATEPROJ" bash "$STOP_VERIFY")
+if printf '%s' "$OUT" | grep -q '"decision": *"block"'; then ok "armed gate: blocks the stop"; else bad "armed gate did not block (out=$OUT)"; fi
+if grep -q "attempts=1" "$GATEFILE"; then ok "attempt counter incremented"; else bad "attempt counter not incremented"; fi
+
+echo "attempts=3" > "$GATEFILE"
+OUT=$(echo '{"hook_event_name":"Stop"}' | CLAUDE_PROJECT_DIR="$GATEPROJ" bash "$STOP_VERIFY")
+if printf '%s' "$OUT" | grep -q 'systemMessage' && [ ! -f "$GATEFILE" ]; then
+  ok "escape hatch: gate disarms after max attempts (agent never trapped)"
+else
+  bad "escape hatch failed (out=$OUT gate-exists=$([ -f "$GATEFILE" ] && echo yes || echo no))"
+fi
+
+# Stale gate (crashed session): silently disarmed, no block
+echo "attempts=0" > "$GATEFILE"
+touch -t 202601010000 "$GATEFILE"
+OUT=$(echo '{"hook_event_name":"Stop"}' | CLAUDE_PROJECT_DIR="$GATEPROJ" bash "$STOP_VERIFY")
+if [ -z "$OUT" ] && [ ! -f "$GATEFILE" ]; then
+  ok "stale gate (>2h): silently disarmed"
+else
+  bad "stale gate not disarmed (out=$OUT gate-exists=$([ -f "$GATEFILE" ] && echo yes || echo no))"
+fi
+
+# Gate path containing a single quote must not break the staleness check
+QPROJ="$TMP/o'brien-project"
+mkdir -p "$QPROJ/.claude/audit"
+echo "attempts=0" > "$QPROJ/.claude/audit/verify-gate"
+touch -t 202601010000 "$QPROJ/.claude/audit/verify-gate"
+OUT=$(echo '{"hook_event_name":"Stop"}' | CLAUDE_PROJECT_DIR="$QPROJ" bash "$STOP_VERIFY")
+if [ -z "$OUT" ] && [ ! -f "$QPROJ/.claude/audit/verify-gate" ]; then
+  ok "quoted project path: staleness check still works"
+else
+  bad "quoted project path broke the staleness check"
+fi
+
 # ─── Prettier ───
 echo "--- hook-prettier.sh ---"
 echo "# doc" > "$TMP/sample.md"

@@ -35,15 +35,14 @@ If task-context.md exists, update it:
 
 ### 2. Run Verification
 
-```bash
-# Run whatever verification the project supports
-npm test 2>/dev/null || python -m pytest 2>/dev/null || echo "No test runner detected"
-npm run typecheck 2>/dev/null || python -m mypy . 2>/dev/null || true
-npm run lint 2>/dev/null || python -m ruff check . 2>/dev/null || true
-npm run build 2>/dev/null || true
-```
+Run `/checks` (stack-detected quality gates — tests, types, lint, format,
+build). Do NOT mask failures with `2>/dev/null || true` chains: a gate that
+fails must surface its output, and the verify gate stays armed until every
+applicable gate passes.
 
-If any critical checks fail (tests), stop and fix before proceeding.
+If any gate fails, stop and fix root causes before proceeding. For changes
+where behavior matters (not just static gates), also run `/verify` to
+observe the app actually working.
 
 ### 3. Commit Any Remaining Changes
 

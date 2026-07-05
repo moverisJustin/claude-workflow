@@ -27,30 +27,33 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 /session-start       # Load Memory Bank, orient to project
 /session-end         # Save context for next session
 
-# Verification & Quality
-/verify-all          # Run tests, types, lint, build
-/test-and-fix        # Fix failing tests iteratively
-/security-scan       # Check for vulnerabilities
-/review-changes      # Pre-commit code review
+# Verification & Quality (native skills + /checks)
+/checks              # Stack-detected quality gates (tests, types, lint, format, build)
+/verify              # Native: run the app, observe behavior
+/code-review <level> # Native: review the diff (--comment, --fix; "ultra" for cloud review)
+/security-review     # Native: security review of the branch
+/simplify            # Native: simplification pass on changed code
 
 # Git Workflow
 /task-branch <name>  # Create feature branch + task context
 /task-done           # Complete task: verify, PR, cleanup
 /commit-push-pr      # Full git workflow with PR
 /quick-commit        # Fast local commit
-/undo                # Revert last Claude change
-/checkpoint [name]   # Create named save point
-/rollback [target]   # Restore checkpoint
+/rewind              # Native: restore Claude's edits (Esc-Esc; automatic per-prompt checkpoints)
+                     # Undo a commit: git reset --soft HEAD^ (rewind restores files, not history)
+                     # Bash-destroyed files: git tag -l 'auto-checkpoint/*' (destructive-guard hook)
 
 # Context & Memory
-/context             # Check context usage
+/context             # Native: real context-window usage (statusline shows it live)
 /memory-init         # Initialize Memory Bank for project
 /handoff             # Cognitive briefing for seamless session handoff
 /load-context <type> # Load task-specific context mid-session (feature/debug/test/etc)
 /drift-check         # Validate Memory Bank accuracy against codebase
 
-# Mode System
-/mode [mode]         # Switch modes (architect/code/debug/review/audit)
+# Modes (native, harness-enforced — the prose /mode system is retired)
+# plan mode           # architect/review: read-only, enforced by the harness (Shift+Tab or /plan)
+# acceptEdits/default # code: normal development
+# audit trail         # PreToolUse hooks log all commands/file-writes to .claude/audit/
 
 # Issue Tracking
 /fix-issue <num>     # End-to-end issue resolution
@@ -76,7 +79,8 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - Offload research, exploration, and parallel analysis to subagents
 - For complex problems, throw more compute at it via subagents
 - One task per subagent for focused execution
-- Use specialist agents: code-architect, code-simplifier, test-writer, verify-app, pr-reviewer, doc-generator, oncall-guide
+- Use specialist agents: code-architect, test-writer, doc-generator, oncall-guide
+- Use native skills where the platform covers the job: /simplify (cleanup), /verify + /checks (verification), /code-review (review), /security-review (security)
 - Match agent to task type (see agents in ~/.claude/agents/)
 
 ## 3. Self-Improvement Loop
@@ -91,8 +95,9 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 
 ## 4. Verification Before Done
 - Never mark a task complete without proving it works
-- Use `/verify-all` command for automated checks (tests, types, lint, build)
-- Invoke verify-app agent for comprehensive testing
+- Use `/checks` for automated gates (stack-detected: tests, types, lint, format, build) — it arms a Stop-hook verify gate that pushes back if the turn ends before gates are green
+- Use native `/verify` for behavioral verification: run the app, observe it working
+- Use native `/code-review <effort>` before merging (`ultra` for release branches)
 - Diff behavior between main and your changes when relevant
 - Ask yourself: "Would a staff engineer approve this?"
 - Run tests, check logs, demonstrate correctness
@@ -110,10 +115,9 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - Go fix failing CI tests without being told how
 
 ## 7. Git Safety
-- Use `/checkpoint` before risky changes
-- Use `/undo` to revert Claude-made commits
-- Use `/rollback` to restore checkpoints
-- The destructive-command hook auto-checkpoints (tag + non-mutating stash snapshot) before `git reset --hard`/`rm -rf` and asks for confirmation on high-risk `rm -rf` targets
+- Native checkpoints cover Claude's edits: `/rewind` (Esc-Esc) restores per-prompt snapshots automatically — no manual checkpoint command needed
+- To undo a commit: `git reset --soft HEAD^` explicitly (`/rewind` restores files, not git history)
+- The destructive-command hook auto-checkpoints (tag + non-mutating stash snapshot) before `git reset --hard`/`rm -rf` and asks for confirmation on high-risk `rm -rf` targets; recovery via `git tag -l 'auto-checkpoint/*'`
 - Never force-push to main/master
 - Always verify push target with `git remote -v` before pushing
 - **Signed commits required**: all commits must carry a verified signature (org security protocol). Signing is SSH-based and on by default (`commit.gpgsign true`, `gpg.format ssh`); `install.sh` configures it per-machine. Never disable it with `--no-gpg-sign`. If a commit fails to sign, fix the key/agent — don't bypass.
@@ -138,12 +142,12 @@ This applies to every new session — CLI, desktop app, and IDE. No exceptions. 
 - The cognitive briefing captures THINKING (why, how, what failed) not just DOING (which files changed)
 - `/handoff` can be run manually at any time for an immediate cognitive snapshot
 
-## 10. Mode System
-- `/mode architect` — read-only design mode (no file edits)
-- `/mode code` — full development (default)
-- `/mode debug` — investigation, limited writes
-- `/mode review` — strictly read-only code review
-- `/mode audit` — security scanning with logging
+## 10. Modes (Native, Harness-Enforced)
+The prose `/mode` system is retired — it promised restrictions ("I WILL NOT edit files") the model could only honor, not enforce. Use the platform's real modes, which the harness enforces:
+- **architect / review** → native plan mode (Shift+Tab or `/plan`; or `claude --permission-mode plan`) — read-only is guaranteed, not promised
+- **code** → default / acceptEdits permission modes
+- **debug** → default mode; keep edits minimal by intent
+- **audit** → the PreToolUse audit hooks log every command and file-write to `.claude/audit/` (self-gitignored), and `/security-review` covers the security pass
 
 ---
 

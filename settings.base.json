@@ -330,6 +330,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/scripts/hook-stop-verify.sh"
+          }
+        ]
+      }
     ]
   },
   "env": {

@@ -56,15 +56,16 @@ if [ -d "$CLAUDE_DIR/skills/boris-workflow" ]; then
   echo "  Removed boris-workflow skill"
 fi
 
-# Remove workflow-installed hook scripts and context templates
-# (includes hook-branch-switch.sh, retired but possibly present from old installs)
-for s in hook-session-start.sh hook-destructive-guard.sh hook-audit.sh \
-         hook-prettier.sh hook-drift-watch.sh hook-precompact.sh \
-         hook-compact-resume.sh hook-branch-switch.sh drift-check.sh \
-         sync-agency-agents.sh test-hooks.sh; do
-  if [ -f "$CLAUDE_DIR/scripts/$s" ]; then
-    rm -f "$CLAUDE_DIR/scripts/$s"
-    echo "  Removed scripts/$s"
+# Remove workflow-installed hook scripts and context templates.
+# hook-*.sh is globbed so future hooks (and long-retired ones from old
+# installs) are covered without maintaining an enumerated list.
+for s in "$CLAUDE_DIR/scripts/"hook-*.sh \
+         "$CLAUDE_DIR/scripts/drift-check.sh" \
+         "$CLAUDE_DIR/scripts/sync-agency-agents.sh" \
+         "$CLAUDE_DIR/scripts/test-hooks.sh"; do
+  if [ -f "$s" ]; then
+    rm -f "$s"
+    echo "  Removed scripts/$(basename "$s")"
   fi
 done
 rm -f "$CLAUDE_DIR/context/ROUTER.md" "$CLAUDE_DIR/context/patterns/INDEX.md" 2>/dev/null || true
