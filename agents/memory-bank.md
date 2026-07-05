@@ -2,6 +2,7 @@
 name: memory-bank
 description: Maintains the structured, human-authored Memory Bank (project identity, ADRs, project-specific conventions) that native auto-memory does not provide. Invoke to curate, audit, or repair these files.
 tools: Read, Write, Edit, Grep, Glob
+model: haiku
 ---
 
 # Memory Bank Agent

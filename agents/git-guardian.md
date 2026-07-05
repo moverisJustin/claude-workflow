@@ -2,6 +2,7 @@
 name: git-guardian
 description: Git safety layer - branch protection, push-target verification, staging verification, and safe branch hygiene. Checkpointing and undo are native now (/rewind, plus the destructive-guard hook for bash-driven changes).
 tools: Read, Bash, Grep, Glob
+model: haiku
 ---
 
 # Git Guardian Agent

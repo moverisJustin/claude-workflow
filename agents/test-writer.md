@@ -2,6 +2,7 @@
 name: test-writer
 description: Generate comprehensive tests for code. Use when new features need tests, coverage is low, or critical paths need better testing.
 tools: Read, Write, Edit, Grep, Glob, Bash
+model: sonnet
 memory: project
 ---
 

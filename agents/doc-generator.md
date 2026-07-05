@@ -2,6 +2,7 @@
 name: doc-generator
 description: Generate and update documentation from code. Creates README sections, API docs, component docs, and keeps CLAUDE.md current.
 tools: Read, Write, Edit, Grep, Glob, Bash
+model: sonnet
 memory: project
 ---
 

@@ -1,6 +1,7 @@
 ---
 name: issue-tracker
 description: Native integration with GitHub Issues, Linear, and Jira. Fetches issue details, understands requirements, links commits to issues, and manages issue lifecycle. Use when working on tracked issues.
+model: haiku
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 

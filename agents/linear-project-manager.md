@@ -1,6 +1,7 @@
 ---
 name: linear-project-manager
 description: Linear-native project management agent. Uses Linear MCP tools to manage issues, sprints, milestones, and project tracking.
+model: haiku
 tools: Read, Write, Edit, Bash, Grep, Glob
 ---
 
