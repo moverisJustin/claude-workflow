@@ -82,8 +82,27 @@ if [ -f "$MANIFEST" ]; then
     COMMUNITY_COUNT=$((COMMUNITY_COUNT + 1))
     AGENT_COUNT=$((AGENT_COUNT + 1))
   done < "$MANIFEST"
+
+  # Prune now-inactive community agents left by an older install that deployed
+  # more (or all) of them. Only ever removes agents this repo vendors under
+  # agents/community/ AND that are not currently active — never the user's own
+  # custom agents or the core set.
+  PRUNED=0
+  # `if` (not `&& echo`): the last MANIFEST line is a comment, so the final
+  # iteration must exit 0, or the command substitution's non-zero status trips
+  # `set -e` and aborts the install.
+  ACTIVE_LIST="$(sed 's/#.*//' "$MANIFEST" | while IFS= read -r l; do s=$(printf '%s' "$l" | xargs); if [ -n "$s" ]; then echo "$s"; fi; done)"
+  for vf in "$SCRIPT_DIR/agents/community/"*.md; do
+    [ -f "$vf" ] || continue
+    vslug=$(basename "$vf" .md)
+    printf '%s\n' "$ACTIVE_LIST" | grep -qxF "$vslug" && continue   # still active
+    if [ -f "$CLAUDE_DIR/agents/$vslug.md" ]; then
+      rm -f "$CLAUDE_DIR/agents/$vslug.md"
+      PRUNED=$((PRUNED + 1))
+    fi
+  done
 fi
-echo "  Installed $AGENT_COUNT agents ($CORE_COUNT core + $COMMUNITY_COUNT community active, $COLLISIONS collision(s) skipped)"
+echo "  Installed $AGENT_COUNT agents ($CORE_COUNT core + $COMMUNITY_COUNT community active, $COLLISIONS collision(s) skipped, ${PRUNED:-0} now-inactive pruned)"
 echo "  ($(ls "$SCRIPT_DIR/agents/community/"*.md 2>/dev/null | wc -l | xargs) community agents vendored; enable more by uncommenting them in agents/community/MANIFEST.txt and re-running)"
 
 # --- Phase 3: Install workflows ---

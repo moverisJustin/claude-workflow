@@ -64,6 +64,10 @@ echo "#!/bin/bash" > "$CD/scripts/hook-branch-switch.sh"
 # skill-based cleanup): load-context (retired P3), ci-integrator (retired 4b).
 echo "old load-context command" > "$CD/commands/load-context.md"
 mkdir -p "$CD/agents"; echo "old ci-integrator agent" > "$CD/agents/ci-integrator.md"
+# An old install deployed ALL community agents; the now-opt-in ones must be
+# pruned on upgrade (but never the user's own custom agents).
+echo "old opt-in community agent" > "$CD/agents/marketing-seo-specialist.md"
+echo "my own custom agent" > "$CD/agents/my-custom-agent.md"
 
 # Snapshot the repo's lessons file to prove the install never mutates it
 REPO_LESSONS_BEFORE=$(cat "$REPO_DIR/rules/learned-patterns.md")
@@ -126,8 +130,11 @@ if [ "$INSTALLED_COMM" -eq "$ACTIVE" ] && [ "$ACTIVE" -lt "$VENDORED" ]; then
 else
   bad "community install wrong (installed=$INSTALLED_COMM active=$ACTIVE vendored=$VENDORED)"
 fi
-# A commented-out (opt-in) agent must NOT be installed
-if [ ! -f "$CD/agents/marketing-seo-specialist.md" ]; then ok "opt-in community agent not installed by default"; else bad "opt-in agent installed"; fi
+# A commented-out (opt-in) agent must NOT be installed — and a now-inactive one
+# left by an OLD all-community install must be PRUNED on upgrade...
+if [ ! -f "$CD/agents/marketing-seo-specialist.md" ]; then ok "inactive community agent pruned on upgrade (not installed/left behind)"; else bad "inactive community agent survived"; fi
+# ...but the user's own custom agent must be left untouched
+if [ -f "$CD/agents/my-custom-agent.md" ]; then ok "user's custom agent preserved (prune only touches vendored community)"; else bad "prune deleted a user custom agent"; fi
 # An installed community agent got a model tier at deploy time
 SAMPLE=$(active_slugs | head -1)
 if grep -q '^model:' "$CD/agents/$SAMPLE.md" 2>/dev/null; then ok "community agent got a deploy-time model tier ($SAMPLE)"; else bad "community agent missing injected model tier"; fi
