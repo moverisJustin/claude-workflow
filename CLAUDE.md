@@ -44,6 +44,7 @@ Every session begins with:
 /fix-issue <id>      # End-to-end issue resolution
 /ci-loop             # Push, watch CI in the background (non-blocking), fix, repeat
 /update-claude-md    # Capture lessons from recent work
+/bspec-doc           # Author a spec/PRD/architecture/decision doc in BSpec format, then validate offline
 /first-principles    # Break down complex problems
 ```
 

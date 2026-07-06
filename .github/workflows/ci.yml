@@ -42,3 +42,6 @@ jobs:
 
       - name: Plugin packaging tests
         run: /bin/bash ./scripts/test-plugin.sh
+
+      - name: BSpec validator tests
+        run: /bin/bash ./scripts/test-bspec-validate.sh

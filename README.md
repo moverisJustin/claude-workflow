@@ -30,7 +30,7 @@ This workflow fixes that:
 |---|---|---|
 | Core agents | 8 | code-architect (opus), test-writer/doc-generator (sonnet), git-guardian/issue-tracker (haiku), ... — each pinned to a cost-appropriate model tier |
 | Community agents | 44 active / 105 vendored | Dev-focused set (engineering, testing, dev design/specialized) installed by default + model-tiered; sales/marketing/product/etc. vendored opt-in |
-| Skills | 17 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/handoff`, `/memory-migrate`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
+| Skills | 18 | `/boris`, `/session-start`, `/checks`, `/bspec-doc`, `/fix-issue`, `/drift-check`, `/handoff`, `/memory-migrate`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
 | Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
 | Rules | 3 | `git-safety.md`, `workflow.md` (always-on policy), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
@@ -67,7 +67,7 @@ For teammates who prefer one-line onboarding, the repo also ships as a Claude Co
 /plugin install boris-workflow@boris
 ```
 
-The plugin bundles the **17 workflow skills, the 8 model-tiered core agents, and the full safety/audit hook layer**. Two tradeoffs to know:
+The plugin bundles the **18 workflow skills, the 8 model-tiered core agents, and the full safety/audit hook layer**. Two tradeoffs to know:
 
 - **Commands are namespaced** — `/boris-workflow:task-done` instead of `/task-done` (Claude Code always namespaces plugin skills to prevent conflicts; there is no bare-name plugin form).
 - **Not included** (use `install.sh` for these): the 44 community agents, the `boris-build` saved workflow, the permission allowlist (plugins can't ship permissions), and the `~/.claude/rules/` lesson-sync files.
@@ -115,6 +115,9 @@ scripts/maintenance-check.sh --install-cron # weekly local cron (Mondays 09:00)
 
 No cloud usage; pure bash, zero AI tokens.
 
+### BSpec Documents
+`/bspec-doc` auto-fires whenever you ask for a spec, PRD, feature spec, architecture/system/API/data/security doc, or decision record, and writes it as a saved file in the standardized [BSpec](https://bspec.dev) format (YAML-frontmatter Markdown with a shared type vocabulary and typed cross-links) so specs stay consistent across the company. Claude authors the document directly — no external LLM — then `scripts/bspec-validate.sh` checks it offline: required fields, a real BSpec type code, a valid status, and no dangling relationship links. The released BSpec CLI has no offline validate/generate (its only such path needs an external OpenRouter/OpenAI key), so validation is our own zero-dependency script; the CLI itself is optional corpus tooling (`bspec init/pack/open/query`) installed on demand via `scripts/install-bspec-cli.sh` (pinned + checksum-verified).
+
 ### Learned Patterns
 When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns go to your private `~/.claude/rules/learned-patterns.md` and stay on your machine by default. Sharing to this **public** repo is opt-in: `sync-lessons.sh` only promotes a pattern whose block carries a `<!-- shareable -->` marker, so private/org-specific notes never leak. Shared patterns then sync back to every machine via git. Over time, Claude stops making the mistakes your team has already caught.
 
@@ -148,6 +151,7 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 | `/handoff` | Cognitive briefing -- saves mental model, failed approaches, resume prompt |
 | `/drift-check` | Validate Memory Bank accuracy against codebase, suggest and auto-fix drift |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
+| `/bspec-doc` | Author a spec/PRD/feature/architecture/decision doc in the standardized BSpec format, then validate it offline |
 | `/memory-migrate` | Convert a project's pre-v3 Memory Bank to the v3 model (salvage decisions/lessons, archive retired files) |
 | `/first-principles` | Break down a complex problem from fundamentals |
 | `/anythingelse` | Creative wildcard prompt |
