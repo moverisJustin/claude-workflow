@@ -22,6 +22,7 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 | `/handoff` | Cognitive briefing — saves mental model, failed approaches, resume prompt |
 | `/drift-check` | Validate Memory Bank accuracy against codebase — suggest and auto-fix drift |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
+| `/memory-migrate` | Convert a project's pre-v3 Memory Bank to v3 (auto-offered at session start when detected) |
 | `/first-principles` | Break down a complex problem from fundamentals |
 | `/anythingelse` | Creative wildcard prompt |
 
