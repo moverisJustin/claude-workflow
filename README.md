@@ -83,6 +83,16 @@ The recurring specialist agents (test-writer, doc-generator, code-architect, onc
 ### Drift Detection
 `/drift-check` validates that your Memory Bank, `CLAUDE.md`, and project `.claude/rules/` still match reality. Five static checkers (zero AI tokens, pure bash) catch dead file paths, deleted branches, missing dependencies, stale docs, and undefined commands. Scoring starts at 100 and deducts per finding. Integrated into `/session-start` (warns if score drops below 80) and `/session-end` (catches drift introduced by the session itself). A post-commit hook alerts on regressions.
 
+### Self-Audit (this repo's own maintenance)
+`scripts/maintenance-check.sh` re-counts the real agents / skills / hooks / community agents and compares them to the numbers the README and CHEATSHEET claim — the exact drift this repo suffered before ("15 agents, 23 commands" in the docs while reality had moved on). It runs in CI on every PR (so a count can never silently drift again) and can be scheduled locally for ongoing hygiene:
+
+```bash
+scripts/maintenance-check.sh                # audit now
+scripts/maintenance-check.sh --install-cron # weekly local cron (Mondays 09:00)
+```
+
+No cloud usage; pure bash, zero AI tokens.
+
 ### Learned Patterns
 When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns go to your private `~/.claude/rules/learned-patterns.md` and stay on your machine by default. Sharing to this **public** repo is opt-in: `sync-lessons.sh` only promotes a pattern whose block carries a `<!-- shareable -->` marker, so private/org-specific notes never leak. Shared patterns then sync back to every machine via git. Over time, Claude stops making the mistakes your team has already caught.
 

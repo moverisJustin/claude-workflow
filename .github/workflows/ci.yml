@@ -31,5 +31,11 @@ jobs:
       - name: Drift-check precision regression tests
         run: /bin/bash ./scripts/test-drift-check.sh
 
+      - name: Maintenance self-audit tests
+        run: /bin/bash ./scripts/test-maintenance.sh
+
+      - name: Docs match reality (self-audit)
+        run: /bin/bash ./scripts/maintenance-check.sh
+
       - name: settings.base.json is valid JSON
         run: python3 -c "import json; json.load(open('settings.base.json'))"
