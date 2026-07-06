@@ -1,0 +1,11 @@
+{
+  "name": "boris",
+  "owner": { "name": "Justin @ Moveris", "url": "https://github.com/moverisJustin" },
+  "plugins": [
+    {
+      "name": "boris-workflow",
+      "source": "./",
+      "description": "Boris v3 workflow skills + model-tiered core agents + safety/audit hooks. Optional alternative to install.sh (commands are namespaced /boris-workflow:name; use install.sh for bare names + community agents + the saved workflow)."
+    }
+  ]
+}

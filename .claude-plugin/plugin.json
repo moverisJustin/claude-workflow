@@ -1,0 +1,22 @@
+{
+  "name": "boris-workflow",
+  "displayName": "Boris Workflow (v3)",
+  "version": "3.0.0",
+  "description": "Boris v3: workflow skills (plan/verify/ship, memory, drift-check), model-tiered core specialist agents, and a real safety/audit hook layer. Optional plugin form; install.sh remains the full-featured path (bare command names, community agents, saved workflow, lesson migration).",
+  "author": { "name": "Justin @ Moveris", "url": "https://github.com/moverisJustin" },
+  "homepage": "https://github.com/moverisJustin/claude-workflow",
+  "repository": "https://github.com/moverisJustin/claude-workflow",
+  "license": "MIT",
+  "keywords": ["workflow", "boris", "memory-bank", "drift-check", "hooks"],
+  "agents": [
+    "./agents/code-architect.md",
+    "./agents/test-writer.md",
+    "./agents/doc-generator.md",
+    "./agents/oncall-guide.md",
+    "./agents/git-guardian.md",
+    "./agents/issue-tracker.md",
+    "./agents/linear-project-manager.md",
+    "./agents/memory-bank.md"
+  ],
+  "hooks": "./hooks/hooks.json"
+}
