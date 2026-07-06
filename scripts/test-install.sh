@@ -60,6 +60,10 @@ EOF
 echo "old checkpoint command" > "$CD/commands/checkpoint.md"
 echo "old session-start command" > "$CD/commands/session-start.md"
 echo "#!/bin/bash" > "$CD/scripts/hook-branch-switch.sh"
+# Retired-WITHOUT-successor stragglers (no same-named skill/agent to trigger the
+# skill-based cleanup): load-context (retired P3), ci-integrator (retired 4b).
+echo "old load-context command" > "$CD/commands/load-context.md"
+mkdir -p "$CD/agents"; echo "old ci-integrator agent" > "$CD/agents/ci-integrator.md"
 
 # Snapshot the repo's lessons file to prove the install never mutates it
 REPO_LESSONS_BEFORE=$(cat "$REPO_DIR/rules/learned-patterns.md")
@@ -133,6 +137,10 @@ if ! grep -q '^model:' "$REPO_DIR/agents/community/$SAMPLE.md"; then ok "vendore
 # --- Retirements ---
 if [ ! -f "$CD/commands/checkpoint.md" ]; then ok "retired command removed"; else bad "retired checkpoint.md survived"; fi
 if [ ! -f "$CD/commands/session-start.md" ]; then ok "superseded command copy removed (skill replaces it)"; else bad "superseded session-start.md survived"; fi
+# Retired-without-successor stragglers must be removed even though no skill/agent
+# of the same name exists to trigger the skill-based cleanup.
+if [ ! -f "$CD/commands/load-context.md" ]; then ok "retired-without-successor command removed (load-context)"; else bad "stale load-context.md survived upgrade"; fi
+if [ ! -f "$CD/agents/ci-integrator.md" ]; then ok "retired-without-successor agent removed (ci-integrator)"; else bad "stale ci-integrator.md survived upgrade"; fi
 if [ ! -d "$CD/commands" ]; then ok "empty commands/ dir removed"; else bad "commands/ dir remains"; fi
 if [ ! -f "$CD/scripts/hook-branch-switch.sh" ]; then ok "retired hook script removed"; else bad "retired hook script survived"; fi
 if [ -f "$CD/scripts/hook-stop-verify.sh" ]; then ok "current hook scripts installed"; else bad "hook scripts missing"; fi

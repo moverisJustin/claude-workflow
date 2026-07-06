@@ -100,16 +100,19 @@ echo "  Installed $WF_COUNT workflow script(s)"
 # --- Phase 3.5: Remove retired files from previous installs ---
 echo "--- Phase 3.5: Remove retired files ---"
 RETIRED=0
-# Commands/agents superseded by native Claude Code features (Boris v3), plus
-# retired hook scripts. Flat-copy installs leave stale files behind otherwise —
-# and a stale /checkpoint or /mode shadowing the native behavior is worse than none.
+# Commands/agents retired WITHOUT a same-named skill/agent successor. (Migrated
+# commands are cleaned by Phase 4.5 because a skill of the same name exists;
+# these have no successor, so they must be listed explicitly or they linger.)
+# When you retire something with no replacement, ADD IT HERE — this list fell
+# behind twice (load-context retired in P3, ci-integrator in 4b) and left
+# stale files on upgraded machines.
 for f in \
   commands/checkpoint.md commands/rollback.md commands/undo.md commands/mode.md \
   commands/review-changes.md commands/security-scan.md commands/verify-all.md \
-  commands/test-and-fix.md commands/context.md \
+  commands/test-and-fix.md commands/context.md commands/load-context.md \
   agents/mode-controller.md agents/pr-reviewer.md agents/security-auditor.md \
   agents/verify-app.md agents/code-simplifier.md agents/audit-logger.md \
-  agents/boris.md \
+  agents/boris.md agents/ci-integrator.md \
   scripts/hook-branch-switch.sh; do
   if [ -f "$CLAUDE_DIR/$f" ]; then
     rm -f "$CLAUDE_DIR/$f"
