@@ -15,6 +15,40 @@ echo "Source: $SCRIPT_DIR"
 echo "Target: $CLAUDE_DIR"
 echo ""
 
+# --- Phase 0: Self-update the clone before installing ---
+# install.sh installs whatever version THIS clone is at. A clone that hasn't
+# been pulled installs an OLD version — the #1 "I installed v2.0 by accident"
+# trap. So bring the clone to latest first, then re-exec the updated installer.
+# Opt out with BORIS_INSTALL_NO_SELF_UPDATE=1. The re-exec guard prevents loops.
+if [ -z "${BORIS_INSTALL_NO_SELF_UPDATE:-}" ] && [ -z "${BORIS_INSTALL_REEXEC:-}" ] \
+   && git -C "$SCRIPT_DIR" rev-parse --git-dir >/dev/null 2>&1 \
+   && git -C "$SCRIPT_DIR" remote get-url origin >/dev/null 2>&1; then
+  git -C "$SCRIPT_DIR" fetch -q origin 2>/dev/null || true
+  REMOTE_REF=""
+  for ref in origin/main origin/master; do
+    if git -C "$SCRIPT_DIR" rev-parse --verify -q "$ref" >/dev/null 2>&1; then REMOTE_REF="$ref"; break; fi
+  done
+  if [ -n "$REMOTE_REF" ]; then
+    BEHIND=$(git -C "$SCRIPT_DIR" rev-list --count "HEAD..$REMOTE_REF" 2>/dev/null || echo 0)
+    if [ "${BEHIND:-0}" -gt 0 ]; then
+      DIRTY=$(git -C "$SCRIPT_DIR" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+      if [ "$DIRTY" = "0" ] && git -C "$SCRIPT_DIR" merge-base --is-ancestor HEAD "$REMOTE_REF" 2>/dev/null; then
+        echo "--- Phase 0: Update clone ---"
+        echo "  This clone was $BEHIND commit(s) behind $REMOTE_REF — updating to latest first."
+        git -C "$SCRIPT_DIR" merge --ff-only "$REMOTE_REF" >/dev/null 2>&1 || true
+        echo "  Re-running the updated installer."
+        echo ""
+        BORIS_INSTALL_REEXEC=1 exec bash "$SCRIPT_DIR/install.sh" "$@"
+      else
+        echo "  WARNING: this clone is $BEHIND commit(s) behind $REMOTE_REF and can't fast-forward"
+        echo "  (uncommitted changes or diverged history) — you may be installing an OLD version."
+        echo "  Fix: git -C \"$SCRIPT_DIR\" pull --ff-only   then re-run ./install.sh"
+        echo ""
+      fi
+    fi
+  fi
+fi
+
 # --- Phase 1: Backup ---
 echo "--- Phase 1: Backup ---"
 mkdir -p "$BACKUP_DIR"
@@ -82,8 +116,27 @@ if [ -f "$MANIFEST" ]; then
     COMMUNITY_COUNT=$((COMMUNITY_COUNT + 1))
     AGENT_COUNT=$((AGENT_COUNT + 1))
   done < "$MANIFEST"
+
+  # Prune now-inactive community agents left by an older install that deployed
+  # more (or all) of them. Only ever removes agents this repo vendors under
+  # agents/community/ AND that are not currently active — never the user's own
+  # custom agents or the core set.
+  PRUNED=0
+  # `if` (not `&& echo`): the last MANIFEST line is a comment, so the final
+  # iteration must exit 0, or the command substitution's non-zero status trips
+  # `set -e` and aborts the install.
+  ACTIVE_LIST="$(sed 's/#.*//' "$MANIFEST" | while IFS= read -r l; do s=$(printf '%s' "$l" | xargs); if [ -n "$s" ]; then echo "$s"; fi; done)"
+  for vf in "$SCRIPT_DIR/agents/community/"*.md; do
+    [ -f "$vf" ] || continue
+    vslug=$(basename "$vf" .md)
+    printf '%s\n' "$ACTIVE_LIST" | grep -qxF "$vslug" && continue   # still active
+    if [ -f "$CLAUDE_DIR/agents/$vslug.md" ]; then
+      rm -f "$CLAUDE_DIR/agents/$vslug.md"
+      PRUNED=$((PRUNED + 1))
+    fi
+  done
 fi
-echo "  Installed $AGENT_COUNT agents ($CORE_COUNT core + $COMMUNITY_COUNT community active, $COLLISIONS collision(s) skipped)"
+echo "  Installed $AGENT_COUNT agents ($CORE_COUNT core + $COMMUNITY_COUNT community active, $COLLISIONS collision(s) skipped, ${PRUNED:-0} now-inactive pruned)"
 echo "  ($(ls "$SCRIPT_DIR/agents/community/"*.md 2>/dev/null | wc -l | xargs) community agents vendored; enable more by uncommenting them in agents/community/MANIFEST.txt and re-running)"
 
 # --- Phase 3: Install workflows ---
@@ -100,16 +153,19 @@ echo "  Installed $WF_COUNT workflow script(s)"
 # --- Phase 3.5: Remove retired files from previous installs ---
 echo "--- Phase 3.5: Remove retired files ---"
 RETIRED=0
-# Commands/agents superseded by native Claude Code features (Boris v3), plus
-# retired hook scripts. Flat-copy installs leave stale files behind otherwise —
-# and a stale /checkpoint or /mode shadowing the native behavior is worse than none.
+# Commands/agents retired WITHOUT a same-named skill/agent successor. (Migrated
+# commands are cleaned by Phase 4.5 because a skill of the same name exists;
+# these have no successor, so they must be listed explicitly or they linger.)
+# When you retire something with no replacement, ADD IT HERE — this list fell
+# behind twice (load-context retired in P3, ci-integrator in 4b) and left
+# stale files on upgraded machines.
 for f in \
   commands/checkpoint.md commands/rollback.md commands/undo.md commands/mode.md \
   commands/review-changes.md commands/security-scan.md commands/verify-all.md \
-  commands/test-and-fix.md commands/context.md \
+  commands/test-and-fix.md commands/context.md commands/load-context.md \
   agents/mode-controller.md agents/pr-reviewer.md agents/security-auditor.md \
   agents/verify-app.md agents/code-simplifier.md agents/audit-logger.md \
-  agents/boris.md \
+  agents/boris.md agents/ci-integrator.md \
   scripts/hook-branch-switch.sh; do
   if [ -f "$CLAUDE_DIR/$f" ]; then
     rm -f "$CLAUDE_DIR/$f"
