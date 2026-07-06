@@ -15,6 +15,40 @@ echo "Source: $SCRIPT_DIR"
 echo "Target: $CLAUDE_DIR"
 echo ""
 
+# --- Phase 0: Self-update the clone before installing ---
+# install.sh installs whatever version THIS clone is at. A clone that hasn't
+# been pulled installs an OLD version — the #1 "I installed v2.0 by accident"
+# trap. So bring the clone to latest first, then re-exec the updated installer.
+# Opt out with BORIS_INSTALL_NO_SELF_UPDATE=1. The re-exec guard prevents loops.
+if [ -z "${BORIS_INSTALL_NO_SELF_UPDATE:-}" ] && [ -z "${BORIS_INSTALL_REEXEC:-}" ] \
+   && git -C "$SCRIPT_DIR" rev-parse --git-dir >/dev/null 2>&1 \
+   && git -C "$SCRIPT_DIR" remote get-url origin >/dev/null 2>&1; then
+  git -C "$SCRIPT_DIR" fetch -q origin 2>/dev/null || true
+  REMOTE_REF=""
+  for ref in origin/main origin/master; do
+    if git -C "$SCRIPT_DIR" rev-parse --verify -q "$ref" >/dev/null 2>&1; then REMOTE_REF="$ref"; break; fi
+  done
+  if [ -n "$REMOTE_REF" ]; then
+    BEHIND=$(git -C "$SCRIPT_DIR" rev-list --count "HEAD..$REMOTE_REF" 2>/dev/null || echo 0)
+    if [ "${BEHIND:-0}" -gt 0 ]; then
+      DIRTY=$(git -C "$SCRIPT_DIR" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
+      if [ "$DIRTY" = "0" ] && git -C "$SCRIPT_DIR" merge-base --is-ancestor HEAD "$REMOTE_REF" 2>/dev/null; then
+        echo "--- Phase 0: Update clone ---"
+        echo "  This clone was $BEHIND commit(s) behind $REMOTE_REF — updating to latest first."
+        git -C "$SCRIPT_DIR" merge --ff-only "$REMOTE_REF" >/dev/null 2>&1 || true
+        echo "  Re-running the updated installer."
+        echo ""
+        BORIS_INSTALL_REEXEC=1 exec bash "$SCRIPT_DIR/install.sh" "$@"
+      else
+        echo "  WARNING: this clone is $BEHIND commit(s) behind $REMOTE_REF and can't fast-forward"
+        echo "  (uncommitted changes or diverged history) — you may be installing an OLD version."
+        echo "  Fix: git -C \"$SCRIPT_DIR\" pull --ff-only   then re-run ./install.sh"
+        echo ""
+      fi
+    fi
+  fi
+fi
+
 # --- Phase 1: Backup ---
 echo "--- Phase 1: Backup ---"
 mkdir -p "$BACKUP_DIR"

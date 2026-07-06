@@ -73,7 +73,7 @@ echo "my own custom agent" > "$CD/agents/my-custom-agent.md"
 REPO_LESSONS_BEFORE=$(cat "$REPO_DIR/rules/learned-patterns.md")
 
 # --- Run the installer against the fake HOME ---
-if ! HOME="$FAKE_HOME" SKIP_SIGNING_SETUP=1 bash "$REPO_DIR/install.sh" > "$TMP/install1.log" 2>&1; then
+if ! HOME="$FAKE_HOME" SKIP_SIGNING_SETUP=1 BORIS_INSTALL_NO_SELF_UPDATE=1 bash "$REPO_DIR/install.sh" > "$TMP/install1.log" 2>&1; then
   echo "FAIL: install.sh exited non-zero"; tail -20 "$TMP/install1.log"; exit 1
 fi
 
@@ -163,7 +163,7 @@ if command -v jq >/dev/null 2>&1; then
 fi
 
 # --- Idempotency: second run must not duplicate migrated lessons ---
-if ! HOME="$FAKE_HOME" SKIP_SIGNING_SETUP=1 bash "$REPO_DIR/install.sh" > "$TMP/install2.log" 2>&1; then
+if ! HOME="$FAKE_HOME" SKIP_SIGNING_SETUP=1 BORIS_INSTALL_NO_SELF_UPDATE=1 bash "$REPO_DIR/install.sh" > "$TMP/install2.log" 2>&1; then
   echo "FAIL: second install.sh run exited non-zero"; tail -20 "$TMP/install2.log"; exit 1
 fi
 N=$(grep -cF "### fly secrets private machine lesson" "$CD/rules/learned-patterns.md" || true)
