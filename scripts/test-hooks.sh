@@ -242,6 +242,60 @@ OUT=$(edit_payload "$TMP/missing.py" | bash "$PRETTIER")
 RC=$?
 if [ $RC -eq 0 ] && [ -z "$OUT" ]; then ok "non-target extension: no-op"; else bad "non-target extension: rc=$RC out=$OUT"; fi
 
+# ─── SessionStart: pre-v3 Memory Bank detection ───
+echo "--- hook-session-start.sh (migrate detection) ---"
+SS="$SCRIPT_DIR/hook-session-start.sh"
+
+# v3-clean project: only the 3 durable files -> no migrate hint
+V3P="$TMP/v3-project"
+mkdir -p "$V3P/.claude/memory"
+printf '# Project Context\n' > "$V3P/.claude/memory/projectContext.md"
+printf '# Decision Log\n' > "$V3P/.claude/memory/decisionLog.md"
+printf '# Conventions\n' > "$V3P/.claude/memory/conventions.md"
+echo '{"git_enabled": false}' > "$V3P/.claude/project-config.json"
+OUT=$(CLAUDE_PROJECT_DIR="$V3P" bash "$SS")
+if ! printf '%s' "$OUT" | grep -q 'Pre-v3 Memory Bank'; then ok "v3-clean project: no migrate hint"; else bad "v3-clean project wrongly flagged for migration"; fi
+
+# Old-layout project: has activeContext + progress -> migrate hint offered
+OLDP="$TMP/old-project"
+mkdir -p "$OLDP/.claude/memory"
+printf '# Project Context\n' > "$OLDP/.claude/memory/projectContext.md"
+printf '# Active\n' > "$OLDP/.claude/memory/activeContext.md"
+printf '# Progress\n' > "$OLDP/.claude/memory/progress.md"
+echo '{"git_enabled": false}' > "$OLDP/.claude/project-config.json"
+OUT=$(CLAUDE_PROJECT_DIR="$OLDP" bash "$SS")
+if printf '%s' "$OUT" | grep -q 'Pre-v3 Memory Bank'; then ok "old-layout project: migrate hint emitted"; else bad "old-layout project NOT flagged (out=$OUT)"; fi
+if printf '%s' "$OUT" | grep -q '/memory-migrate'; then ok "hint names the /memory-migrate skill"; else bad "hint missing /memory-migrate"; fi
+if printf '%s' "$OUT" | grep -q 'without confirmation'; then ok "hint says offer, not auto-run (state-change safety)"; else bad "hint missing the do-not-auto-run guard"; fi
+
+# Dormant v2 project with NO project-config.json AND no projectContext.md
+# (the realistic case — project-config predates old projects). Must still fire.
+NOCFG="$TMP/nocfg-project"
+mkdir -p "$NOCFG/.claude/memory"
+printf '# Active\n' > "$NOCFG/.claude/memory/activeContext.md"
+OUT=$(CLAUDE_PROJECT_DIR="$NOCFG" bash "$SS")
+if printf '%s' "$OUT" | grep -q 'Pre-v3 Memory Bank'; then ok "no-config dormant project (no projectContext): still flagged"; else bad "no-config dormant project missed the migrate hint"; fi
+
+# False-positive guard: a v3-clean project with an unrelated root tasks/todo.md
+# must NOT be flagged (detection is scoped to .claude/memory/).
+FP="$TMP/fp-project"
+mkdir -p "$FP/.claude/memory" "$FP/tasks"
+printf '# Project Context\n' > "$FP/.claude/memory/projectContext.md"
+printf '# Conventions\n' > "$FP/.claude/memory/conventions.md"
+printf '# todo\n' > "$FP/tasks/todo.md"
+echo '{"git_enabled": false}' > "$FP/.claude/project-config.json"
+OUT=$(CLAUDE_PROJECT_DIR="$FP" bash "$SS")
+if ! printf '%s' "$OUT" | grep -q 'Pre-v3 Memory Bank'; then ok "generic root tasks/todo.md does not false-positive on a v3 project"; else bad "root tasks/ file wrongly flagged v3 project"; fi
+
+# Resilience: a broken .git must not abort the hook before the migrate check.
+BROKEN="$TMP/broken-git"
+mkdir -p "$BROKEN/.claude/memory" "$BROKEN/.git"   # .git is a dir but not a valid repo
+printf '# Project Context\n' > "$BROKEN/.claude/memory/projectContext.md"
+printf '# Progress\n' > "$BROKEN/.claude/memory/progress.md"
+echo '{"git_enabled": true}' > "$BROKEN/.claude/project-config.json"
+OUT=$(CLAUDE_PROJECT_DIR="$BROKEN" bash "$SS")
+if printf '%s' "$OUT" | grep -q 'Pre-v3 Memory Bank'; then ok "broken .git does not abort before the migrate check"; else bad "broken .git aborted the hook (git-status set-e trap)"; fi
+
 echo ""
 echo "Passed: $pass  Failed: $fail"
 [ "$fail" -ne 0 ] && exit 1

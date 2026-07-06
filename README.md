@@ -30,7 +30,7 @@ This workflow fixes that:
 |---|---|---|
 | Core agents | 8 | code-architect (opus), test-writer/doc-generator (sonnet), git-guardian/issue-tracker (haiku), ... — each pinned to a cost-appropriate model tier |
 | Community agents | 44 active / 105 vendored | Dev-focused set (engineering, testing, dev design/specialized) installed by default + model-tiered; sales/marketing/product/etc. vendored opt-in |
-| Skills | 16 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/handoff`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
+| Skills | 17 | `/boris`, `/session-start`, `/checks`, `/fix-issue`, `/task-branch`, `/drift-check`, `/handoff`, `/memory-migrate`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
 | Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
 | Rules | 3 | `git-safety.md`, `workflow.md` (always-on policy), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
@@ -67,7 +67,7 @@ For teammates who prefer one-line onboarding, the repo also ships as a Claude Co
 /plugin install boris-workflow@boris
 ```
 
-The plugin bundles the **16 workflow skills, the 8 model-tiered core agents, and the full safety/audit hook layer**. Two tradeoffs to know:
+The plugin bundles the **17 workflow skills, the 8 model-tiered core agents, and the full safety/audit hook layer**. Two tradeoffs to know:
 
 - **Commands are namespaced** — `/boris-workflow:task-done` instead of `/task-done` (Claude Code always namespaces plugin skills to prevent conflicts; there is no bare-name plugin form).
 - **Not included** (use `install.sh` for these): the 44 community agents, the `boris-build` saved workflow, the permission allowlist (plugins can't ship permissions), and the `~/.claude/rules/` lesson-sync files.
@@ -95,6 +95,9 @@ Use **one or the other**, not both — running install.sh *and* the plugin would
 
 ### Memory Bank
 Each project gets a `.claude/memory/` directory with three **structured, human-authored** files: `projectContext.md` (project identity), `decisionLog.md` (architecture decisions), and `conventions.md` (project-specific conventions and lessons). These hold what native auto-memory doesn't. Session continuity — "where was I", recent work, rolling summaries — is handled by Claude Code's **native auto-memory** (`MEMORY.md` + topic files, loaded every session) plus session resume, so the Memory Bank stays small and doesn't duplicate it.
+
+### Migrating an old project
+Returning to a project that still has a pre-v3 Memory Bank (`activeContext`, `progress`, `sessionHistory`, `ROUTER`, `patterns/`, or the older `tasks/` layout)? The SessionStart hook detects it and offers `/memory-migrate`, which salvages real decisions/lessons into the three durable files and **archives** the retired ones (reversible — nothing is deleted). The durable `projectContext`/`decisionLog`/`conventions` files carry over unchanged, so nothing breaks in the meantime.
 
 ### Agent Memory
 The recurring specialist agents (test-writer, doc-generator, code-architect, oncall-guide) carry `memory: project` — they accumulate this repo's testing patterns, doc structure, architecture, and incident history across sessions, so they get better at *your* codebase over time instead of rediscovering it each run.
@@ -145,6 +148,7 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 | `/handoff` | Cognitive briefing -- saves mental model, failed approaches, resume prompt |
 | `/drift-check` | Validate Memory Bank accuracy against codebase, suggest and auto-fix drift |
 | `/update-claude-md` | Capture learnings into CLAUDE.md from recent work |
+| `/memory-migrate` | Convert a project's pre-v3 Memory Bank to the v3 model (salvage decisions/lessons, archive retired files) |
 | `/first-principles` | Break down a complex problem from fundamentals |
 | `/anythingelse` | Creative wildcard prompt |
 
