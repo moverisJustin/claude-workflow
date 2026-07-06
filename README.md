@@ -35,6 +35,7 @@ This workflow fixes that:
 | Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
 | Rules | 3 | `git-safety.md`, `workflow.md` (always-on policy), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
 | Settings | -- | Curated permission allowlist, hardened deny list (destructive fs, pipe-to-shell, force-push to main), audit + prettier hooks |
+| Plugin (optional) | 1 | `.claude-plugin/` manifest + marketplace so teammates can `/plugin install` (namespaced commands; install.sh stays the bare-name path) |
 
 ## Quick Start
 
@@ -54,6 +55,24 @@ Then in any Claude Code session:
 /memory-init            # First time in a project? Set up Memory Bank
 /boris <describe task>  # Hand off a complex task to the orchestrator
 ```
+
+### Install as a plugin (optional)
+
+`install.sh` above is the **primary** path — it gives you bare command names (`/task-done`), the full 44-agent community set with model tiering, the `boris-build` saved workflow, and pre-v3 lesson migration.
+
+For teammates who prefer one-line onboarding, the repo also ships as a Claude Code plugin:
+
+```
+/plugin marketplace add moverisJustin/claude-workflow
+/plugin install boris-workflow@boris
+```
+
+The plugin bundles the **16 workflow skills, the 8 model-tiered core agents, and the full safety/audit hook layer**. Two tradeoffs to know:
+
+- **Commands are namespaced** — `/boris-workflow:task-done` instead of `/task-done` (Claude Code always namespaces plugin skills to prevent conflicts; there is no bare-name plugin form).
+- **Not included** (use `install.sh` for these): the 44 community agents, the `boris-build` saved workflow, the permission allowlist (plugins can't ship permissions), and the `~/.claude/rules/` lesson-sync files.
+
+Use **one or the other**, not both — running install.sh *and* the plugin would wire the safety hooks twice.
 
 ## Daily Workflow
 

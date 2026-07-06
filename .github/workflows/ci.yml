@@ -39,3 +39,6 @@ jobs:
 
       - name: settings.base.json is valid JSON
         run: python3 -c "import json; json.load(open('settings.base.json'))"
+
+      - name: Plugin packaging tests
+        run: /bin/bash ./scripts/test-plugin.sh
