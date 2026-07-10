@@ -38,6 +38,99 @@ add_finding() {
   FINDINGS+=("${severity}|${file}|${line}|${msg}")
 }
 
+# --- Reference-resolution helpers (used by check_paths & friends) ---
+
+# Pre-v3 Memory Bank files are frozen chronological logs pending /memory-migrate.
+# They legitimately reference historical and cross-repo files, so validating
+# them floods the score with false positives (they were 208 of moveris_cluster's
+# 272 errors). Session state is carried by native auto-memory now.
+is_retired_memory_file() {
+  case "$1" in
+    activeContext.md|progress.md|sessionHistory.md|ROUTER.md|patterns.md) return 0 ;;
+  esac
+  return 1
+}
+
+# A dotted token only counts as a file reference when its extension plausibly
+# names a project file. Everything else is prose: domains (moveris.com), emails
+# (justin.r.keene), dotted identifiers (cv2.VideoCapture, moveris.generate.api),
+# sizes (1.9T), systemd units (suspend.target, enp0s1.network). Deliberately
+# absent: .db/.log/.env (runtime artifacts, gitignored — never verifiable) and
+# systemd unit extensions (.service/.target/.mount — unit names, not files).
+FILE_EXT_ALLOWLIST="md markdown sh bash py ipynb yml yaml json js mjs cjs ts tsx jsx sql toml ini cfg conf txt csv tsv html css scss rs go java rb php c h cpp hpp xml svg proto tf lock"
+
+# Well-known product names that end in an allowlisted extension but are prose.
+PRODUCT_NAMES="Next.js Node.js Vue.js React.js Three.js D3.js Express.js Nest.js Alpine.js Chart.js Ember.js"
+
+IS_GIT=false
+git rev-parse --git-dir >/dev/null 2>&1 && IS_GIT=true
+
+REPO_FILES=""
+SIBLING_FILES=""
+SIBLINGS_LOADED=false
+
+build_repo_files() {
+  if $IS_GIT; then
+    REPO_FILES=$(git ls-files 2>/dev/null || true)
+  else
+    REPO_FILES=$(find . -type f -not -path './.git/*' 2>/dev/null | sed 's|^\./||' || true)
+  fi
+}
+
+# Memory legitimately references files in sibling repo checkouts (the other
+# projects the work touches). Loaded lazily — only when a reference fails
+# repo-local resolution. Worktree-aware: resolves siblings of the MAIN
+# checkout's parent dir, not the worktree's.
+load_sibling_files() {
+  $SIBLINGS_LOADED && return 0
+  SIBLINGS_LOADED=true
+  local root common parent d
+  root=$(pwd)
+  if $IS_GIT; then
+    common=$(git rev-parse --git-common-dir 2>/dev/null || echo "$root/.git")
+    root=$(cd "$(dirname "$common")" 2>/dev/null && pwd) || root=$(pwd)
+  fi
+  parent=$(dirname "$root")
+  for d in "$parent"/*/; do
+    [ -d "${d}.git" ] || continue
+    [ "${d%/}" = "$root" ] && continue
+    SIBLING_FILES="${SIBLING_FILES}
+$(git -C "$d" ls-files 2>/dev/null || true)"
+  done
+}
+
+# The repo's own committed docs (*.md outside .claude/) naming the same
+# artifact means the Memory Bank agrees with the repo — e.g. a bootstrap
+# script that lives on a cluster node but is described in an ADR. Not drift.
+doc_corpus_has() {
+  if $IS_GIT; then
+    git grep -qF "$1" -- '*.md' ':(exclude).claude' 2>/dev/null
+  else
+    grep -rqF --include='*.md' --exclude-dir='.claude' "$1" . 2>/dev/null
+  fi
+}
+
+# resolve_ref PATH → 0 when the reference resolves anywhere legitimate:
+#   1. as-is from the repo root
+#   2. by suffix/basename against the repo file list (docs/storage.md
+#      referenced as plain storage.md, checks/restore_test.sh under
+#      data-platform/) — subsumes "try docs/, scripts/, monitoring/"
+#   3. against sibling repo checkouts' tracked files (cross-repo references)
+#   4. named in the repo's own committed docs (off-machine artifacts)
+resolve_ref() {
+  local path="$1" esc
+  [ -e "$path" ] && return 0
+  esc="${path//./\\.}"
+  if [ -n "$REPO_FILES" ]; then
+    grep -qE "(^|/)${esc}\$" <<< "$REPO_FILES" && return 0
+  fi
+  load_sibling_files
+  if [ -n "$SIBLING_FILES" ]; then
+    grep -qE "(^|/)${esc}\$" <<< "$SIBLING_FILES" && return 0
+  fi
+  doc_corpus_has "$path"
+}
+
 # --- Pre-flight ---
 if [ ! -d "$MEMORY_DIR" ]; then
   if $QUIET; then
@@ -58,9 +151,11 @@ check_paths() {
   # installed-location paths (~/.claude/rules/*, native MEMORY.md) that don't
   # exist relative to the project root, so scanning them floods the score with
   # false-positive dead paths.
+  build_repo_files
   for md_file in "$MEMORY_DIR"/*.md .claude/task-context.md; do
     [ -f "$md_file" ] || continue
     basename=$(basename "$md_file")
+    is_retired_memory_file "$basename" && continue
     # One grep pass per file (output "linenum:match"), deduped, file order preserved.
     # IMPORTANT: a single process substitution PER FILE — not one per line — because
     # bash 3.2 (stock on macOS) segfaults after a few hundred process substitutions.
@@ -75,12 +170,23 @@ check_paths() {
       [[ "$path" == *"{"* ]] && continue   # template variables
       [[ "$path" == "/"* ]] && continue    # absolute paths
       [[ "$path" == "~"* ]] && continue    # home paths (~/.claude/... — not project-relative)
-      # Skip prose false-positives that look like files:
+      [[ "$path" == -* ]] && continue          # CLI flags: --collector.systemd
+      [[ "$path" == x-systemd* ]] && continue  # mount options: x-systemd.automount
+      # Plausibility gate: only tokens with a known file extension are file
+      # references; everything else is prose (see FILE_EXT_ALLOWLIST above).
       local ext="${path##*.}"
-      [[ "$ext" =~ ^[0-9]+$ ]] && continue  # version numbers: v2.0, 1.2
-      [[ ${#ext} -le 1 ]] && continue       # abbreviations: e.g, i.e
-      # Only check paths that look like real file references (have an extension)
-      if [[ "$path" == *"."* ]] && [ ! -e "$path" ]; then
+      case " $FILE_EXT_ALLOWLIST " in
+        *" $ext "*) ;;
+        *) continue ;;
+      esac
+      case " $PRODUCT_NAMES " in
+        *" $path "*) continue ;;
+      esac
+      # Strip relative prefixes so docs written from a subdir context
+      # (../scripts/foo.py) still resolve by suffix against the repo tree.
+      path="${path#./}"
+      while [[ "$path" == ../* ]]; do path="${path#../}"; done
+      if ! resolve_ref "$path"; then
         add_finding "ERROR" "$basename" "$line_num" "references $path (file not found)"
       fi
     done < <(grep -noE '[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+' "$md_file" | awk '!seen[$0]++')
@@ -167,8 +273,10 @@ check_staleness() {
 
     # Skip durable reference files: projectContext (project identity) and
     # decisionLog (historical ADRs) legitimately don't change for weeks.
-    # conventions.md should grow, so it stays checked.
+    # conventions.md should grow, so it stays checked. Retired pre-v3 files
+    # are frozen history — their age isn't drift.
     [[ "$basename" == "projectContext.md" || "$basename" == "decisionLog.md" ]] && continue
+    is_retired_memory_file "$basename" && continue
 
     local mod_time
     if [[ "$(uname)" == "Darwin" ]]; then
@@ -191,6 +299,7 @@ check_staleness() {
       local basename
       basename=$(basename "$md_file")
       [[ "$basename" == "projectContext.md" || "$basename" == "decisionLog.md" ]] && continue
+      is_retired_memory_file "$basename" && continue
 
       # Count commits since file was last modified
       local last_commit
@@ -215,6 +324,7 @@ check_commands() {
   for md_file in "$MEMORY_DIR"/*.md; do
     [ -f "$md_file" ] || continue
     basename=$(basename "$md_file")
+    is_retired_memory_file "$basename" && continue
     # One grep pass per file (see check_paths re: bash 3.2 / process substitution).
     while IFS=: read -r line_num script; do
       [ -z "$script" ] && continue
@@ -229,6 +339,7 @@ check_commands() {
     for md_file in "$MEMORY_DIR"/*.md; do
       [ -f "$md_file" ] || continue
       basename=$(basename "$md_file")
+      is_retired_memory_file "$basename" && continue
       while IFS=: read -r line_num target; do
         [ -z "$target" ] && continue
         if ! grep -qE "^${target}:" Makefile 2>/dev/null; then
