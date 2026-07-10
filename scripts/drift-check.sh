@@ -223,9 +223,37 @@ check_branches() {
 }
 
 # --- Checker 3: Missing Dependencies ---
-# Finds package names claimed in Memory Bank but missing from manifest
+# Finds package names claimed in Memory Bank but missing from the manifest.
+# Same precision philosophy as check_paths' extension allowlist: a backticked
+# token is a package CLAIM only on a positive signal — a dependency-shaped
+# context adjacent to the token itself. Bare backticks are prose: table/
+# dataset names, columns, env vars, CLI flags, timezones (moveris_training_data
+# scored 0/100 on ~100 such tokens against a deps-less pyproject.toml). A
+# token naming a dependency the manifest declares passes the manifest lookup
+# by definition, so the context gate is the only path to a warning. System
+# installers (apt/brew) put tools on hosts, not in project manifests —
+# deliberately not signals.
+
+# is_dep_claim LINE [TOKEN] → 0 when LINE asserts the backticked TOKEN as a
+# dependency: a project package-manager install/add, an import, or a
+# dependency noun immediately adjacent. Without TOKEN it matches ANY
+# backticked token (cheap line-level pre-filter). The signal must touch the
+# token — a dep-ish word merely elsewhere on the line is not a claim ("the
+# schema requires `attack_type`" must not read as a package).
+is_dep_claim() {
+  local line="$1" tok="${2:-[a-zA-Z0-9@/_-]+}" bt
+  bt="\`${tok}\`"
+  printf '%s\n' "$line" | grep -qiE \
+    -e "(^|[^a-zA-Z0-9_-])(pip3?|pipx|uv|poetry|conda|npm|pnpm|yarn|bun|cargo|gem|composer|go) ((pip|tool) )?(install|add|get|i)( -+[a-zA-Z0-9=-]+)* ${bt}" \
+    -e "(^|[^a-zA-Z])import(ed|s)? ${bt}" \
+    -e "from ${bt} import" \
+    -e "${bt} (package|library|dependency|crate|gem|sdk)s?([^a-zA-Z]|$)" \
+    -e "(^|[^a-zA-Z])(package|library|dependency|crate|gem|sdk)s? ${bt}" \
+    -e "(^|[^a-zA-Z])depend(s|ing|ency|encies)? ?(on|upon) ${bt}"
+}
+
 check_dependencies() {
-  local manifest="" md_file line_num pkg basename
+  local manifest="" md_file line_num line_text pkg basename seen_pkgs
 
   if [ -f "package.json" ]; then
     manifest="package.json"
@@ -241,21 +269,33 @@ check_dependencies() {
     return 0  # No manifest found, skip
   fi
 
-  # Look for dependency-like mentions in conventions.md and projectContext.md
+  # Look for dependency claims in conventions.md and projectContext.md
   for md_file in "$MEMORY_DIR"/conventions.md "$MEMORY_DIR"/projectContext.md; do
     [ -f "$md_file" ] || continue
     basename=$(basename "$md_file")
-    # One grep pass per file (see check_paths re: bash 3.2 / process substitution).
-    while IFS=: read -r line_num pkg; do
-      [ -z "$pkg" ] && continue
-      # Skip common non-package words
-      [[ "$pkg" == "true" || "$pkg" == "false" || "$pkg" == "null" || "$pkg" == "none" ]] && continue
-      [[ ${#pkg} -lt 2 ]] && continue
-      # Check if package exists in manifest
-      if ! grep -qi "$pkg" "$manifest" 2>/dev/null; then
-        add_finding "WARN" "$basename" "$line_num" "references package \`$pkg\` (not found in $manifest)"
-      fi
-    done < <(grep -noE '`[a-zA-Z0-9@/_-]+`' "$md_file" | tr -d '`' | awk '!seen[$0]++')
+    seen_pkgs=""
+    # One grep pass / process substitution per file (see check_paths re:
+    # bash 3.2). Line-level pre-filter first, then per-token confirmation.
+    while IFS=: read -r line_num line_text; do
+      [ -z "$line_text" ] && continue
+      is_dep_claim "$line_text" || continue
+      for pkg in $(printf '%s\n' "$line_text" | grep -oE '`[a-zA-Z0-9@/_-]+`' | tr -d '`'); do
+        # Skip common non-package words and shapes no package name has
+        [[ "$pkg" == "true" || "$pkg" == "false" || "$pkg" == "null" || "$pkg" == "none" ]] && continue
+        [[ ${#pkg} -lt 2 ]] && continue
+        [[ "$pkg" == -* || "$pkg" == /* ]] && continue     # CLI flags, absolute paths
+        [[ "$pkg" == */* && "$pkg" != @*/* ]] && continue  # timezones/paths; keep @scope/pkg
+        [[ "$pkg" != *[a-z]* ]] && continue                # ALL_CAPS constants/env vars
+        is_dep_claim "$line_text" "$pkg" || continue
+        # Warn once per token per file
+        case " $seen_pkgs " in *" $pkg "*) continue ;; esac
+        seen_pkgs="$seen_pkgs $pkg"
+        # Check if package exists in manifest
+        if ! grep -qi "$pkg" "$manifest" 2>/dev/null; then
+          add_finding "WARN" "$basename" "$line_num" "references package \`$pkg\` (not found in $manifest)"
+        fi
+      done
+    done < <(grep -nE '`[a-zA-Z0-9@/_-]+`' "$md_file")
   done
 }
 
