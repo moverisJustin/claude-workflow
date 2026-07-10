@@ -6,6 +6,12 @@ set -uo pipefail
 # ~/.claude/rules references and version/abbreviation prose do NOT tank the
 # score (the reverted CLAUDE.md-scan bug); ~/.claude/ paths in task-context
 # are not misread as branches; real dead paths ARE still caught.
+# Plus the 2026-07-10 check_paths precision rework (moveris_cluster scored
+# 0/100 on 272 false positives): prose tokens (domains, emails, CLI flags,
+# systemd units, dotted identifiers, sizes, product names) are not file refs;
+# references resolve by basename/suffix against the repo tree, against sibling
+# repo checkouts, and against the repo's own docs; retired pre-v3 memory files
+# (activeContext/progress/sessionHistory) are skipped entirely.
 # Pure bash 3.2. Exits non-zero on any failure.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -100,6 +106,103 @@ if [ "$DERR" -ge 2 ] && [ "$DSCORE" -lt 100 ]; then
   ok "genuine dead paths still detected (score $DSCORE, $DERR errors)"
 else
   bad "real dead paths NOT detected (score $DSCORE, $DERR errors) — checker too lax now"
+fi
+
+# --- Prose tokens are not file references ---
+PROSE="$TMP/prose-project"
+mkdir -p "$PROSE/.claude/memory"
+cat > "$PROSE/.claude/memory/conventions.md" <<'EOF'
+# Conventions & Lessons
+### Ops prose that must not read as file refs
+Email justin.r.keene@gmail.com or ops@moveris.com; DNS stays tail7dafd3.ts.net.
+Run node_exporter with --collector.systemd and --collector.textfile.directory.
+Mount options: x-systemd.automount, x-systemd.mount; units: suspend.target,
+hibernate.target, enp0s1.network. Celery task `moveris.generate.api` calls
+`cv2.VideoCapture` and `sqlite3.Row`. Sizes: 1.9T used, 1.22M rows, 129K/13.5K.
+Stack: Next.js on Fly.io. Runtime artifacts: backup.log, generation_manifest.db.
+EOF
+PSCORE=$(score_of "$PROSE")
+PERR=$( cd "$PROSE" && bash "$DRIFT" 2>/dev/null | grep -c 'file not found' || true )
+if [ "$PERR" -eq 0 ] && [ "$PSCORE" -eq 100 ]; then
+  ok "prose tokens (domains/flags/units/identifiers/sizes/products) not flagged"
+else
+  echo "  --- findings ---"; ( cd "$PROSE" && bash "$DRIFT" 2>/dev/null | grep 'file not found' | head )
+  bad "prose project scored $PSCORE with $PERR false dead-path error(s)"
+fi
+
+# --- References resolve by basename/suffix against the repo tree ---
+SUBDIR="$TMP/subdir-project"
+mkdir -p "$SUBDIR/.claude/memory" "$SUBDIR/docs" "$SUBDIR/scripts" "$SUBDIR/data-platform/checks"
+echo x > "$SUBDIR/docs/storage.md"
+echo x > "$SUBDIR/scripts/deploy-monitoring.sh"
+echo x > "$SUBDIR/data-platform/checks/restore_test.sh"
+cat > "$SUBDIR/.claude/memory/conventions.md" <<'EOF'
+# Conventions
+See storage.md for the NAS layout; redeploy with deploy-monitoring.sh.
+Restore drills run checks/restore_test.sh nightly.
+EOF
+SSCORE=$(score_of "$SUBDIR")
+if [ "$SSCORE" -eq 100 ]; then
+  ok "bare-basename and partial-path refs resolve against the repo tree"
+else
+  echo "  --- findings ---"; ( cd "$SUBDIR" && bash "$DRIFT" 2>/dev/null | grep 'file not found' | head )
+  bad "subdir-resolution project scored $SSCORE (expected 100)"
+fi
+
+# --- Cross-repo references resolve against sibling checkouts ---
+SIBPARENT="$TMP/siblings"
+mkdir -p "$SIBPARENT/app/.claude/memory" "$SIBPARENT/other/src/lib"
+echo x > "$SIBPARENT/other/src/lib/changelog.ts"
+git -C "$SIBPARENT/other" init -q 2>/dev/null || true
+git -C "$SIBPARENT/other" add src/lib/changelog.ts 2>/dev/null || true
+cat > "$SIBPARENT/app/.claude/memory/conventions.md" <<'EOF'
+# Conventions
+Mira deploys announce from the TOP entry of src/lib/changelog.ts.
+EOF
+XSCORE=$(score_of "$SIBPARENT/app")
+if [ "$XSCORE" -eq 100 ]; then
+  ok "cross-repo refs resolve against sibling repo checkouts"
+else
+  echo "  --- findings ---"; ( cd "$SIBPARENT/app" && bash "$DRIFT" 2>/dev/null | grep 'file not found' | head )
+  bad "sibling-resolution project scored $XSCORE (expected 100)"
+fi
+
+# --- Off-machine artifacts named in the repo's own docs are not drift ---
+DOCREF="$TMP/docref-project"
+mkdir -p "$DOCREF/.claude/memory" "$DOCREF/docs"
+echo "Nodes rebuild the venv with scripts/setup_node_env.sh on first boot." > "$DOCREF/docs/ops.md"
+cat > "$DOCREF/.claude/memory/conventions.md" <<'EOF'
+# Conventions
+The env-bootstrap convention: scripts/setup_node_env.sh recreates the venv.
+EOF
+DOCSCORE=$(score_of "$DOCREF")
+if [ "$DOCSCORE" -eq 100 ]; then
+  ok "artifacts named in the repo's own docs not flagged as dead paths"
+else
+  echo "  --- findings ---"; ( cd "$DOCREF" && bash "$DRIFT" 2>/dev/null | grep 'file not found' | head )
+  bad "doc-corpus project scored $DOCSCORE (expected 100)"
+fi
+
+# --- Retired pre-v3 files are skipped entirely ---
+RETIRED="$TMP/retired-project"
+mkdir -p "$RETIRED/.claude/memory"
+cat > "$RETIRED/.claude/memory/activeContext.md" <<'EOF'
+# Active Context (pre-v3, pending /memory-migrate)
+Historical log naming src/long-gone.ts and scripts/removed-tool.sh repeatedly.
+Also scripts/removed-tool.sh again, and src/long-gone.ts once more.
+EOF
+cp "$RETIRED/.claude/memory/activeContext.md" "$RETIRED/.claude/memory/progress.md"
+cp "$RETIRED/.claude/memory/activeContext.md" "$RETIRED/.claude/memory/sessionHistory.md"
+cat > "$RETIRED/.claude/memory/conventions.md" <<'EOF'
+# Conventions
+Nothing stale here.
+EOF
+RSCORE=$(score_of "$RETIRED")
+if [ "$RSCORE" -eq 100 ]; then
+  ok "retired pre-v3 files (activeContext/progress/sessionHistory) skipped"
+else
+  echo "  --- findings ---"; ( cd "$RETIRED" && bash "$DRIFT" 2>/dev/null | grep -E 'ERROR|WARN' | head )
+  bad "retired-files project scored $RSCORE (expected 100)"
 fi
 
 # --- No Memory Bank → silent skip (what CI's fresh checkout sees) ---
