@@ -12,6 +12,10 @@ set -uo pipefail
 # references resolve by basename/suffix against the repo tree, against sibling
 # repo checkouts, and against the repo's own docs; retired pre-v3 memory files
 # (activeContext/progress/sessionHistory) are skipped entirely.
+# Plus the check_dependencies rework (moveris_training_data scored 0/100 on
+# ~100 false package warnings): a backticked token is a package claim only
+# with a dependency-shaped signal adjacent to it; genuine absent-dependency
+# claims still warn.
 # Pure bash 3.2. Exits non-zero on any failure.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -203,6 +207,66 @@ if [ "$RSCORE" -eq 100 ]; then
 else
   echo "  --- findings ---"; ( cd "$RETIRED" && bash "$DRIFT" 2>/dev/null | grep -E 'ERROR|WARN' | head )
   bad "retired-files project scored $RSCORE (expected 100)"
+fi
+
+# --- check_dependencies: backticked prose is not a package claim ---
+# Mirrors moveris_training_data (pyproject.toml holds tool config only, no
+# dependency sections): table/dataset/column names, CLI flags, paths,
+# timezones, and ALL_CAPS constants in backticks must not warn.
+DEPFP="$TMP/dep-prose-project"
+mkdir -p "$DEPFP/.claude/memory"
+cat > "$DEPFP/pyproject.toml" <<'EOF'
+[tool.ruff]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+EOF
+cat > "$DEPFP/.claude/memory/conventions.md" <<'EOF'
+# Conventions & Lessons
+### Real/fake is the `attack_type` column
+Selecting reals by `origin` silently ingests fakes — `axon_reals` hides
+replay attacks, `youtube_scrape` is masks; join `attack_types` + `family`.
+Samplers (`sample_real_subjects`) join `qc_reviews` to honor `excluded`.
+Every rsync must use `--ignore-existing`, never `--delete`; paths live in
+`/mnt/nvme/` or `/mnt/secondary/`. The host worker runs `America/Chicago`.
+OpenCV `CAP_PROP_FRAME_COUNT` returns garbage; batch imports set `data_purpose`.
+EOF
+DEPFPSCORE=$(score_of "$DEPFP")
+DEPFPWARN=$( cd "$DEPFP" && bash "$DRIFT" 2>/dev/null | grep -c 'references package' || true )
+if [ "$DEPFPWARN" -eq 0 ] && [ "$DEPFPSCORE" -eq 100 ]; then
+  ok "backticked prose (tables/columns/flags/paths/timezones) not package claims"
+else
+  echo "  --- findings ---"; ( cd "$DEPFP" && bash "$DRIFT" 2>/dev/null | grep 'references package' | head )
+  bad "dep-prose project scored $DEPFPSCORE with $DEPFPWARN false package warning(s)"
+fi
+
+# --- check_dependencies: genuine dependency claims still warn when absent ---
+# "the `httpx` library" and "import `structlog`" are claims and absent from
+# the manifest → warn. `requests` is claimed AND declared → no warning.
+# `urllib` is merely near "library" (signal not adjacent) → no warning.
+DEPTP="$TMP/dep-claim-project"
+mkdir -p "$DEPTP/.claude/memory"
+cat > "$DEPTP/pyproject.toml" <<'EOF'
+[project]
+name = "dep-claim"
+dependencies = ["requests>=2.31"]
+EOF
+cat > "$DEPTP/.claude/memory/conventions.md" <<'EOF'
+# Conventions
+All catalog calls go through the `httpx` library; never use `urllib` directly.
+Structured logging: import `structlog` at module top. The `requests` package
+handles legacy endpoints.
+EOF
+DEPWARNS=$( cd "$DEPTP" && bash "$DRIFT" 2>/dev/null | grep 'references package' || true )
+HTTPX=$(printf '%s\n' "$DEPWARNS" | grep -c 'httpx' || true)
+STRUCT=$(printf '%s\n' "$DEPWARNS" | grep -c 'structlog' || true)
+NOISE=$(printf '%s\n' "$DEPWARNS" | grep -cE 'urllib|requests' || true)
+if [ "$HTTPX" -eq 1 ] && [ "$STRUCT" -eq 1 ] && [ "$NOISE" -eq 0 ]; then
+  ok "genuine absent-dependency claims still warn; declared/non-adjacent don't"
+else
+  echo "  --- warnings ---"; printf '%s\n' "$DEPWARNS"
+  bad "dep-claim project: httpx=$HTTPX structlog=$STRUCT noise=$NOISE (want 1/1/0)"
 fi
 
 # --- No Memory Bank → silent skip (what CI's fresh checkout sees) ---
