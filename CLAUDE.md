@@ -17,7 +17,9 @@ Every session begins with:
 
 ```bash
 # Orchestration
-/boris <task>        # Plan (plan mode) -> delegate -> verify -> ship; fan-out via boris-build Workflow
+/boris <task>        # Plan (plan mode) -> delegate -> verify -> ship; fan-out via boris-build Workflow. DEFAULT for non-trivial tasks (auto-invoked)
+/anythingelse        # Wildcard checkpoint — auto-runs at the end of every planning phase
+/loops               # One board of everything open: ledger, delegated tasks/forks, PRs, worktrees, gates
 /session-start       # Load Memory Bank, orient to project
 /session-end         # Save context for next session
 
@@ -25,6 +27,7 @@ Every session begins with:
 /checks              # Stack-detected gates (tests/types/lint/format/build) + Stop-hook verify gate
 /verify              # Native: run the app, observe behavior
 /code-review <level> # Native: review the diff (--comment, --fix; "ultra" for cloud review)
+/cross-review [mode] # Adversarial review by Codex (different model family); "design" mode catches AI-design tells
 /security-review     # Native: security review of the branch
 /simplify            # Native: simplification pass on changed code
 

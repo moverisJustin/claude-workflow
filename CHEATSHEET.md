@@ -8,7 +8,9 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 
 | Skill | What it does |
 |---|---|
-| `/boris <task>` | Full orchestrated workflow — plan, delegate, verify, ship |
+| `/boris <task>` | Full orchestrated workflow — plan, delegate, verify, ship. **Auto-invoked by default** for non-trivial tasks |
+| `/cross-review [code\|design]` | Adversarial review by OpenAI Codex (decorrelated model family); `design` mode catches AI-design tells |
+| `/loops` | One board of everything open: Loops ledger, delegated tasks/forks, PRs, worktrees, stashes, gates |
 | `/session-start` | Deep-orient: load Memory Bank + task-context, check status, drift/signing |
 | `/session-end` | Commit/stash work, persist new decisions/conventions, update task-context |
 | `/checks` | Stack-detected quality gates (tests, types, lint, format, build) + Stop-hook verify gate |
@@ -25,7 +27,7 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 | `/bspec-doc` | Author a spec/PRD/feature/architecture/decision doc in BSpec format, then validate it offline (`scripts/bspec-validate.sh`) |
 | `/memory-migrate` | Convert a project's pre-v3 Memory Bank to v3 (auto-offered at session start when detected) |
 | `/first-principles` | Break down a complex problem from fundamentals |
-| `/anythingelse` | Creative wildcard prompt |
+| `/anythingelse` | Creative wildcard prompt — auto-runs at the end of every planning phase |
 
 ## Native Replacements (retired workflow commands)
 

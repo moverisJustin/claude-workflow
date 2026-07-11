@@ -30,7 +30,7 @@ This workflow fixes that:
 |---|---|---|
 | Core agents | 8 | code-architect (opus), test-writer/doc-generator (sonnet), git-guardian/issue-tracker (haiku), ... — each pinned to a cost-appropriate model tier |
 | Community agents | 44 active / 105 vendored | Dev-focused set (engineering, testing, dev design/specialized) installed by default + model-tiered; sales/marketing/product/etc. vendored opt-in |
-| Skills | 18 | `/boris`, `/session-start`, `/checks`, `/bspec-doc`, `/fix-issue`, `/drift-check`, `/handoff`, `/memory-migrate`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
+| Skills | 20 | `/boris` (default for non-trivial tasks), `/cross-review`, `/loops`, `/session-start`, `/checks`, `/bspec-doc`, `/fix-issue`, `/drift-check`, `/handoff`, `/memory-migrate`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
 | Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
 | Rules | 4 | `git-safety.md`, `workflow.md` (always-on policy), `documentation-channels.md` (Linear + BSpec loop-closing contract), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
@@ -80,8 +80,10 @@ Use **one or the other**, not both — running install.sh *and* the plugin would
 |---|---|
 | Start of day | `/session-start` (loads the Memory Bank, checks drift) |
 | New task | `/task-branch feature/auth` then start building |
-| Complex task | `/boris implement user authentication` |
+| Complex task | Just describe it — `/boris` auto-runs the full protocol (plan, delegate, verify, ship) |
 | Bug from Linear | `/fix-issue PROJ-123` |
+| What's still in flight? | `/loops` (ledger, delegated tasks/forks, PRs, worktrees, gates) |
+| UI work before merge | `/cross-review design` (Codex hunts AI-design tells) |
 | Switch focus | Just tell Claude — native auto-memory and the Memory Bank carry the context |
 | Before merging | `/checks` then `/code-review medium` then `/commit-push-pr` |
 | Something broke | Point Claude at the logs/error (plan mode first for read-only investigation) |
@@ -140,7 +142,9 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 
 | Skill | What it does |
 |---|---|
-| `/boris <task>` | Full orchestrated workflow -- plan, delegate, verify, ship |
+| `/boris <task>` | Full orchestrated workflow -- plan, delegate, verify, ship. **Auto-invoked by default** for any non-trivial task |
+| `/cross-review [code\|design]` | Adversarial review by OpenAI Codex (different model family, decorrelated blind spots); `design` mode hunts "looks like AI design" tells in UI work |
+| `/loops` | One board of everything open: Loops ledger, delegated tasks/forks, PRs, worktrees, stashes, armed gates |
 | `/session-start` | Load Memory Bank, check project status, orient to continue |
 | `/session-end` | Save Memory Bank state, create session summary for next time |
 | `/checks` | Stack-detected quality gates (tests, types, lint, format, build) with a Stop-hook verify gate |
@@ -157,7 +161,7 @@ The old prose `/mode` system is retired — it promised restrictions the model c
 | `/bspec-doc` | Author a spec/PRD/feature/architecture/decision doc in the standardized BSpec format, then validate it offline |
 | `/memory-migrate` | Convert a project's pre-v3 Memory Bank to the v3 model (salvage decisions/lessons, archive retired files) |
 | `/first-principles` | Break down a complex problem from fundamentals |
-| `/anythingelse` | Creative wildcard prompt |
+| `/anythingelse` | Creative wildcard prompt — auto-runs at the end of every planning phase |
 
 Retired in favor of native Claude Code features: `/verify-all` + `/test-and-fix` → `/verify` + `/checks`; `/review-changes` → `/code-review <effort>` (`ultra` for cloud review); `/security-scan` → `/security-review`; `/undo`/`/checkpoint`/`/rollback` → `/rewind`; `/mode` → native plan/permission modes; `/context` → native `/context` + statusline.
 
