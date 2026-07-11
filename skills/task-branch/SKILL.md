@@ -65,6 +65,11 @@ Create `.claude/task-context.md`:
 ## Plan
 - [ ] [To be defined]
 
+## Loops
+- **Linear**: OPEN
+- **BSpec**: OPEN
+- **Handoff**: none
+
 ## Decisions
 | Date | Decision | Rationale |
 |------|----------|-----------|
@@ -83,7 +88,24 @@ Create `.claude/task-context.md`:
 [Context that helps someone picking this up cold]
 ```
 
-### 4. Commit Task Context
+### 4. Link Linear (documentation-channels contract)
+
+Per `~/.claude/rules/documentation-channels.md`, every task maps to a Linear
+issue. Delegate to the `linear-project-manager` subagent:
+- If the branch name/arguments reference a Linear ID (e.g. `PROJ-123`), use it.
+- Otherwise **search existing issues first** (all statuses); create one only
+  if none matches the objective.
+- Move the issue to In Progress.
+- Fill the ledger: `**Linear**: PROJ-123 (In Progress)`.
+
+If there is genuinely no Linear workspace/team for this work, set
+`**Linear**: n/a — <reason>`. Never leave it OPEN silently at branch creation.
+
+The **BSpec** ledger entry stays OPEN until planning decides: feature /
+architecture / non-obvious decision → author the spec with `/bspec-doc`;
+otherwise resolve it `n/a — <reason>` (see the rule file).
+
+### 5. Commit Task Context
 
 ```bash
 mkdir -p .claude
@@ -92,7 +114,7 @@ git add .claude/task-context.md
 git commit -m "chore: initialize task context for [branch name]"
 ```
 
-### 5. Report
+### 6. Report
 
 ```
 Task Branch Created
@@ -100,6 +122,7 @@ Task Branch Created
 Branch: [name]
 Base: main @ [SHA]
 Task context: .claude/task-context.md
+Linear: [ISSUE-ID (In Progress) | n/a — reason]
 
 Next steps:
 1. Describe your objective (or tell me what you're building)

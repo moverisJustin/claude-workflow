@@ -55,6 +55,7 @@ Modes are native and harness-enforced: plan mode (Shift+Tab or `/plan`) for read
 Always-on rules live in `~/.claude/rules/` (installed from this repo's `rules/`):
 - `git-safety.md` — branch strategy, push-target verification, signed commits, PR review policy, recovery routing
 - `workflow.md` — plan-first, delegation, verify-before-done, self-improvement loop, compaction recovery
+- `documentation-channels.md` — one documentation contract for every task: Linear tracking (find/create → In Progress → comment → Done), BSpec for all saved specs/decisions, explicit handoffs; enforced via the task-context Loops ledger
 - `learned-patterns.md` — accumulated cross-project lessons. This is the lesson-capture target and the `sync-lessons.sh` sync point (public-repo promotion is opt-in via `<!-- shareable -->`)
 
 # Memory Bank (Persistent Context)

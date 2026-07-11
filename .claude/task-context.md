@@ -1,33 +1,53 @@
-# Task Context — feature/memory-migrate
+# Task Context
+
+## Branch
+**Name**: claude/multi-model-orchestration-6c566a
+**Created**: 2026-07-11
+**Author**: Justin @ Moveris
+**Base**: main @ 95c83f2
+**Issue**: see Loops
 
 ## Objective
-Add a way to convert dormant projects' pre-v3 Memory Banks to the v3 model,
-auto-detected at session start (user's request: "run a check on startup, run
-the skill if necessary").
+Close the workflow's unintentionally-open loops: one documentation contract
+(Linear tracking + BSpec docs + explicit handoffs) applied by default at every
+entry and exit point (/task-branch, /boris, /fix-issue, /session-start,
+/session-end, /task-done), enforced via a Loops ledger in task-context.
 
-## Design decision
-Detect automatically (SessionStart hook), but OFFER rather than silently run —
-migration archives files + rewrites memory (safe/reversible, but a state change
-that shouldn't happen the moment you open a repo, before you've said why you're
-there). So: startup detects → Claude offers → user confirms → one tap.
+## Plan
+- [x] Research DSPy, "Orce Dev" (unresolved name — likely Orca/Orcha/orc), Shopify/Qwen pattern
+- [x] Audit existing loop-closing mechanics (only hard gate: /checks Stop hook)
+- [x] Write rules/documentation-channels.md (the contract)
+- [x] Wire Linear close-out into task-done, session-end, boris, task-branch, fix-issue
+- [x] Wire BSpec defaults into session-start, boris, task-branch
+- [x] Update CLAUDE.md, README, rules/workflow.md
+- [x] BSpec DEC record (specs/DEC-documentation-channels-v1.0.0.md)
+- [ ] Commit, push, PR (removes this file for merge — also cleans the stale
+      memory-migrate task-context accidentally left on main)
+- [ ] Follow-ups (separate tasks): /cross-review Codex adversarial-review skill; DSPy/GEPA pilot on Moveris QA gate; eval-gated skill edits
 
-## Changes
-- **skills/memory-migrate/SKILL.md** (new): converts an old-layout Memory Bank
-  (activeContext/progress/sessionHistory/ROUTER/patterns, or older tasks/) —
-  keeps the 3 durable files untouched, salvages real decisions→decisionLog and
-  lessons→conventions (conservatively; skips stale session state), recreates
-  useful patterns as skills, and ARCHIVES the retired files to
-  .claude/memory/archive/ (reversible, never hard-deletes).
-- **hook-session-start.sh**: detects retired-layout files and emits an
-  "OFFER /memory-migrate" note (do-not-auto-run guard). Silent on v3-clean
-  projects. Within the 1500-char cap.
-- **test-hooks.sh**: +5 assertions (v3-clean silent, old-layout flagged, names
-  the skill, offer-not-auto-run, tasks/ layout). 41/41.
-- Docs: README/CHEATSHEET skill count 16→17, new skill rows, a "Migrating an
-  old project" concept section. CI self-audit enforces the count.
+## Loops
+- **Linear**: MOV-2522 (In Progress)
+- **BSpec**: specs/DEC-documentation-channels-v1.0.0.md
+- **Handoff**: none
 
-## Verification
-- hooks 41/41, install e2e 33/33, maintenance 7/7 + self-audit clean, drift 5/5,
-  sync-lessons 17/17, plugin 8/8 — /bin/bash 3.2.
+## Decisions
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-07-11 | Contract in one rule file; skills reference it | Protocol lives in exactly one place |
+| 2026-07-11 | Skill-level enforcement first; Stop-hook loop-gate deferred | Cheap + reversible; escalate only if ledger still leaks |
+| 2026-07-11 | decisionLog.md stays an index; substantial decisions get BSpec DEC docs | Avoid two competing ADR homes |
 
-## Deploy after merge: git pull && ./install.sh (self-updates now).
+## Progress
+### Done
+- Contract + 6 skills + docs + BSpec DEC record (validated)
+
+### In Progress
+- Linear issue link, commit/PR
+
+### Blocked
+- "Orce Dev" identity unconfirmed (user to clarify: Orca / Orcha / orc?)
+
+## Notes
+Research findings (DSPy transfer ideas, Shopify/Qwen pattern, Orce candidates)
+are in the session transcript of 2026-07-11; recommendations #3-#5 from that
+session are intentionally out of scope for this branch.

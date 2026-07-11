@@ -22,8 +22,9 @@ Read in parallel (only the files that exist):
 - `.claude/memory/conventions.md` — project-specific conventions and lessons
 - `.claude/memory/decisionLog.md` — key decisions and rationale
 - `.claude/task-context.md` — **if on a feature branch**: the current task's
-  objective, plan, decisions, and progress. This is the authority on "what to
-  work on" and travels across machines via git.
+  objective, plan, decisions, progress, and **Loops ledger** (Linear / BSpec /
+  Handoff — see `~/.claude/rules/documentation-channels.md`). This is the
+  authority on "what to work on" and travels across machines via git.
 
 Session continuity ("where was I", recent work) comes from **native
 auto-memory** — its `MEMORY.md` is already in context, and topic files load on
@@ -57,6 +58,7 @@ Session oriented
 Project: [name from projectContext]
 Task branch: [name + objective from task-context.md, or "None (on main)"]
 Branch: [git branch] | Uncommitted: [Yes/No]
+Open loops: [OPEN ledger entries from task-context, or "none"]
 Drift: [X/100 — only if < 80]
 Signing: [only warn if not configured]
 
@@ -65,5 +67,10 @@ Signing: [only warn if not configured]
 
 Then confirm direction: continue the task-context plan (on a branch), start a
 new task branch (`/task-branch <name>`), or ask what to work on.
+
+Session defaults (documentation-channels contract): work maps to a Linear
+issue (linked in the ledger), and any saved spec/PRD/architecture/decision doc
+this session produces is authored in BSpec format via `/bspec-doc` — not
+freeform markdown.
 
 **Tip**: end with `/session-end` to persist decisions and task state.

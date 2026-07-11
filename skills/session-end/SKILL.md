@@ -43,6 +43,10 @@ Skip anything with nothing new. Don't manufacture entries.
 If `.claude/task-context.md` exists:
 - Update Progress (mark completed, add new items), append any new Decisions,
   refresh Notes with a resume prompt for the next session.
+- **Refresh the Loops ledger** (`~/.claude/rules/documentation-channels.md`):
+  resolve what you can now, backfill the section if it's missing, and leave
+  anything unresolved marked `OPEN` so the next session starts with the leaks
+  visible instead of forgotten.
 - Keep the Objective/Plan structure intact.
 
 ```bash
@@ -52,6 +56,14 @@ git commit -m "chore: update task context - session end"
 
 This is the cross-machine handoff — `git pull` the branch elsewhere and resume
 with full state.
+
+## 3.5. Sync Linear
+
+If the ledger links a Linear issue, delegate to the `linear-project-manager`
+subagent: comment this session's progress on the issue (what moved, what's
+next). If no issue is linked yet and this is real tracked work, link one now
+(search first, create only if none exists) — or record `n/a — <reason>`.
+Skip silently only when the ledger already says `n/a`.
 
 ## 4. Drift check
 
@@ -72,6 +84,8 @@ Session complete
 Committed: [count] | Stashed/WIP: [yes/no]
 Persisted: [decisionLog / conventions entries added, or "nothing new"]
 Task context: [updated on <branch> / N/A (on main)]
+Linear: [ISSUE-ID — progress comment added | n/a]
+Open loops: [list any ledger entries still OPEN, or "none"]
 Drift: [X/100]
 
 Resume with /session-start.

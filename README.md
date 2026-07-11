@@ -33,7 +33,7 @@ This workflow fixes that:
 | Skills | 18 | `/boris`, `/session-start`, `/checks`, `/bspec-doc`, `/fix-issue`, `/drift-check`, `/handoff`, `/memory-migrate`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
 | Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
-| Rules | 3 | `git-safety.md`, `workflow.md` (always-on policy), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
+| Rules | 4 | `git-safety.md`, `workflow.md` (always-on policy), `documentation-channels.md` (Linear + BSpec loop-closing contract), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
 | Settings | -- | Curated permission allowlist, hardened deny list (destructive fs, pipe-to-shell, force-push to main), audit + prettier hooks |
 | Plugin (optional) | 1 | `.claude-plugin/` manifest + marketplace so teammates can `/plugin install` (namespaced commands; install.sh stays the bare-name path) |
 
@@ -118,11 +118,14 @@ No cloud usage; pure bash, zero AI tokens.
 ### BSpec Documents
 `/bspec-doc` auto-fires whenever you ask for a spec, PRD, feature spec, architecture/system/API/data/security doc, or decision record, and writes it as a saved file in the standardized [BSpec](https://bspec.dev) format (YAML-frontmatter Markdown with a shared type vocabulary and typed cross-links) so specs stay consistent across the company. Claude authors the document directly — no external LLM — then `scripts/bspec-validate.sh` checks it offline: required fields, a real BSpec type code, a valid status, and no dangling relationship links. The released BSpec CLI has no offline validate/generate (its only such path needs an external OpenRouter/OpenAI key), so validation is our own zero-dependency script; the CLI itself is optional corpus tooling (`bspec init/pack/open/query`) installed on demand via `scripts/install-bspec-cli.sh` (pinned + checksum-verified).
 
+### Documentation Channels (loop-closing)
+Every task is documented the same way, across the same channels, no matter how it started (`/boris`, `/task-branch`, `/fix-issue`, or ad-hoc). The contract lives in `rules/documentation-channels.md`: **Linear** is the tracking channel (find-or-create the issue at branch start → In Progress → progress comments at session end → outcome comment + status move at `/task-done`), **BSpec** is the documentation channel (any saved spec/decision doc goes through `/bspec-doc`, never freeform markdown), and **handoffs are explicit** (Linear assignment + context comment). Enforcement is the **Loops ledger** in `task-context.md` — `/task-done` refuses to report complete while any entry is `OPEN`, `/session-end` reports open loops forward, and `/session-start` surfaces them at boot. A loop that isn't closed or explicitly waived is a defect.
+
 ### Learned Patterns
 When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns go to your private `~/.claude/rules/learned-patterns.md` and stay on your machine by default. Sharing to this **public** repo is opt-in: `sync-lessons.sh` only promotes a pattern whose block carries a `<!-- shareable -->` marker, so private/org-specific notes never leak. Shared patterns then sync back to every machine via git. Over time, Claude stops making the mistakes your team has already caught.
 
 ### Task Context
-Feature branches carry `.claude/task-context.md` with the objective, plan, key decisions, and current progress. Created by `/task-branch`, auto-loaded by `/session-start`, removed when the branch merges. This means anyone (or any machine) can pick up a branch cold and Claude has full context.
+Feature branches carry `.claude/task-context.md` with the objective, plan, key decisions, current progress, and the Loops ledger (Linear / BSpec / Handoff). Created by `/task-branch`, auto-loaded by `/session-start`, removed when the branch merges (the resolved ledger survives in the PR body). This means anyone (or any machine) can pick up a branch cold and Claude has full context.
 
 ### Modes (Native)
 The old prose `/mode` system is retired — it promised restrictions the model could only honor, not enforce. Use the platform's real modes: **plan mode** (Shift+Tab or `/plan`) for read-only design and review — enforced by the harness, not by a promise — default/acceptEdits permission modes for implementation, the audit hooks for a real command/file-write trail, and `/security-review` for the security pass.

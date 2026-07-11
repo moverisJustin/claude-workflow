@@ -15,6 +15,7 @@
 - Never mark a task complete without proving it works. `/checks` runs the stack's real gates and arms a Stop-hook verify gate that holds the turn open until green. `/verify` observes the app actually working.
 - `/code-review <effort>` before merging; `ultra` for release branches.
 - Diff behavior between main and your changes when relevant.
+- Done includes documentation: the Loops ledger (Linear / BSpec / Handoff) must be resolved or explicitly waived — see `documentation-channels.md`. An OPEN loop means not done.
 - Ask: "Would a staff engineer approve this?"
 
 ## Autonomous Bug Fixing
