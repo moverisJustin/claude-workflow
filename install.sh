@@ -381,6 +381,47 @@ echo "--- Phase 7: CLAUDE.md + lesson migration ---"
 # Boris v3: lessons live in ~/.claude/rules/learned-patterns.md, not CLAUDE.md.
 # The version stamp is an HTML comment ("boris-version: 3") because users edit
 # prose headings; the stamp is the one line they're told not to remove.
+
+# Rebuild CLAUDE.md from the repo template into $2, preserving user-authored
+# content from the old-file snapshot in $1: every top-level section whose
+# heading is not template-owned (the known-heading list below) is carried
+# over, appended after the template. Shared by the pre-v3 migration and the
+# v3->v3 template re-sync so both paths preserve the same guarantees. Sets
+# CARRYOVER to a temp file holding the carried sections; the caller reports
+# via report_carryover (which removes it) or removes it directly.
+render_claude_md() {
+  CARRYOVER="$(mktemp)"
+  # fence tracking: a "# comment" line inside a ```code block``` (the Quick
+  # Reference section is full of them) is NOT a section heading — without
+  # this, template code-block comments get carried over as "custom" sections.
+  awk '
+    /^```/ { fence = !fence }
+    /^# / && !fence {
+      keep = 1
+      if ($0 ~ /^# (Session Boot|User Preferences|Quick Reference|Workflow Orchestration|Memory Bank|Core Principles|Learned Patterns|Rules)/) keep = 0
+    }
+    keep { print }
+  ' "$1" > "$CARRYOVER"
+  cp "$SCRIPT_DIR/CLAUDE.md" "$2"
+  if [ -s "$CARRYOVER" ]; then
+    { echo ""; cat "$CARRYOVER"; } >> "$2"
+  fi
+}
+
+# $1 = the old-file snapshot render_claude_md was given.
+report_carryover() {
+  if [ -s "$CARRYOVER" ]; then
+    echo "  Carried over custom section(s) from your old CLAUDE.md:"
+    grep '^# ' "$CARRYOVER" | sed 's/^/    /'
+  fi
+  rm -f "$CARRYOVER"
+  # @imports inside template-owned sections do not survive the replacement
+  if grep -qE '^\s*@[~./]' "$1" && ! grep -qE '^\s*@[~./]' "$CLAUDE_DIR/CLAUDE.md"; then
+    echo "  WARNING: your old CLAUDE.md contained @import lines that were not carried over."
+    echo "  Re-add them from the backup if still needed: $BACKUP_DIR/CLAUDE.md"
+  fi
+}
+
 if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ! grep -q "boris-version: 3" "$CLAUDE_DIR/CLAUDE.md" 2>/dev/null; then
   # Pre-v3 (or pre-Boris) CLAUDE.md: migrate its Learned Patterns into the
   # local rules file BEFORE replacing the structure. The merge is the ungated
@@ -400,28 +441,8 @@ if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ! grep -q "boris-version: 3" "$CLAUDE_DIR/C
   fi
 
   if [ "$MIGRATION_OK" = "true" ]; then
-    # Preserve user-authored content: carry over any top-level section whose
-    # heading is not part of the known template, appending it to the new file.
-    CUSTOM="$(mktemp)"
-    awk '
-      /^# / {
-        keep = 1
-        if ($0 ~ /^# (Session Boot|User Preferences|Quick Reference|Workflow Orchestration|Memory Bank|Core Principles|Learned Patterns|Rules)/) keep = 0
-      }
-      keep { print }
-    ' "$SNAPSHOT" > "$CUSTOM"
-    cp "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
-    if [ -s "$CUSTOM" ]; then
-      { echo ""; cat "$CUSTOM"; } >> "$CLAUDE_DIR/CLAUDE.md"
-      echo "  Carried over custom section(s) from your old CLAUDE.md:"
-      grep '^# ' "$CUSTOM" | sed 's/^/    /'
-    fi
-    rm -f "$CUSTOM"
-    # @imports inside template-owned sections do not survive the replacement
-    if grep -qE '^\s*@[~./]' "$SNAPSHOT" && ! grep -qE '^\s*@[~./]' "$CLAUDE_DIR/CLAUDE.md"; then
-      echo "  WARNING: your old CLAUDE.md contained @import lines that were not carried over."
-      echo "  Re-add them from the backup if still needed: $BACKUP_DIR/CLAUDE.md"
-    fi
+    render_claude_md "$SNAPSHOT" "$CLAUDE_DIR/CLAUDE.md"
+    report_carryover "$SNAPSHOT"
     echo "  Installed slim Boris v3 CLAUDE.md (old version in backup: $BACKUP_DIR)"
   else
     echo "  ERROR: lesson migration FAILED — your existing CLAUDE.md was left unchanged."
@@ -433,7 +454,27 @@ elif [ ! -f "$CLAUDE_DIR/CLAUDE.md" ]; then
   cp "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
   echo "  Installed CLAUDE.md (fresh install)"
 else
-  echo "  CLAUDE.md already at Boris v3"
+  # Already stamped v3 — but template content still moves WITHIN v3, so a
+  # stamp-only check would strand template updates on installed machines.
+  # Rebuild (current template + carried-over custom sections) and compare:
+  # identical means nothing to do; different means the template changed since
+  # this machine last installed, so refresh it. Custom sections, @import
+  # warning, and the Phase 1 backup give the same guarantees as the
+  # migration path. No minor version stamp needed: the content comparison
+  # is self-maintaining.
+  SNAPSHOT="$(mktemp)"
+  cp "$CLAUDE_DIR/CLAUDE.md" "$SNAPSHOT"
+  CANDIDATE="$(mktemp)"
+  render_claude_md "$SNAPSHOT" "$CANDIDATE"
+  if cmp -s "$CANDIDATE" "$CLAUDE_DIR/CLAUDE.md"; then
+    echo "  CLAUDE.md already at Boris v3 (template current)"
+    rm -f "$CARRYOVER"
+  else
+    cp "$CANDIDATE" "$CLAUDE_DIR/CLAUDE.md"
+    echo "  Refreshed Boris v3 CLAUDE.md template sections (old version in backup: $BACKUP_DIR)"
+    report_carryover "$SNAPSHOT"
+  fi
+  rm -f "$SNAPSHOT" "$CANDIDATE"
 fi
 
 # Sync lessons between the repo and the machine rules file. Local -> repo

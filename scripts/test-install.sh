@@ -5,7 +5,9 @@ set -uo pipefail
 # install against a machine that has an OLD (v2.0-era) ~/.claude: fat
 # CLAUDE.md with private lessons, retired command flat-copies, retired hook
 # scripts. Asserts migration, retirement, idempotency, and — critically —
-# that a private (untagged) lesson never leaks into the repo tree.
+# that a private (untagged) lesson never leaks into the repo tree. A second
+# fixture covers the v3->v3 template re-sync (stale template sections refresh,
+# custom sections survive, unchanged template is a byte-level no-op).
 # Pure bash + the installer's own deps. Exits non-zero on any failure.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -173,6 +175,68 @@ if [ "$(cat "$REPO_DIR/rules/learned-patterns.md")" = "$REPO_LESSONS_BEFORE" ]; 
   ok "repo lessons still unchanged after second run"
 else
   bad "second run mutated the repo lessons file"
+fi
+
+# --- v3->v3 template re-sync: a machine already stamped v3 whose template-
+# owned sections went stale (template updated WITHIN v3) must be refreshed to
+# the current template WITHOUT losing custom sections or their @imports — and
+# a re-run with no template change must be a byte-level no-op. (Regression:
+# the stamp-only check used to skip these machines forever.) ---
+FAKE_HOME2="$TMP/home2"
+CD2="$FAKE_HOME2/.claude"
+mkdir -p "$CD2"
+cat > "$CD2/CLAUDE.md" <<'EOF'
+<!-- boris-version: 3 — machine-readable upgrade stamp for install.sh; do not remove. -->
+# Session Boot (MANDATORY)
+
+Stale v3 boot prose from an older template revision.
+
+# Quick Reference (Boris v3)
+
+```bash
+# Stale Grouping Comment (looks like a heading but is inside a code fence)
+/retired-entry       # stale quick-reference entry the current template dropped
+```
+
+# My V3 Custom Section
+
+@~/.claude/team-standards.md
+- v3-custom-marker: must survive every template re-sync.
+EOF
+
+if ! HOME="$FAKE_HOME2" SKIP_SIGNING_SETUP=1 BORIS_INSTALL_NO_SELF_UPDATE=1 bash "$REPO_DIR/install.sh" > "$TMP/install3.log" 2>&1; then
+  echo "FAIL: v3-resync install.sh run exited non-zero"; tail -20 "$TMP/install3.log"; exit 1
+fi
+if ! grep -q "Stale v3 boot prose" "$CD2/CLAUDE.md"; then ok "stale template prose replaced on v3->v3 re-sync"; else bad "stale template section survived the re-sync"; fi
+if ! grep -q "/retired-entry" "$CD2/CLAUDE.md"; then ok "stale quick-reference entry replaced"; else bad "stale quick-reference entry survived"; fi
+if ! grep -q "Stale Grouping Comment" "$CD2/CLAUDE.md"; then ok "code-fence comment not mistaken for a custom heading"; else bad "code-fence comment carried over as a custom section"; fi
+# The template-owned portion must be exactly the current repo template...
+TEMPLATE_LINES=$(wc -l < "$REPO_DIR/CLAUDE.md" | tr -d ' ')
+if head -n "$TEMPLATE_LINES" "$CD2/CLAUDE.md" | cmp -s - "$REPO_DIR/CLAUDE.md"; then
+  ok "re-synced CLAUDE.md begins with the current repo template"
+else
+  bad "re-synced CLAUDE.md does not match the current repo template"
+fi
+# ...with user content intact, including an @import inside a custom section
+if grep -q "# My V3 Custom Section" "$CD2/CLAUDE.md" && grep -q "v3-custom-marker" "$CD2/CLAUDE.md"; then
+  ok "custom section survived the v3->v3 re-sync"
+else
+  bad "custom section LOST in v3->v3 re-sync"
+fi
+if grep -q '@~/.claude/team-standards.md' "$CD2/CLAUDE.md"; then ok "@import inside custom section survived"; else bad "@import line lost in re-sync"; fi
+if grep -q "Refreshed Boris v3 CLAUDE.md" "$TMP/install3.log"; then ok "installer reported the template refresh"; else bad "installer did not report a refresh"; fi
+
+# Idempotency: same template again — must be a no-op, byte for byte.
+RESYNCED=$(cat "$CD2/CLAUDE.md")
+if ! HOME="$FAKE_HOME2" SKIP_SIGNING_SETUP=1 BORIS_INSTALL_NO_SELF_UPDATE=1 bash "$REPO_DIR/install.sh" > "$TMP/install4.log" 2>&1; then
+  echo "FAIL: v3-resync second run exited non-zero"; tail -20 "$TMP/install4.log"; exit 1
+fi
+if grep -q "already at Boris v3" "$TMP/install4.log"; then ok "re-run with unchanged template is a no-op"; else bad "re-run re-replaced an already-current CLAUDE.md"; fi
+if [ "$(cat "$CD2/CLAUDE.md")" = "$RESYNCED" ]; then ok "CLAUDE.md byte-identical after no-op re-run"; else bad "no-op re-run mutated CLAUDE.md"; fi
+if [ "$(cat "$REPO_DIR/rules/learned-patterns.md")" = "$REPO_LESSONS_BEFORE" ]; then
+  ok "repo lessons still unchanged after v3-resync runs"
+else
+  bad "v3-resync runs mutated the repo lessons file"
 fi
 
 echo ""
