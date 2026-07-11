@@ -32,9 +32,8 @@ synced by hand.
   smoke+regression, maintenance, plugin, bspec-validate + settings JSON).
 
 ## Loops
-- **Linear**: OPEN — the active claude.ai Linear connector is not reachable
-  from this session; only the plugin server is, and standing instruction says
-  never use it. Create/track the issue from a connector-enabled session.
+- **Linear**: MOV-2525 — In Review (PR #24 open). Move to Done only after the
+  merge is verified (`gh pr view 24 --json state,mergedAt`).
 - **BSpec**: n/a — installer bug fix; design rationale lives in the PR
   description, no durable architecture/decision content.
 - **Handoff**: none
