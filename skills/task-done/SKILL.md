@@ -21,6 +21,9 @@ Read `.claude/task-context.md` using the Read tool.
 
 - Confirm we are **NOT on main/master**. If we are, abort: "Cannot run /task-done on main. Switch to your task branch first."
 - If `.claude/task-context.md` does not exist, warn but continue: "No task-context.md found. Proceeding without task context."
+- Read the `## Loops` ledger (see `~/.claude/rules/documentation-channels.md`).
+  If the task-context predates the ledger, **backfill it now** (Linear / BSpec
+  / Handoff) — do not skip it.
 
 ### 1. Update Task Context
 
@@ -47,6 +50,22 @@ If any gate fails, stop and fix root causes before proceeding. For changes
 where behavior matters (not just static gates), also run `/verify` to
 observe the app actually working.
 
+### 2.5. Close the Loops Ledger
+
+**Do not report "Task Complete" while any ledger entry is OPEN.** Resolve
+each one now (or waive it with an explicit reason):
+
+- **BSpec**: did this task introduce a feature, architecture change, or
+  non-obvious decision? → author/update the spec with `/bspec-doc` and record
+  the path. Otherwise record `n/a — <reason>`. Substantial decisions get a
+  BSpec DEC doc; `.claude/memory/decisionLog.md` links to it (index only).
+- **Handoff**: if the work passes to someone else, assign the Linear issue to
+  them and leave a context comment (what's done, what's left, where the spec
+  lives). Otherwise `none`.
+- **Linear**: confirm the issue ID is recorded (search/create via the
+  `linear-project-manager` subagent if it was never linked). The final status
+  move + comment happens in step 6.5 once the PR URL exists.
+
 ### 3. Commit Any Remaining Changes
 
 ```bash
@@ -61,6 +80,8 @@ Capture task context for the PR body:
 - Read Objective from task-context.md
 - Read Completion Summary
 - Read key Decisions
+- Read the resolved Loops ledger (it leaves the repo with task-context.md in
+  step 5 — the PR body is where it survives)
 - Get commit log: `git log main..HEAD --oneline`
 
 ### 5. Remove task-context.md
@@ -93,9 +114,25 @@ gh pr create \
 ## Key Decisions
 [From task-context.md decisions table]
 
+## Loops
+- Linear: [ISSUE-ID | n/a — reason]
+- BSpec: [specs/<file>.md | n/a — reason]
+- Handoff: [assignee | none]
+
 ## Testing
 [Verification results from step 2]"
 ```
+
+### 6.5. Update Linear
+
+Delegate to the `linear-project-manager` subagent (per
+`~/.claude/rules/documentation-channels.md`):
+- Comment on the issue: outcome summary + PR URL (+ BSpec doc path if one was
+  written).
+- Move the status: **In Review** now that the PR is open (**Done** if this was
+  a direct merge).
+
+Skip only if the ledger says `Linear: n/a — <reason>`.
 
 ### 7. Persist what's durable
 
@@ -109,6 +146,9 @@ gh pr create \
 
 ### 8. Report
 
+Only report Task Complete when **every** Loops entry is resolved or
+explicitly waived — an OPEN entry means the task is not done.
+
 ```
 Task Complete
 
@@ -116,11 +156,15 @@ Branch: [name]
 PR: [URL]
 Commits: [count]
 Verification: [pass/fail summary]
+Linear: [ISSUE-ID → In Review | n/a — reason]
+BSpec: [specs/<file>.md | n/a — reason]
+Handoff: [assignee | none]
 
 Task context captured in PR description.
 Durable decisions/conventions persisted (if any).
 
 Next: Review and merge the PR, then delete the remote branch.
+(After merge: move the Linear issue to Done.)
 ```
 
 ---
@@ -138,7 +182,9 @@ git push origin main
 git branch -d [branch-name]
 ```
 
-Skip PR creation. Still update Memory Bank.
+Skip PR creation. Still update Memory Bank, and still close the loops:
+Linear moves straight to **Done** (comment with the merge commit), BSpec and
+Handoff entries resolved as in step 2.5.
 
 ---
 

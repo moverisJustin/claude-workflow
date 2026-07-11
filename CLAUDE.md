@@ -17,7 +17,9 @@ Every session begins with:
 
 ```bash
 # Orchestration
-/boris <task>        # Plan (plan mode) -> delegate -> verify -> ship; fan-out via boris-build Workflow
+/boris <task>        # Plan (plan mode) -> delegate -> verify -> ship; fan-out via boris-build Workflow. DEFAULT for non-trivial tasks (auto-invoked)
+/anythingelse        # Wildcard checkpoint — auto-runs at the end of every planning phase
+/loops               # One board of everything open: ledger, delegated tasks/forks, PRs, worktrees, gates
 /session-start       # Load Memory Bank, orient to project
 /session-end         # Save context for next session
 
@@ -25,6 +27,7 @@ Every session begins with:
 /checks              # Stack-detected gates (tests/types/lint/format/build) + Stop-hook verify gate
 /verify              # Native: run the app, observe behavior
 /code-review <level> # Native: review the diff (--comment, --fix; "ultra" for cloud review)
+/cross-review [mode] # Adversarial review by Codex (different model family); "design" mode catches AI-design tells
 /security-review     # Native: security review of the branch
 /simplify            # Native: simplification pass on changed code
 
@@ -55,6 +58,7 @@ Modes are native and harness-enforced: plan mode (Shift+Tab or `/plan`) for read
 Always-on rules live in `~/.claude/rules/` (installed from this repo's `rules/`):
 - `git-safety.md` — branch strategy, push-target verification, signed commits, PR review policy, recovery routing
 - `workflow.md` — plan-first, delegation, verify-before-done, self-improvement loop, compaction recovery
+- `documentation-channels.md` — one documentation contract for every task: Linear tracking (find/create → In Progress → comment → Done), BSpec for all saved specs/decisions, explicit handoffs; enforced via the task-context Loops ledger
 - `learned-patterns.md` — accumulated cross-project lessons. This is the lesson-capture target and the `sync-lessons.sh` sync point (public-repo promotion is opt-in via `<!-- shareable -->`)
 
 # Memory Bank (Persistent Context)

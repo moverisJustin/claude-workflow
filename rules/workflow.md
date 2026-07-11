@@ -1,5 +1,10 @@
 # Workflow Rules
 
+## Default Orchestration
+- Non-trivial dev tasks run the **/boris protocol by default** — auto-invoke it when the user starts describing work; they should never need to type /boris. Trivial fixes and pure questions skip the ceremony (say so).
+- At the **end of every planning phase** — boris or not — run the `/anythingelse` wildcard checkpoint before presenting the plan; fold a genuinely accretive answer in (marked as the wildcard suggestion), or note nothing was worth adding.
+- To see everything in flight (ledger, delegated tasks/forks, PRs, worktrees, stashes, gates): `/loops`.
+
 ## Plan First
 - Enter native plan mode for ANY non-trivial task (3+ steps or architectural decisions). Plan-mode approval is the gate — read-only is enforced by the harness.
 - Write detailed specs upfront to reduce ambiguity. Use plan mode for verification steps too, not just building.
@@ -13,8 +18,9 @@
 
 ## Verify Before Done
 - Never mark a task complete without proving it works. `/checks` runs the stack's real gates and arms a Stop-hook verify gate that holds the turn open until green. `/verify` observes the app actually working.
-- `/code-review <effort>` before merging; `ultra` for release branches.
+- `/code-review <effort>` before merging; `ultra` for release branches. `/cross-review` adds a decorrelated second-model-family pass (Codex) — use `design` mode on UI work to catch "looks like AI design" tells.
 - Diff behavior between main and your changes when relevant.
+- Done includes documentation: the Loops ledger (Linear / BSpec / Handoff) must be resolved or explicitly waived — see `documentation-channels.md`. An OPEN loop means not done.
 - Ask: "Would a staff engineer approve this?"
 
 ## Autonomous Bug Fixing

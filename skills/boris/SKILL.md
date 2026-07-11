@@ -1,13 +1,18 @@
 ---
 name: boris
-description: Master orchestrator for end-to-end development tasks - plan with native plan mode, delegate to specialists and native skills, verify until green, ship through a PR. For fan-out-scale jobs it launches the boris-build saved Workflow.
+description: Master orchestrator for end-to-end development tasks - plan with native plan mode, delegate to specialists and native skills, verify until green, ship through a PR. Runs BY DEFAULT for any non-trivial dev task — auto-invoke it when the user starts describing work to build/fix/change, even if they didn't type /boris. For fan-out-scale jobs it launches the boris-build saved Workflow.
 argument-hint: [task description]
-disable-model-invocation: true
 ---
 
 # Boris — Master Orchestrator
 
 The user has requested: **$ARGUMENTS**
+
+**Triviality check first**: a pure question, a one-line obvious fix, or a
+read-only lookup does not need this protocol — answer or fix directly and say
+so. Everything else (3+ steps, new behavior, architectural surface) runs the
+full protocol below. When auto-invoked, don't announce "running Boris";
+just work the protocol.
 
 ## Quick Context
 
@@ -20,16 +25,33 @@ documentation; delegate to specialists; native features over reimplementation.
 
 ## Protocol
 
-### 0. Branch
+### 0. Branch + track
 If on main/master and the task is non-trivial: create a feature branch
 (`feature/`, `fix/`, or `task/` prefix) and initialize `.claude/task-context.md`
-with the objective and plan (committed — it is the cross-machine handoff).
+with the objective, plan, and the **Loops ledger** (committed — it is the
+cross-machine handoff). Then link Linear per
+`~/.claude/rules/documentation-channels.md`: delegate to the
+`linear-project-manager` subagent to find (search all statuses first) or
+create the issue, move it to In Progress, and record its ID in the ledger.
 
 ### 1. Plan — native plan mode
 Enter plan mode (EnterPlanMode) for any non-trivial task. Explore, design,
 write the plan file, and get approval via ExitPlanMode. Never gate on a prose
 "Shall I proceed?" — plan-mode approval is the gate. If something goes
 sideways mid-execution, STOP and re-plan; don't keep pushing.
+
+**Anything-else checkpoint (end of every planning phase).** Before
+presenting the plan for approval, run `/anythingelse` — "what's the single
+smartest, most accretive addition to this plan?" If the answer is genuinely
+worth it, fold it into the plan (marked as the wildcard suggestion so the
+user can strike it); otherwise note "wildcard checkpoint: nothing worth
+adding." Never skip the checkpoint; never let it balloon the scope silently.
+
+**Durable plans are BSpec docs.** If the task introduces a feature,
+architecture change, or non-obvious decision, author the approved plan's
+durable form with `/bspec-doc` (FEA/ARC/DEC/…) and record the path in the
+ledger. Plan-mode text is ephemeral; the spec is the record. Otherwise
+resolve the ledger's BSpec entry `n/a — <reason>`.
 
 ### 2. Execute — delegate with the modern Agent toolkit
 | Need | Use |
@@ -80,9 +102,11 @@ main conversation with explicit push-target verification.
 4. Iterate until everything passes. Ask: "Would a staff engineer approve this?"
 
 ### 5. Ship
-`/task-done` (verification, PR, task-context cleanup) or `/commit-push-pr` for
-intermediate commits. Verify the push target (`git remote -v`) before any
-push. PRs get external review — never self-approve.
+`/task-done` (verification, PR, task-context cleanup, **Loops close-out**:
+Linear comment + status move, BSpec entry resolved, handoff assigned) or
+`/commit-push-pr` for intermediate commits. Verify the push target
+(`git remote -v`) before any push. PRs get external review — never
+self-approve. A task with an OPEN ledger entry is not shipped.
 
 ### 6. Learn
 If the task surfaced a correction or non-obvious lesson: update

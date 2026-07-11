@@ -12,10 +12,12 @@ disable-model-invocation: true
 !`gh issue view $ARGUMENTS --json number,title,body,labels,assignees,state`
 
 ## Linear Issue (if GitHub issue not found)
-If the issue number starts with a project prefix (e.g., PROJ-123), use the connected Linear MCP tools instead (find them via tool search — exact names vary by server version):
+If the issue number starts with a project prefix (e.g., PROJ-123), delegate to
+the `linear-project-manager` subagent (per
+`~/.claude/rules/documentation-channels.md`):
 - Fetch the issue details
-- Update the issue status
-- Add a comment on the issue
+- Move it to In Progress at start
+- Comment + move to In Review when the PR opens (step 7)
 
 ## Issue Comments (Context)
 !`gh issue view $ARGUMENTS --json comments`
@@ -61,6 +63,7 @@ mkdir -p .claude
 # - Branch name and base SHA
 # - Issue number and title as Objective
 # - Acceptance criteria from issue as Plan items
+# - Loops ledger: Linear = this issue (In Progress), BSpec = OPEN, Handoff = none
 # - Issue body summary in Notes
 git add .claude/task-context.md
 git commit -m "chore: initialize task context for issue #$ISSUE_NUM"
@@ -120,10 +123,14 @@ Fixes #$ARGUMENTS
 
 ### 7. Update Issue
 
+GitHub issue:
 ```bash
 gh issue comment $ARGUMENTS --body "PR created. Ready for review."
 gh issue edit $ARGUMENTS --add-label "in-review"
 ```
+
+Linear issue: delegate to the `linear-project-manager` subagent — comment the
+outcome (summary + PR URL) and move the status to In Review.
 
 ---
 
