@@ -11,10 +11,28 @@ that isn't closed OR explicitly waived is a defect.
    - **Start**: search for an existing issue first (all statuses — never create
      duplicates); create one only if none exists. Move it to In Progress and
      record its ID in the Loops ledger.
+   - **Link**: tie the PR to the issue on purpose — attach the PR URL to the
+     issue AND let the GitHub integration link them (issue ID in the branch
+     name, or a magic word like "Closes MOV-123" in the PR description). The
+     linkage is valuable: the PR shows on the issue and statuses move on
+     their own. The watcher below reconciles it; don't avoid it.
    - **Boundaries** (session end, phase completion): comment progress on the
      issue — what moved, what's next.
-   - **Done**: comment the outcome (summary + PR URL) and move the status
-     (In Review when the PR opens; Done after merge or on a direct merge).
+   - **Watcher** (at `/session-start`, `/loops`, `/session-end`): reconcile
+     ledger issues against real PR state (`gh pr view <n> --json
+     state,mergedAt`). An issue whose PR merged but isn't Done gets closed
+     with an outcome comment — including one a GitHub automation regressed
+     to In Progress after it was Done. An issue marked Done whose PR is
+     still open gets flagged, not silently trusted.
+   - **Done**: comment the outcome (summary + PR URL) and move the status.
+     Status follows the PR: **In Review when the PR opens; Done only after
+     the merge is verified** (`gh pr view <n> --json state,mergedAt` — verify
+     even when a merge is reported verbally before flipping the status).
+     Never set Done manually while a linked PR or branch is still active:
+     Linear's automations fire on later push/review events and will regress
+     it to In Progress, reopening a closed loop. Where the merge→Done
+     automation is configured, let it close the issue; the watcher catches
+     everything it misses.
    - Delegate Linear operations to the `linear-project-manager` subagent to
      keep the main context clean.
    - No Linear workspace/team for this work? Record `Linear: n/a — <reason>`
