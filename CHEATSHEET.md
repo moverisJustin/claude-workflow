@@ -10,6 +10,7 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 |---|---|
 | `/boris <task>` | Full orchestrated workflow — plan, delegate, verify, ship. **Auto-invoked by default** for non-trivial tasks |
 | `/cross-review [code\|design]` | Adversarial review by OpenAI Codex (decorrelated model family); `design` mode catches AI-design tells |
+| `/prime-agent [--grep <topic>] <task>` | Assemble the memory context pack + task brief for a foreign/local handoff (Ollama, Orca, pasted prompt); writes `.claude/memory-pack.md` + clipboard |
 | `/loops` | One board of everything open: Loops ledger, delegated tasks/forks, PRs, worktrees, stashes, gates |
 | `/session-start` | Deep-orient: load Memory Bank + task-context, check status, drift/signing |
 | `/session-end` | Commit/stash work, persist new decisions/conventions, update task-context |
@@ -152,6 +153,17 @@ Initialize with `/memory-init`. Orient via the SessionStart hook + `/session-sta
 ### Agent Memory
 
 The recurring specialist agents (test-writer, doc-generator, code-architect, oncall-guide) carry `memory: project` — they learn this repo's patterns across sessions instead of rediscovering them each run.
+
+### Cross-model memory
+
+`scripts/memory-context.sh` prints a portable **memory context pack** (Memory Bank + task-context + `learned-patterns.md` pitfalls index) to prepend to a foreign agent's prompt so it isn't blind to your conventions. `--grep '<kw>'` scopes pitfalls to the task; `--full` inlines them; `--out FILE`/`--clip` change the destination. `/cross-review` uses it to brief Codex automatically; **`/prime-agent`** does it for any local-model / Orca / pasted-prompt handoff.
+
+```bash
+scripts/memory-context.sh                    # index pack to stdout
+scripts/memory-context.sh --grep 'sqlite'    # pitfalls scoped to a topic
+scripts/memory-context.sh --grep 'sqlite' --clip   # …straight to the clipboard
+/prime-agent --grep migration "port the WAL fix to the new module"
+```
 
 ### Drift Detection
 
