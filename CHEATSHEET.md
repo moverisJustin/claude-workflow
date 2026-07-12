@@ -153,6 +153,15 @@ Initialize with `/memory-init`. Orient via the SessionStart hook + `/session-sta
 
 The recurring specialist agents (test-writer, doc-generator, code-architect, oncall-guide) carry `memory: project` — they learn this repo's patterns across sessions instead of rediscovering them each run.
 
+### Cross-model memory
+
+`scripts/memory-context.sh` prints a portable **memory context pack** (Memory Bank + task-context + `learned-patterns.md` pitfalls index) to stdout, to prepend to a foreign agent's prompt so it isn't blind to your conventions. `--grep '<kw>'` scopes pitfalls to the task; `--full` inlines them. `/cross-review` uses it to brief Codex automatically; reuse it for any local-model / Orca / background-agent handoff.
+
+```bash
+scripts/memory-context.sh                    # index pack to stdout
+scripts/memory-context.sh --grep 'sqlite'    # pitfalls scoped to a topic
+```
+
 ### Drift Detection
 
 `/drift-check` validates that the Memory Bank, `CLAUDE.md`, and `.claude/rules/` still match codebase reality (dead paths, stale branches, missing deps). Pure bash, zero AI tokens. Integrated into `/session-start` (warns if score < 80) and `/session-end` (catches self-introduced drift).

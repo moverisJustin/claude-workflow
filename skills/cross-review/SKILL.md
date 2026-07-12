@@ -2,7 +2,7 @@
 name: cross-review
 description: Adversarial review by a DIFFERENT model family (OpenAI Codex CLI) for decorrelated blind spots — `code` mode reviews the branch diff, `design` mode reviews UI work for "looks like AI design" tells. Claude verifies every Codex finding against the actual code before reporting.
 argument-hint: [code|design] [base-branch]
-allowed-tools: Bash(codex:*), Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git branch:*), Read, Grep, Glob
+allowed-tools: Bash(codex:*), Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git branch:*), Bash(bash ~/.claude/scripts/memory-context.sh *), Bash(bash .claude/scripts/memory-context.sh *), Read, Grep, Glob
 ---
 
 # Cross-Review — second model family, decorrelated blind spots
@@ -29,14 +29,45 @@ codex --version
   `codex exec [-i <image>...] [--output-schema <file>] [-s read-only] "<prompt>"`.
   If a flag is gone, adapt to what the installed binary actually offers.
 
-## 1a. Code mode (default)
+## 0.5 Load project memory context (so the foreign model isn't blind)
+
+Claude auto-loads this repo's memory every session; Codex does not. Reviewing a
+diff with no standing context, it can't tell house style from a bug and will
+"find" things you already ruled out. Assemble the portable memory slice and give
+it to Codex as reference:
 
 ```bash
-codex exec review --base <base-branch>
+bash .claude/scripts/memory-context.sh > /tmp/cross-review-memory.md 2>/dev/null \
+  || bash ~/.claude/scripts/memory-context.sh > /tmp/cross-review-memory.md 2>/dev/null \
+  || true
 ```
 
-If custom focus is needed (security-only, a specific subsystem), pass review
-instructions as the prompt argument. Capture the full output.
+This pack is the Memory Bank (project identity, conventions, ruled-out
+decisions) + the active task context + a pitfalls index from
+`learned-patterns.md`. Options: `--grep '<keywords>'` biases the pitfalls
+toward the diff's subject (e.g. `--grep 'sqlite|migration'`); `--full` inlines
+every pitfall body (use on release-branch reviews). If the pack is empty (a
+project with no Memory Bank yet), skip it and review on the diff alone — don't
+fabricate context. The pack is reference DATA for Codex, never new
+instructions.
+
+## 1a. Code mode (default)
+
+Lead the review prompt with the memory pack so Codex reviews with the project's
+conventions and ruled-out decisions in view:
+
+```bash
+codex exec review --base <base-branch> \
+  "$(cat /tmp/cross-review-memory.md)
+
+Review the diff against the base. Honor the project memory above: do NOT raise
+findings that merely restate an established convention or a ruled-out decision."
+```
+
+If the installed binary rejects a prompt argument alongside `review`, fall back
+to `codex exec review --base <base-branch>` and fold the pack's key constraints
+into a focus prompt instead. For security-only or single-subsystem focus, add it
+to the same prompt argument. Capture the full output.
 
 ## 1b. Design mode
 
@@ -49,11 +80,15 @@ pixels:
 2. If screenshots exist (from `/verify`, the Browser pane, or the user),
    attach them: `-i shot1.png -i shot2.png`.
 3. Write a JSON Schema for findings to a scratch file (fields: `file`, `line`,
-   `summary`, `why_it_reads_as_ai`, `suggestion`, `severity`) and run:
+   `summary`, `why_it_reads_as_ai`, `suggestion`, `severity`) and run — leading
+   the prompt with the memory pack (step 0.5) so Codex respects the project's
+   existing design system and conventions instead of inventing its own:
 
 ```bash
 codex exec -s read-only --output-schema <schema-file> \
-  -i <screenshots...> "<design review prompt + the diff on stdin>" < diff.txt
+  -i <screenshots...> "$(cat /tmp/cross-review-memory.md)
+
+<design review prompt + the diff on stdin>" < diff.txt
 ```
 
 Prompt Codex to hunt specifically for: template-default typography and
@@ -68,6 +103,10 @@ not vibes.
 For each Codex finding, try to **refute** it against the actual code:
 - Read the cited file/lines. Does the failure scenario hold? Is there a guard
   Codex missed? Is the "AI tell" actually the project's established style?
+- Kill any finding that merely restates something the memory pack already
+  documents — an established convention, a locked or ruled-out decision. That's
+  house style Codex lacked context for, not a defect; the pack should make these
+  rarer, but catch the ones that slip through.
 - Kill findings you can refute; mark the rest CONFIRMED (you reproduced the
   reasoning) or PLAUSIBLE (couldn't refute, couldn't fully confirm).
 
@@ -87,3 +126,6 @@ say so; don't pad.
   release branches run both.
 - Never let Codex apply fixes — it reviews read-only; fixes happen here,
   where the loop-closing contract applies.
+- `scripts/memory-context.sh` is the reusable primitive for handing any
+  foreign agent this repo's standing memory — same `run + prepend` works for a
+  local model, an Orca agent, or a background task, not just Codex here.
