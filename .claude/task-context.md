@@ -19,10 +19,14 @@ models just never receive it. `/cross-review` handed Codex only the diff.
 ## Plan
 - [x] `scripts/memory-context.sh` — assembles Memory Bank + task-context +
       learned-patterns (index / --full / --grep), fence-aware, always exit 0
-- [x] `scripts/test-memory-context.sh` — 33 guard tests (incl. fence-safety)
+- [x] `--out FILE` / `--clip` destinations (CLIP_CMD-overridable for tests)
+- [x] `scripts/test-memory-context.sh` — 42 guard tests (fence-safety + destinations)
 - [x] Wire into `skills/cross-review/SKILL.md` (step 0.5 + both modes + verify)
-- [x] README + CHEATSHEET "Cross-model memory" sections
-- [ ] Linear tracking, commit, PR
+- [x] `/prime-agent` skill — pack + task brief → `.claude/memory-pack.md` + clipboard,
+      for local-model / Orca / pasted-prompt handoffs (gitignored artifact)
+- [x] README + CHEATSHEET "Cross-model memory" sections; skill count 20→21
+- [x] Installed to ~/.claude/ (install.sh); deployed script + skills verified
+- [x] PR #26 opened; second push updates it — user merges once done
 
 ## Loops
 - **Linear**: n/a — personal workflow tooling repo (no Linear project)

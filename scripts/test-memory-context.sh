@@ -104,6 +104,27 @@ assert_not_contains "grep no-match omits pitfalls" "$out" "Known pitfalls"
 err="$("$SUT" --root "$ROOT" --grep zzznomatchzzz 2>&1 >/dev/null)"
 assert_contains  "grep no-match notes on stderr" "$err" "no known-pitfall blocks matched"
 
+# --- 3b. destinations: --out / --clip --------------------------------------
+echo "--out / --clip"
+OUTF="$ROOT/pack.out.md"
+out="$("$SUT" --root "$ROOT" --out "$OUTF" 2>/dev/null)"; rc=$?
+assert_eq        "--out exits 0"                 0 "$rc"
+assert_eq        "--out suppresses stdout"       "" "$out"
+filebody="$(cat "$OUTF" 2>/dev/null || true)"
+assert_contains  "--out wrote the pack header"   "$filebody" "Project Memory Context Pack"
+assert_contains  "--out wrote a real section"    "$filebody" "SENTINEL_PROJECT"
+
+CLIPF="$ROOT/pack.clip.md"
+out="$(CLIP_CMD="cat > '$CLIPF'" "$SUT" --root "$ROOT" --clip 2>/dev/null)"
+assert_eq        "--clip suppresses stdout"      "" "$out"
+clipbody="$(cat "$CLIPF" 2>/dev/null || true)"
+assert_contains  "--clip copied the pack"        "$clipbody" "Project Memory Context Pack"
+
+# clipboard command failing is non-fatal (still exit 0, stdout still suppressed)
+err="$(CLIP_CMD=false "$SUT" --root "$ROOT" --clip 2>&1 >/dev/null)"; rc=$?
+assert_eq        "--clip failure still exits 0"  0 "$rc"
+assert_contains  "--clip failure notes stderr"   "$err" "no clipboard tool"
+
 # --- 4. missing files -------------------------------------------------------
 echo "missing files"
 rm -f "$ROOT/.claude/memory/conventions.md"
@@ -128,6 +149,7 @@ echo "arg validation"
 "$SUT" --bogus >/dev/null 2>&1; assert_eq "unknown arg exits 2" 2 "$?"
 "$SUT" --grep  >/dev/null 2>&1; assert_eq "--grep w/o regex exits 2" 2 "$?"
 "$SUT" --root  >/dev/null 2>&1; assert_eq "--root w/o dir exits 2"   2 "$?"
+"$SUT" --out   >/dev/null 2>&1; assert_eq "--out w/o file exits 2"   2 "$?"
 "$SUT" --help  >/dev/null 2>&1; assert_eq "--help exits 0"          0 "$?"
 
 # --- summary ----------------------------------------------------------------
