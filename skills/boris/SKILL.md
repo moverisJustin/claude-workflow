@@ -28,7 +28,9 @@ documentation; delegate to specialists; native features over reimplementation.
 ### 0. Branch + track
 If on main/master and the task is non-trivial: create a feature branch
 (`feature/`, `fix/`, or `task/` prefix) and initialize `.claude/task-context.md`
-with the objective, plan, and the **Loops ledger** (committed — it is the
+with the **Task Charter** (`## Objective` / `## Non-goals` / `## Acceptance` —
+the source of truth every reviewer judges against; one line each is fine,
+never placeholders), the plan, and the **Loops ledger** (committed — it is the
 cross-machine handoff). Then link Linear per
 `~/.claude/rules/documentation-channels.md`: delegate to the
 `linear-project-manager` subagent to find (search all statuses first) or
@@ -46,6 +48,23 @@ smartest, most accretive addition to this plan?" If the answer is genuinely
 worth it, fold it into the plan (marked as the wildcard suggestion so the
 user can strike it); otherwise note "wildcard checkpoint: nothing worth
 adding." Never skip the checkpoint; never let it balloon the scope silently.
+
+**External plan review (complexity-gated).** After the anything-else
+checkpoint, judge the plan against the complexity bar: auto-offer
+`/plan-review` only when the plan is multi-module, makes architectural
+decisions, or touches financial / data-integrity / security surface. Below
+the bar, record `External review: skipped — below complexity bar` in
+task-context and move on (`/plan-review` stays manually invocable any time).
+At or above it, the gate is an AskUserQuestion; on yes, `/plan-review` fans
+out to the foreign backends (Codex + Kimi) in parallel, adversarially
+verifies every finding, raises one resolution question per material
+disagreement, and reconciles accepted changes into the plan file with
+attribution (e.g. `[ext-review codex:F3]`). A missing backend is reported
+loudly, never silently substituted. Approval stays singular: ONE
+ExitPlanMode on the reconciled plan. The first acts after approval — before
+any execution — are applying the approved charter deltas to task-context,
+copying the raw review JSONs to `.claude/reviews/`, and appending the
+calibration ledger lines.
 
 **Durable plans are BSpec docs.** If the task introduces a feature,
 architecture change, or non-obvious decision, author the approved plan's
@@ -87,8 +106,12 @@ delegation:
 
 ```
 Workflow({ scriptPath: "~/.claude/workflows/boris-build.js",
-           args: { task: "<the approved plan's objective + constraints>" } })
+           args: { task: "<Task Charter (Objective / Non-goals / Acceptance),
+                          then the approved plan's objective + constraints>" } })
 ```
+
+Prepend the charter verbatim to `args.task` — every work item then judges
+its output against the same evaluation frame.
 
 Hard rules: launch it only AFTER plan-mode approval, and the workflow never
 commits or pushes — approval, commit, push, and PR always happen back in the
@@ -104,7 +127,9 @@ main conversation with explicit push-target verification.
 ### 5. Ship
 `/task-done` (verification, PR, task-context cleanup, **Loops close-out**:
 Linear comment + status move, BSpec entry resolved, handoff assigned) or
-`/commit-push-pr` for intermediate commits. Verify the push target
+`/commit-push-pr` for intermediate commits. `/task-done` now also enforces
+the Acceptance gate and offers the external review gate (`/cross-review pr`)
+before the PR opens. Verify the push target
 (`git remote -v`) before any push. PRs get external review — never
 self-approve. A task with an OPEN ledger entry is not shipped.
 

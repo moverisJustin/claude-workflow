@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "exclude": [".env*", "**/*.pem", "**/secrets/**"],
+  "backends": {
+    "codex": {
+      "enabled": true,
+      "runner": "codex",
+      "dimensions": ["correctness", "design"],
+      "input": "pack"
+    },
+    "kimi": {
+      "enabled": true,
+      "runner": "openrouter:MODEL_ID_SET_AT_SETUP",
+      "dimensions": ["spec-drift", "architecture", "test-gap"],
+      "input": "pack",
+      "context_budget_bytes": 400000
+    },
+    "claude-native": {
+      "enabled": true,
+      "runner": "native",
+      "role": "prerequisite",
+      "dimensions": ["baseline", "security"]
+    }
+  }
+}

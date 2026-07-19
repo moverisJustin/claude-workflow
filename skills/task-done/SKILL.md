@@ -24,6 +24,10 @@ Read `.claude/task-context.md` using the Read tool.
 - Read the `## Loops` ledger (see `~/.claude/rules/documentation-channels.md`).
   If the task-context predates the ledger, **backfill it now** (Linear / BSpec
   / Handoff) — do not skip it.
+- Read the **Task Charter** (`## Objective` / `## Non-goals` / `## Acceptance`
+  in task-context.md). If any charter section is missing or still placeholder
+  text, **backfill it now** from what the branch actually did — same treatment
+  as the ledger backfill, do not skip it.
 
 ### 1. Update Task Context
 
@@ -66,6 +70,40 @@ each one now (or waive it with an explicit reason):
   `linear-project-manager` subagent if it was never linked). The final status
   move + comment happens in step 6.5 once the PR URL exists.
 
+### 2.6. Acceptance Gate
+
+**Do not report "Task Complete" while any `## Acceptance` item is still
+`- [ ]`.** Walk the charter's Acceptance list now: mark each criterion the
+work verifiably meets `- [x]`; anything you cannot check gets resolved
+(finish it) or explicitly waived as `- [~] waived: <reason>`. An unchecked,
+unwaived item means the task is not done — deleting or silently skipping an
+item is not an option.
+
+### 2.7. External Review Gate
+
+After `/checks` is green and before any PR commit, offer decorrelated
+review. Ask via AskUserQuestion:
+
+> External PR review before opening the PR?
+> [All configured backends / Codex only / Skip]
+
+- **All configured backends** → run `/cross-review pr`.
+- **Codex only** → run `/cross-review pr --models codex`.
+- **Skip** → record `External review: skipped — <reason>` in task-context
+  and continue.
+
+If the review returns CONFIRMED **critical or high** findings, ask which way
+to resolve them:
+- **Fix now** → apply the fixes, re-run `/checks`, and note that findings
+  touched by the fixes need re-review (re-run the affected backend or verify
+  the fix directly).
+- **Ship with known issues** → carry them into the PR body's
+  `## Known Issues (external review)` block in step 6 — never drop them
+  silently.
+
+A missing or unavailable backend is reported loudly and never silently
+substituted — `/cross-review`'s own degradation rules apply.
+
 ### 3. Commit Any Remaining Changes
 
 ```bash
@@ -77,8 +115,11 @@ git status --short
 ### 4. Prepare for PR
 
 Capture task context for the PR body:
-- Read Objective from task-context.md
+- Read the Task Charter (Objective, Non-goals, Acceptance with final check
+  states) from task-context.md
 - Read Completion Summary
+- If the external review gate (2.7) ran, capture its summary (backends,
+  confirmed/refuted counts) and any ship-with-known-issues findings
 - Read key Decisions
 - Read the resolved Loops ledger (it leaves the repo with task-context.md in
   step 5 — the PR body is where it survives)
@@ -108,6 +149,14 @@ gh pr create \
   --body "## Summary
 [From task-context.md objective and completion summary]
 
+## Charter
+**Objective**: [from task-context.md]
+**Non-goals**: [from task-context.md]
+**Acceptance**:
+[Acceptance list verbatim with final check states — [x] done, [~] waived: reason.
+The charter leaves the repo with task-context.md in step 5; this section is
+where it survives the merge.]
+
 ## Changes
 [From git log main..HEAD --oneline]
 
@@ -118,6 +167,14 @@ gh pr create \
 - Linear: [ISSUE-ID | n/a — reason]
 - BSpec: [specs/<file>.md | n/a — reason]
 - Handoff: [assignee | none]
+
+## External Review
+[Only when step 2.7 ran: one summary line — backends run, confirmed/refuted
+counts, e.g. 'codex+kimi: 3 confirmed, 2 refuted'. Omit the section if skipped.]
+
+## Known Issues (external review)
+[Only when shipping with known issues from step 2.7: one line per finding —
+severity, file:line, summary. Omit the section otherwise.]
 
 ## Testing
 [Verification results from step 2]"
@@ -147,7 +204,9 @@ Skip only if the ledger says `Linear: n/a — <reason>`.
 ### 8. Report
 
 Only report Task Complete when **every** Loops entry is resolved or
-explicitly waived — an OPEN entry means the task is not done.
+explicitly waived — an OPEN entry means the task is not done — **and every
+Acceptance item is `[x]` or `[~] waived: <reason>`** (the gate from step
+2.6; an unchecked item means the task is not done).
 
 ```
 Task Complete
@@ -156,6 +215,8 @@ Branch: [name]
 PR: [URL]
 Commits: [count]
 Verification: [pass/fail summary]
+Acceptance: [n checked / m waived / 0 open]
+External review: [backends + confirmed/refuted counts | skipped — reason]
 Linear: [ISSUE-ID → In Review | n/a — reason]
 BSpec: [specs/<file>.md | n/a — reason]
 Handoff: [assignee | none]
@@ -184,7 +245,8 @@ git branch -d [branch-name]
 
 Skip PR creation. Still update Memory Bank, and still close the loops:
 Linear moves straight to **Done** (comment with the merge commit), BSpec and
-Handoff entries resolved as in step 2.5.
+Handoff entries resolved as in step 2.5. The Acceptance gate (2.6) and the
+external review offer (2.7) still apply — a direct merge does not bypass them.
 
 ---
 
