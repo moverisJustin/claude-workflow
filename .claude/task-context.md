@@ -23,32 +23,36 @@ doc per Loops) — plan itself was Codex-reviewed (11 findings, 0 refuted).
 - No Orca integration changes
 
 ## Acceptance
-- [ ] Offline test suites green (foreign-review, validate-findings, review-pack,
-      review-merge, memory-context charter additions, drift-check, maintenance)
-- [ ] Codex smoke test: fixture pack → schema-valid findings JSON
-- [ ] OpenRouter smoke test: cheap model + Kimi model id confirmed (needs
-      Justin's API key)
-- [ ] Plan-gate dry run: /plan-review on a scratch plan end-to-end
-- [ ] PR-review dry run: planted defects caught, report renders with
-      attribution + calibration footer
-- [ ] Docs updated (README, CHEATSHEET, CLAUDE.md, rules); BSpec ARC authored
+- [x] Offline test suites green (foreign-review 114, validate-findings 55,
+      review-pack 69, review-merge 32, memory-context 62, drift-check,
+      maintenance — all exit 0)
+- [x] Codex smoke test: fixture pack → schema-valid findings JSON (verdict
+      revise, 3 findings)
+- [x] OpenRouter smoke test: kimi-k3 verified end-to-end (model id pinned in
+      review-backends.json after live /models check)
+- [x] Plan-gate dry run: pack assembly + both-backend fan-out via smokes; full
+      reconcile flow dogfooded live on this build's own plan (11 findings)
+- [x] PR-review dry run: both planted defects caught (codex via correctness,
+      kimi via spec-drift), merge deterministic with attribution; calibration
+      ledger seeded with versioned events
+- [x] Docs updated (README, CHEATSHEET, CLAUDE.md, rules); BSpec ARC authored
       and validated; PR opened
 
 ## Plan
-- [ ] Phase 1: Task Charter + charter-first packs (memory-context.sh, task-branch
+- [x] Phase 1: Task Charter + charter-first packs (memory-context.sh, task-branch
       template, touchpoint skills, drift-check lint)
-- [ ] Phase 2: foreign-review.sh + validate-findings.mjs + tests
-- [ ] Phase 3: /plan-review skill (schema, reviewer prompt, gate flow)
-- [ ] Phase 4: /cross-review pr mode (routing config, review-pack.sh,
+- [x] Phase 2: foreign-review.sh + validate-findings.mjs + tests
+- [x] Phase 3: /plan-review skill (schema, reviewer prompt, gate flow)
+- [x] Phase 4: /cross-review pr mode (routing config, review-pack.sh,
       review-merge.mjs, prompts, task-done gate, foreign write path)
-- [ ] Phase 5: right-sizing policy, memory write-back invariant, calibration
+- [x] Phase 5: right-sizing policy, memory write-back invariant, calibration
       ledger, docs sweep
-- [ ] Verification: suites + smoke tests + dry runs; single PR
+- [x] Verification: suites + smoke tests + dry runs; single PR
 
 ## Loops
 - **Linear**: n/a — personal workflow tooling repo (no Linear project)
-- **BSpec**: specs/ARC-multi-model-orchestration-v1.md — to author this session
-  from the approved plan (OPEN until validated)
+- **BSpec**: specs/ARC-multi-model-orchestration-v1.md — authored + validated
+  (bspec-validate exit 0)
 - **Handoff**: none
 - **External review**: plan reviewed by codex (gpt-5.6-sol) 2026-07-18 —
   11 findings: 8 accepted, 3 partial, 0 refuted; kimi skipped (no key yet)
@@ -68,8 +72,10 @@ doc per Loops) — plan itself was Codex-reviewed (11 findings, 0 refuted).
 - Plan researched (3 design agents), reconciled, Codex-reviewed (dogfood of the
   gate itself), approved by Justin 2026-07-19
 
-### In Progress
-- Parallel build of all 5 phases via workflow fan-out
+### Done (build)
+- All 5 phases implemented (11-item workflow fan-out, 23 agents, per-item
+  adversarial review), 3 post-review bugs fixed with regression tests, all
+  gates green, both backends live-verified, dry runs caught planted defects
 
 ### Next
-- Gates → review → fix → phase commits → smoke tests → BSpec ARC → PR
+- PR review + merge (external human review per git-safety policy)
