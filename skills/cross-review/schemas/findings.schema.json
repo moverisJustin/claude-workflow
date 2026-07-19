@@ -1,7 +1,7 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["findings"],
+  "required": ["findings", "coverage_notes"],
   "properties": {
     "findings": {
       "type": "array",
@@ -9,7 +9,17 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["severity", "category", "summary", "failure_scenario"],
+        "required": [
+          "severity",
+          "category",
+          "summary",
+          "failure_scenario",
+          "file",
+          "line",
+          "evidence",
+          "suggested_fix",
+          "lessons"
+        ],
         "properties": {
           "severity": {
             "type": "string",

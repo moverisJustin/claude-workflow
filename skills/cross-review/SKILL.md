@@ -136,6 +136,14 @@ shared schema (`schemas/findings.schema.json` next to this skill), and the
 results are mechanically merged, semantically reconciled, and adversarially
 verified before anything reaches the user.
 
+Schema note: every property is **required** — OpenAI/OpenRouter strict
+structured-output modes reject schemas with optional properties (verified
+live: Codex returned 400 on `text.format.schema` until all fields were
+required). Not-applicable fields carry sentinels: `file: ""` (not
+file-specific), `line: 0` (no anchor), `evidence`/`suggested_fix`/
+`coverage_notes: ""`, `lessons: []`. Treat sentinel anchors accordingly when
+merging and reporting.
+
 ## Backend config — resolution order
 
 The routing table is data, not code: `review-backends.json`. Resolve in this

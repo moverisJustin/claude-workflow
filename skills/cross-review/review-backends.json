@@ -10,7 +10,7 @@
     },
     "kimi": {
       "enabled": true,
-      "runner": "openrouter:MODEL_ID_SET_AT_SETUP",
+      "runner": "openrouter:moonshotai/kimi-k3",
       "dimensions": ["spec-drift", "architecture", "test-gap"],
       "input": "pack",
       "context_budget_bytes": 400000
