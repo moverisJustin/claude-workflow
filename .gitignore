@@ -5,4 +5,5 @@
 .env.*
 .claude/memory/
 .claude/audit/
+.claude/reviews/
 .claude/memory-pack.md

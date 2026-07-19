@@ -9,7 +9,8 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 | Skill | What it does |
 |---|---|
 | `/boris <task>` | Full orchestrated workflow — plan, delegate, verify, ship. **Auto-invoked by default** for non-trivial tasks |
-| `/cross-review [code\|design]` | Adversarial review by OpenAI Codex (decorrelated model family); `design` mode catches AI-design tells |
+| `/plan-review` | Foreign-model review of the current plan inside plan mode; auto-offered above the complexity bar, findings verified and reconciled before the one approval |
+| `/cross-review [code\|design\|pr]` | Adversarial review by a different model family (decorrelated blind spots); `design` mode catches AI-design tells; `pr` mode fans out per the routing table (Codex + Kimi) — `--models a,b`/`--all` pick backends, `--comment`/`--linear` publish explicitly |
 | `/prime-agent [--grep <topic>] <task>` | Assemble the memory context pack + task brief for a foreign/local handoff (Ollama, Orca, pasted prompt); writes `.claude/memory-pack.md` + clipboard |
 | `/loops` | One board of everything open: Loops ledger, delegated tasks/forks, PRs, worktrees, stashes, gates |
 | `/session-start` | Deep-orient: load Memory Bank + task-context, check status, drift/signing |

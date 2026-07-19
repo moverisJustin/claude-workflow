@@ -27,7 +27,8 @@ Every session begins with:
 /checks              # Stack-detected gates (tests/types/lint/format/build) + Stop-hook verify gate
 /verify              # Native: run the app, observe behavior
 /code-review <level> # Native: review the diff (--comment, --fix; "ultra" for cloud review)
-/cross-review [mode] # Adversarial review by Codex (different model family); "design" mode catches AI-design tells
+/plan-review         # Foreign-model review of the plan inside plan mode; auto-offered above the complexity bar
+/cross-review [code|design|pr] # Adversarial review by a different model family; "design" catches AI-design tells, "pr" fans out to routed backends (Codex + Kimi)
 /security-review     # Native: security review of the branch
 /simplify            # Native: simplification pass on changed code
 
