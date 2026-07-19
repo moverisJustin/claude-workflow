@@ -333,7 +333,7 @@ echo ""
 echo "--- Phase 6: Install hook scripts ---"
 mkdir -p "$CLAUDE_DIR/scripts"
 SCRIPT_COUNT=0
-for f in "$SCRIPT_DIR/scripts/"*.sh; do
+for f in "$SCRIPT_DIR/scripts/"*.sh "$SCRIPT_DIR/scripts/"*.mjs; do
   [ -f "$f" ] || continue
   cp "$f" "$CLAUDE_DIR/scripts/$(basename "$f")"
   chmod +x "$CLAUDE_DIR/scripts/$(basename "$f")"

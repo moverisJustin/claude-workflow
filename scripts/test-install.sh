@@ -153,6 +153,7 @@ if [ ! -f "$CD/agents/ci-integrator.md" ]; then ok "retired-without-successor ag
 if [ ! -d "$CD/commands" ]; then ok "empty commands/ dir removed"; else bad "commands/ dir remains"; fi
 if [ ! -f "$CD/scripts/hook-branch-switch.sh" ]; then ok "retired hook script removed"; else bad "retired hook script survived"; fi
 if [ -f "$CD/scripts/hook-stop-verify.sh" ]; then ok "current hook scripts installed"; else bad "hook scripts missing"; fi
+if [ -f "$CD/scripts/validate-findings.mjs" ]; then ok "mjs scripts installed (validate-findings)"; else bad "scripts/*.mjs not deployed — foreign-review.sh cannot validate"; fi
 
 # --- Settings (only when jq available; installer skips the merge without it) ---
 if command -v jq >/dev/null 2>&1; then
