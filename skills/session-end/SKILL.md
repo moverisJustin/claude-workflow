@@ -32,6 +32,10 @@ git diff --stat
   If it's a *universal* lesson, put it in `~/.claude/rules/learned-patterns.md`
   instead (see `/update-claude-md` for routing), and tag `<!-- shareable -->`
   only if it's safe to publish.
+- **A validated cross-model finding** — a foreign reviewer (Codex, Kimi) caught
+  something real that Claude confirmed — goes to `conventions.md` too,
+  attributed to the source model (universal ones route to
+  `learned-patterns.md` as above).
 - **A repeatable multi-step procedure emerged** → capture it as a **skill**
   (`skills/<name>/SKILL.md`), not a memory file — skills load on demand and are
   invocable. (This replaces the old GROW/patterns step.)
@@ -47,7 +51,10 @@ If `.claude/task-context.md` exists:
   resolve what you can now, backfill the section if it's missing, and leave
   anything unresolved marked `OPEN` so the next session starts with the leaks
   visible instead of forgotten.
-- Keep the Objective/Plan structure intact.
+- **Keep the Charter intact** (Objective / Non-goals / Acceptance) — check off
+  Acceptance items that were completed, but don't rewrite goals in passing. A
+  *deliberate* scope change edits the charter, adds a Decisions row recording
+  the change, and syncs the linked Linear issue (one-way, charter → Linear).
 
 ```bash
 git add .claude/task-context.md

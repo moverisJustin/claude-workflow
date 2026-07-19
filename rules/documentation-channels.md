@@ -55,6 +55,40 @@ that isn't closed OR explicitly waived is a defect.
    assignment plus a context comment (what's done, what's left, where the spec
    lives) — never a verbal "someone should…".
 
+## The Task Charter
+
+`.claude/task-context.md` opens with the **task charter** — `## Objective`
+(what + why), `## Non-goals` (scope fence), `## Acceptance` (checkable
+criteria). It is committed and branch-scoped, and it survives the branch in
+the PR body's `## Charter` section.
+
+Precedence:
+
+- The **charter** is the authority on the task's goals and scope. Every
+  reviewer — native or foreign — judges the work against it.
+- The **BSpec doc** (pointed to by the ledger's `**BSpec**:` line) is the
+  authority on durable design detail. The charter points at it; design detail
+  is never duplicated into the charter.
+- **Linear mirrors the charter, one-way.** A new issue is populated from the
+  charter (Objective → Context, Acceptance → Acceptance Criteria, Non-goals →
+  Out of Scope). Linking an existing issue backfills its criteria into the
+  charter ONCE; after that, edits flow charter → Linear, never back.
+
+Every external review pack embeds the charter verbatim at the top
+(`memory-context.sh` enforces this), so all reviewers evaluate against the
+same frame.
+
+Acceptance syntax (exact forms — the `/task-done` gate greps them):
+
+- `- [ ]` open
+- `- [x]` done
+- `- [~] waived: <reason>` waived
+
+Keep the charter cheap — one line per section is fine — but never leave
+placeholders. `/task-done` may not report complete while any Acceptance item
+is unchecked and unwaived. A deliberate scope change edits the charter, adds
+a Decisions row, and syncs Linear.
+
 ## The Loops ledger
 
 `.claude/task-context.md` carries the ledger:
