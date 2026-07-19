@@ -86,7 +86,7 @@ INSTRUCTIONS:
 ${item.instructions}
 
 Follow the codebase's existing conventions (read neighboring code first). Write/update tests within your owned files. Do NOT run git commands. Return a terse report: files changed, what was done, anything the verifier should scrutinize.`,
-    { label: `impl:${i}:${item.title.slice(0, 24)}`, phase: 'Implement' })
+    { label: `impl:${i}:${item.title.slice(0, 24)}`, phase: 'Implement', model: 'sonnet' })
     .then(report => ({ item, report, failed: !report }))
 ))
 
@@ -97,7 +97,7 @@ if (failedItems.length) log(`WARNING: ${failedItems.length} implementer(s) died:
 phase('Verify')
 // Barrier justified: gates must run over the COMBINED result of all items.
 const runGates = label => agent(`Run this project's quality gates over the current working tree (detect the stack first: package.json scripts / pyproject / Cargo.toml / go.mod — run only gates that exist; include ruff format --check for Python). Do NOT run git commit/push. Report every failure with its output.`,
-  { label, phase: 'Verify', schema: GATE_SCHEMA })
+  { label, phase: 'Verify', schema: GATE_SCHEMA, model: 'sonnet' })
 const gates = (await runGates('gates')) || { passed: false, report: 'gate-runner agent failed — treat as not verified' }
 
 const reviews = await parallel(done.map(({ item, report }, i) => () =>
@@ -123,7 +123,7 @@ if (broken.length || !gates.passed) {
   if (broken.length) {
     fixReports = await parallel(broken.map(({ item, review }, i) => () =>
       agent(`Fix the confirmed issues in this work item (owned files: ${item.files.join(', ')}). Issues:\n- ${review.issues.join('\n- ')}\nSpec:\n${item.instructions}\nDo not run git commands. Report what you changed.`,
-        { label: `fix:${i}:${item.title.slice(0, 24)}`, phase: 'Verify' })))
+        { label: `fix:${i}:${item.title.slice(0, 24)}`, phase: 'Verify', model: 'sonnet' })))
   }
   if (!gates.passed) {
     const gateFix = await agent(`The project's quality gates are failing after a multi-item implementation. Diagnose and fix the ROOT CAUSES — cross-item integration breaks are likely (missing wiring/exports/deps between independently implemented modules). You may touch any file. Do NOT run git commands. Gate output:\n${gates.report}\n\nTask context:\n${TASK}`,

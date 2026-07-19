@@ -132,14 +132,20 @@ resolve_ref() {
 }
 
 # --- Pre-flight ---
+# No Memory Bank: the memory checkers can't run, but the charter checker only
+# needs .claude/task-context.md (the fresh-clone state — memory is gitignored).
+MEMORY_ABSENT=false
 if [ ! -d "$MEMORY_DIR" ]; then
-  if $QUIET; then
-    echo "[DRIFT] No Memory Bank found"
+  if [ ! -f ".claude/task-context.md" ]; then
+    if $QUIET; then
+      echo "[DRIFT] No Memory Bank found"
+      exit 0
+    fi
+    echo "No Memory Bank found at $MEMORY_DIR"
+    echo "Run /memory-init to create one."
     exit 0
   fi
-  echo "No Memory Bank found at $MEMORY_DIR"
-  echo "Run /memory-init to create one."
-  exit 0
+  MEMORY_ABSENT=true
 fi
 
 # --- Checker 1: Dead File Paths ---
@@ -390,12 +396,83 @@ check_commands() {
   fi
 }
 
+# --- Checker 6: Task Charter ---
+# The charter — '## Objective' / '## Non-goals' / '## Acceptance' in the
+# committed .claude/task-context.md — is the source of truth for a task's
+# goals (rules/documentation-channels.md). Missing sections and untouched
+# template placeholders are WARN, not ERROR: pre-charter task-contexts get
+# backfilled, not punished. Acceptance progress surfaces as INFO only while
+# open items remain (all done/waived = nothing to flag). Parsing is
+# code-fence-aware: '## ' lines inside ``` fences are not headings (the
+# install.sh section-splitter lesson).
+
+charter_has_heading() { # heading  file → 0 when the heading exists outside fences
+  awk -v h="^## $1[[:space:]]*$" '
+    /^```/ { fence = !fence; next }
+    fence  { next }
+    $0 ~ h { found = 1; exit }
+    END    { exit !found }
+  ' "$2"
+}
+
+charter_section() { # heading  file → body lines up to the next ## heading
+  awk -v h="^## $1[[:space:]]*$" '
+    /^```/ { fence = !fence; next }
+    fence  { next }
+    $0 ~ h { f = 1; next }
+    /^## / { f = 0 }
+    f      { print }
+  ' "$2"
+}
+
+check_charter() {
+  local tc=".claude/task-context.md"
+  [ -f "$tc" ] || return 0
+  local heading obj_body non_bracket obj_line
+  for heading in "Objective" "Non-goals" "Acceptance"; do
+    if ! charter_has_heading "$heading" "$tc"; then
+      add_finding "WARN" "task-context.md" "0" "charter missing '## ${heading}' heading"
+    fi
+  done
+
+  # Untouched placeholder Objective: the section body is still the template's
+  # bracket placeholder (every non-blank line is [...]-shaped), or empty.
+  if charter_has_heading "Objective" "$tc"; then
+    obj_body=$(charter_section "Objective" "$tc" | grep -vE '^[[:space:]]*$' || true)
+    non_bracket=0
+    if [ -n "$obj_body" ]; then
+      non_bracket=$(printf '%s\n' "$obj_body" | grep -cvE '^\[.*\]$' || true)
+    fi
+    if [ "$non_bracket" -eq 0 ]; then
+      obj_line=$(grep -n -m1 '^## Objective' "$tc" | cut -d: -f1 || true)
+      add_finding "WARN" "task-context.md" "${obj_line:-0}" "charter Objective is an untouched template placeholder"
+    fi
+  fi
+
+  # Acceptance progress: - [ ] open, - [x] done, - [~] waived: <reason>
+  # (the exact forms the task-done gate greps).
+  if charter_has_heading "Acceptance" "$tc"; then
+    local acc_body n_checked n_open n_waived acc_line
+    acc_body=$(charter_section "Acceptance" "$tc")
+    n_checked=$(printf '%s\n' "$acc_body" | grep -cE '^- \[x\] ' || true)
+    n_open=$(printf '%s\n' "$acc_body" | grep -cE '^- \[ \] ' || true)
+    n_waived=$(printf '%s\n' "$acc_body" | grep -cE '^- \[~\] waived: ' || true)
+    if [ "$n_open" -gt 0 ]; then
+      acc_line=$(grep -n -m1 '^## Acceptance' "$tc" | cut -d: -f1 || true)
+      add_finding "INFO" "task-context.md" "${acc_line:-0}" "charter acceptance: ${n_checked} checked / ${n_open} open / ${n_waived} waived"
+    fi
+  fi
+}
+
 # --- Run All Checkers ---
-check_paths
-check_branches
-check_dependencies
-check_staleness
-check_commands
+if ! $MEMORY_ABSENT; then
+  check_paths
+  check_branches
+  check_dependencies
+  check_staleness
+  check_commands
+fi
+check_charter
 
 # --- Output ---
 if $JSON_OUTPUT; then

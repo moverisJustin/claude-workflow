@@ -1,0 +1,85 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["findings", "coverage_notes"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "severity",
+          "category",
+          "summary",
+          "failure_scenario",
+          "file",
+          "line",
+          "evidence",
+          "suggested_fix",
+          "lessons"
+        ],
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "correctness",
+              "security",
+              "spec-drift",
+              "design",
+              "perf",
+              "test-gap"
+            ]
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "failure_scenario": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "file": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "line": {
+            "type": "integer"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "suggested_fix": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "lessons": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["pattern"],
+              "properties": {
+                "pattern": {
+                  "type": "string",
+                  "maxLength": 400
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "coverage_notes": {
+      "type": "string",
+      "maxLength": 600
+    }
+  }
+}

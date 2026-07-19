@@ -60,7 +60,13 @@ Create `.claude/task-context.md`:
 **Issue**: [#number if detected from branch name, or N/A]
 
 ## Objective
-[If user provided description beyond branch name, use it here. Otherwise: "Describe the objective of this task."]
+[What + why, 1-3 sentences. Use the user's description if they gave one.]
+
+## Non-goals
+- [what this task deliberately does NOT do or touch]
+
+## Acceptance
+- [ ] [checkable criterion — how we know it's done]
 
 ## Plan
 - [ ] [To be defined]
@@ -88,6 +94,17 @@ Create `.claude/task-context.md`:
 [Context that helps someone picking this up cold]
 ```
 
+The first three sections — Objective / Non-goals / Acceptance — are the **task
+charter**: the authority on this task's goals and scope, which every review
+(native or foreign) judges the work against. Keep it cheap: one line each is
+fine. Never leave placeholders — fill them from the user's description, or ask
+before committing.
+
+Acceptance syntax (exact forms — the `/task-done` gate greps them):
+- `- [ ]` open
+- `- [x]` done
+- `- [~] waived: <reason>` waived
+
 ### 4. Link Linear (documentation-channels contract)
 
 Per `~/.claude/rules/documentation-channels.md`, every task maps to a Linear
@@ -95,6 +112,11 @@ issue. Delegate to the `linear-project-manager` subagent:
 - If the branch name/arguments reference a Linear ID (e.g. `PROJ-123`), use it.
 - Otherwise **search existing issues first** (all statuses); create one only
   if none matches the objective.
+- **New issue**: populate it from the charter — Objective → issue Context,
+  Acceptance → Acceptance Criteria, Non-goals → Out of Scope.
+- **Existing issue**: backfill its criteria into the charter ONCE (its
+  checkboxes/criteria → Acceptance, its Out of Scope → Non-goals). After that
+  the charter is authoritative — edits flow one-way, charter → Linear.
 - Move the issue to In Progress.
 - Fill the ledger: `**Linear**: PROJ-123 (In Progress)`.
 

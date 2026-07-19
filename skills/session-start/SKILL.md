@@ -57,6 +57,9 @@ Session oriented
 
 Project: [name from projectContext]
 Task branch: [name + objective from task-context.md, or "None (on main)"]
+Acceptance: [progress when a charter exists, e.g. "2/3 checked, 1 waived" —
+  count `- [x]` / `- [ ]` / `- [~] waived:` items under ## Acceptance; omit
+  the line if there's no charter]
 Branch: [git branch] | Uncommitted: [Yes/No]
 Open loops: [OPEN ledger entries from task-context, or "none"]
 Drift: [X/100 — only if < 80]

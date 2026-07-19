@@ -1,19 +1,26 @@
 ---
 name: cross-review
-description: Adversarial review by a DIFFERENT model family (OpenAI Codex CLI) for decorrelated blind spots — `code` mode reviews the branch diff, `design` mode reviews UI work for "looks like AI design" tells. Claude verifies every Codex finding against the actual code before reporting.
-argument-hint: [code|design] [base-branch]
-allowed-tools: Bash(codex:*), Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git branch:*), Bash(bash ~/.claude/scripts/memory-context.sh *), Bash(bash .claude/scripts/memory-context.sh *), Read, Grep, Glob
+description: Adversarial review by DIFFERENT model families for decorrelated blind spots — `code` mode reviews the branch diff via Codex, `design` mode reviews UI work for "looks like AI design" tells, `pr` mode fans the branch out to every configured foreign backend (Codex, Kimi via OpenRouter) with per-dimension prompts and merges the results. Claude verifies every foreign finding against the actual code before reporting.
+argument-hint: [code|design|pr] [base-branch] [--models a,b | --all] [--comment] [--linear]
+allowed-tools: Bash(codex:*), Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git branch:*), Bash(bash ~/.claude/scripts/memory-context.sh *), Bash(bash .claude/scripts/memory-context.sh *), Bash(bash ~/.claude/scripts/review-pack.sh *), Bash(bash .claude/scripts/review-pack.sh *), Bash(bash ~/.claude/scripts/foreign-review.sh *), Bash(bash .claude/scripts/foreign-review.sh *), Bash(node ~/.claude/skills/cross-review/review-merge.mjs *), Bash(node skills/cross-review/review-merge.mjs *), Bash(gh pr comment:*), Bash(gh pr view:*), Read, Grep, Glob, Task
 ---
 
 # Cross-Review — second model family, decorrelated blind spots
 
 A model reviewing its own family's output shares its blind spots. This skill
-runs the review through **OpenAI Codex CLI** instead, then treats every Codex
-finding as an unverified claim that Claude must try to refute against the
-actual code before it reaches the user.
+runs the review through foreign model families instead — **OpenAI Codex CLI**
+for `code`/`design`, plus **Kimi (via OpenRouter)** in `pr` mode — then treats
+every foreign finding as an unverified claim that Claude must try to refute
+against the actual code before it reaches the user.
 
-Arguments: `$ARGUMENTS` — mode (`code` default, or `design`) and optional base
-branch (default `main`).
+Arguments: `$ARGUMENTS` — mode (`code` default, `design`, or `pr`) and
+optional base branch (default `main`). `pr` mode additionally accepts
+`--models a,b` / `--all` (backend selection), `--comment` (inline PR
+comments), `--linear` (post summary to the Linear issue).
+
+**Fail loud, never substitute — all modes.** A missing binary, key, or config
+is reported with its reason; the run never silently swaps in a same-family
+reviewer and calls it a cross-review, and never fabricates a backend's output.
 
 ## 0. Probe the real CLI (never assume)
 
@@ -118,14 +125,229 @@ State plainly how many Codex findings were refuted and dropped — that number
 is the evidence the verification pass is real. If Codex returns nothing,
 say so; don't pad.
 
+---
+
+# PR mode — `/cross-review pr [base-branch] [--models a,b | --all] [--comment] [--linear]`
+
+Multi-backend, dimension-routed review of the whole branch against its spec.
+Each backend reviews the same **review pack** (charter-first memory + spec +
+changed files) through its assigned dimension prompts, emits findings in the
+shared schema (`schemas/findings.schema.json` next to this skill), and the
+results are mechanically merged, semantically reconciled, and adversarially
+verified before anything reaches the user.
+
+Schema note: every property is **required** — OpenAI/OpenRouter strict
+structured-output modes reject schemas with optional properties (verified
+live: Codex returned 400 on `text.format.schema` until all fields were
+required). Not-applicable fields carry sentinels: `file: ""` (not
+file-specific), `line: 0` (no anchor), `evidence`/`suggested_fix`/
+`coverage_notes: ""`, `lessons: []`. Treat sentinel anchors accordingly when
+merging and reporting.
+
+## Backend config — resolution order
+
+The routing table is data, not code: `review-backends.json`. Resolve in this
+order and use the FIRST file found whole (no per-key merging):
+
+1. `.claude/review-backends.json` — project override
+2. `~/.claude/review-backends.json` — user override
+3. the shipped default next to this skill
+   (`~/.claude/skills/cross-review/review-backends.json`)
+
+The config carries `version` (must be 1), a top-level `exclude` glob array
+(sensitive paths that must never enter a pack — default `.env*`, `**/*.pem`,
+`**/secrets/**`), and per-backend: `runner` (`codex`, `openrouter:<model-id>`,
+or `native`), `enabled`, `dimensions`, `input`, optional
+`context_budget_bytes`, optional `role`. Kimi's model id is set at setup
+(`MODEL_ID_SET_AT_SETUP` means setup hasn't happened — a LOUD skip reason,
+not an error to paper over).
+
+Selection: default = all `enabled` foreign backends; `--models a,b` restricts
+to exactly those; `--all` includes disabled ones too. **Requested but
+unavailable = loud skip** — named in the report with the reason, never
+silently dropped, never substituted.
+
+## pr.0 Probe backends against the resolved config
+
+For each selected foreign backend, probe availability via the shared runner:
+
+```bash
+bash .claude/scripts/foreign-review.sh --probe --backend <runner> \
+  || bash ~/.claude/scripts/foreign-review.sh --probe --backend <runner>
+```
+
+Record per-backend status with the real reason: `codex: available`,
+`kimi: SKIPPED — no OPENROUTER_API_KEY in ~/.claude/foreign-review.env`,
+`kimi: SKIPPED — model id not set (run setup)`, `codex: SKIPPED — binary not
+on PATH`. `claude-native` is never probed here — it's a prerequisite (next
+step), not a merge participant. If EVERY foreign backend is unavailable, stop
+and report setup instructions; you may offer a native-only review but never
+label it a cross-review.
+
+## pr.0.5 Prerequisites — native reviews (excluded from the merge)
+
+`/code-review` and `/security-review` are **prerequisites, not merge
+participants**. Check whether each has run on this branch (ask the user /
+check the session); list each as `ran` or `not run` in the report footer.
+Their findings are EXCLUDED from dedup, agreement marking, and backend stats —
+the report must never imply the merge pipeline ingested findings it didn't.
+The memory-pack rules of step 0.5 apply to PR mode too; `review-pack.sh`
+embeds the pack charter-first, and the same "empty pack → proceed without,
+never fabricate" rule holds.
+
+## pr.1 Build the pack, fan out in parallel
+
+Build one review pack (memory charter-first + resolved spec + changed files
+within each backend's byte budget, diff hunks for the rest):
+
+```bash
+bash .claude/scripts/review-pack.sh --base <base-branch> --out <scratch>/pack.md \
+  || bash ~/.claude/scripts/review-pack.sh --base <base-branch> --out <scratch>/pack.md
+```
+
+Pass the config's `exclude` globs through so sensitive paths never enter the
+pack. Surface the pack's `SPEC:` line and any `TRUNCATED:` notes now — both
+must reappear in the report footer.
+
+Then launch every AVAILABLE backend **in parallel** (background Bash), one
+`foreign-review.sh` call per backend, each with the shared schema and its
+dimension prompts from `prompts/` next to this skill:
+
+- **codex** → `prompts/correctness.md` + `prompts/design.md`, one call
+  (`--backend codex`, `-s read-only --output-schema` under the hood — Codex
+  emits the shared schema directly).
+- **kimi** → `prompts/spec-drift.md` + `prompts/architecture.md` +
+  `prompts/test-gap.md` concatenated into **ONE call** (long context; one
+  call, not three) with `--backend openrouter:<model-id-from-config>`.
+
+```bash
+bash ~/.claude/scripts/foreign-review.sh --backend <runner> --mode code \
+  --schema ~/.claude/skills/cross-review/schemas/findings.schema.json \
+  --input <scratch>/pack.md --prompt <scratch>/<backend>-prompts.md \
+  --out <scratch>/<backend>.json
+```
+
+A backend failure (exit 3 unavailable / 4 call failed / 5 schema-invalid) is
+reported to the user verbatim; continue with the survivors after saying so.
+Fallback: if `--output-schema` is unusable on the installed Codex, `codex exec
+review --base` prose may be normalized into the schema by main-context Claude
+as an explicit stage — original text preserved in `evidence`, findings marked
+`normalized: true`, unmappable prose goes to a report appendix. Never faked
+into schema fields.
+
+## pr.2 Mechanical merge
+
+```bash
+node ~/.claude/skills/cross-review/review-merge.mjs \
+  codex:<scratch>/codex.json kimi:<scratch>/kimi.json > <scratch>/merged.json
+```
+
+Arguments are **backend-tagged**: `<backend>:<path>`, one per successful
+backend. Dedup key: same category + same file + line within ±3 → one finding
+carrying a `sources` array and `agreement: true` when 2+ backends flagged it.
+Malformed input is a loud nonzero failure — drop that backend explicitly and
+rerun the merge without it; never hand-edit a backend's JSON into shape.
+
+## pr.3 Semantic pass, then adversarial verify
+
+Semantic pass (main context — this is why PR review is skill choreography,
+not a workflow):
+
+- Merge same-root-cause findings the mechanical ±3-line key couldn't see.
+- When two backends propose **contradictory fixes** for the same code, do not
+  pick a winner silently — record an explicit **Disagreement** item carrying
+  both positions for the report.
+
+Adversarial verify every surviving finding (`agreement: true` is high signal
+but still gets verified):
+
+- **Mechanical categories** (`correctness`, `perf`, `test-gap`) → parallel
+  **sonnet** Task agents, each batching **at most 5 findings**, instructed to
+  refute each finding against the actual code and return
+  CONFIRMED/PLAUSIBLE/REFUTED + reasoning.
+- **Judgment categories** (`spec-drift`, `design`, `security`) → verify in the
+  **main thread**, against the charter/spec and the project's real
+  conventions.
+- **Both-flagged criticals get both**: a sonnet pass AND a main-thread check.
+
+REFUTED findings are dropped and counted per backend. The step-2 kill rules
+(convention restatements, ruled-out decisions) apply unchanged.
+
+## pr.4 Report
+
+Issues-only, most severe first, no praise. Per finding:
+
+- severity — `file:line` — concrete failure scenario — found-by
+  (both-flagged marked, e.g. `codex+kimi (agreement)`) — verdict
+  (CONFIRMED/PLAUSIBLE) — fix direction.
+- Disagreement items listed explicitly with both positions.
+
+**Mandatory footer** — every line, every run:
+
+- per-backend raised / refuted counts (the evidence verification is real)
+- backends run vs SKIPPED, with reasons
+- prerequisites status: `/code-review` ran/not run, `/security-review`
+  ran/not run
+- spec source used (or the pack's loud `SPEC: none found` marker)
+- truncation notes from the pack, if any
+- cumulative calibration per backend/dimension read from
+  `~/.claude/reviews/backend-stats.jsonl` (e.g. "codex/correctness: 62%
+  confirmed over 34 findings"; say "no calibration history yet" if the file
+  is absent — never invent numbers)
+
+Delivery: print to the terminal ALWAYS, and save the same report to
+`.claude/reviews/<branch-slug>-<date>.md` (gitignored). Posting is opt-in,
+**flags only, never default**: `--comment` posts inline PR comments via `gh`;
+`--linear` posts the summary to the task's Linear issue via the
+`linear-project-manager` subagent.
+
+## pr.5 Calibration ledger
+
+Append one JSONL line **per backend** to `~/.claude/reviews/backend-stats.jsonl`
+(single-line O_APPEND writes). Versioned so cohorts stay comparable — same
+fields as the plan-stage ledger, with `stage: "pr"`: run id, stage, backend,
+exact model id, schema version, prompt-file hash, repo, date, and counts with
+`confirmed` and `plausible` tracked separately (precision is reported on
+CONFIRMED; PLAUSIBLE shown alongside, never pooled in). Routing-table changes
+stay human decisions informed by the footer — no automated demotion.
+
+## pr.6 Foreign agent write path (OPT-IN, permission-gated per instance)
+
+Reviews are read-only **by default**, but when the user explicitly authorizes
+it (per instance — a gate option or direct instruction, never automatic), a
+foreign agent may be handed write work:
+
+- **Fix delegation**: after a PR-stage review, offer "Delegate confirmed
+  fixes to Codex?" → `codex exec` runs with a write-enabled sandbox
+  (`-s workspace-write`; verify the exact flag surface on the installed
+  binary) **inside the task branch/worktree**, scoped by the charter +
+  confirmed findings + memory pack. The foreign agent edits files; it never
+  commits or pushes — git stays Claude's.
+- **Decorrelation both ways**: Claude adversarially reviews the foreign diff
+  (same verify pass, roles reversed) → `/checks` → Claude commits with source
+  attribution in the message.
+- **Memory updates**: the findings schema's optional bounded `lessons[]`
+  field is the foreign-proposed-lessons channel; foreign-proposed lessons are
+  treated as **proposals Claude validates** before writing to
+  `conventions.md`/`learned-patterns.md` (attributed to the source model).
+  With explicit instruction, a foreign agent may edit memory files directly
+  in the worktree — still diffable, still Claude-reviewed pre-commit.
+  Everything lands on a git-tracked surface so it's inspectable and
+  revertible.
+- **Kimi**: API-only (no agentic file access) — contributes findings/lessons
+  only; the write path applies to CLI-backed agents (Codex today).
+
 ## Notes
 
 - Codex model/auth comes from the user's own `~/.codex/config.toml` — don't
-  override the model unless asked.
+  override the model unless asked. OpenRouter auth comes from
+  `~/.claude/foreign-review.env` (user-created, chmod 600, never committed).
 - This complements `/code-review` (same-family review), not replaces it. For
-  release branches run both.
-- Never let Codex apply fixes — it reviews read-only; fixes happen here,
-  where the loop-closing contract applies.
+  release branches run both; in `pr` mode the native reviews are explicit
+  prerequisites (pr.0.5).
+- Never let a foreign model apply fixes outside the opt-in write path above —
+  review runs read-only; fixes happen here, where the loop-closing contract
+  applies.
 - `scripts/memory-context.sh` is the reusable primitive for handing any
   foreign agent this repo's standing memory — same `run + prepend` works for a
   local model, an Orca agent, or a background task, not just Codex here.

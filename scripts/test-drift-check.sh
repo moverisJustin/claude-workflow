@@ -16,6 +16,11 @@ set -uo pipefail
 # ~100 false package warnings): a backticked token is a package claim only
 # with a dependency-shaped signal adjacent to it; genuine absent-dependency
 # claims still warn.
+# Plus the charter lint (multi-model orchestration Phase 1): a full
+# Objective/Non-goals/Acceptance charter in task-context.md is clean; a
+# missing heading or an untouched bracket-placeholder Objective WARNs;
+# acceptance checkbox/waiver syntax parses into an INFO progress line;
+# no task-context at all stays silent.
 # Pure bash 3.2. Exits non-zero on any failure.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -74,9 +79,16 @@ Applies to Boris v3.0 code. See package.json scripts.
 EOF
 echo '{}' > "$PROJ/package.json"
 
-# task-context.md full of ~/.claude/ paths (the branch-regex trap)
+# task-context.md full of ~/.claude/ paths (the branch-regex trap), with a
+# complete charter (freshly-initialized v3 task-contexts carry one).
 cat > "$PROJ/.claude/task-context.md" <<'EOF'
 # Task Context — feature/sample-work
+## Objective
+Ship the sample work end-to-end.
+## Non-goals
+- No refactors outside the sample module.
+## Acceptance
+- [x] Sample work implemented.
 ## Notes
 Rules at ~/.claude/rules/, plans at ~/.claude/plans/, context at ~/.claude/context/.
 EOF
@@ -96,6 +108,14 @@ if [ "$BRANCHWARN" -eq 0 ]; then ok "no ~/.claude/ path misread as a branch"; el
 # CLAUDE.md bare-basename refs did not fire dead-path errors
 CLAUDEERR=$( cd "$PROJ" && bash "$DRIFT" 2>/dev/null | grep -cE 'references (git-safety|workflow|learned-patterns|MEMORY|projectContext|decisionLog|conventions)\.md' || true )
 if [ "$CLAUDEERR" -eq 0 ]; then ok "CLAUDE.md/native basenames not flagged as dead paths"; else bad "$CLAUDEERR false dead-path error(s) from doc basenames"; fi
+
+# Full charter (Objective/Non-goals/Acceptance, all acceptance done) → no
+# charter findings of any severity
+CHCLEAN=$( cd "$PROJ" && bash "$DRIFT" 2>/dev/null | grep -c 'charter' || true )
+if [ "$CHCLEAN" -eq 0 ]; then ok "full charter → no charter findings"; else
+  echo "  --- findings ---"; ( cd "$PROJ" && bash "$DRIFT" 2>/dev/null | grep 'charter' | head )
+  bad "$CHCLEAN charter finding(s) on a complete charter"
+fi
 
 # --- Real drift IS still caught ---
 DIRTY="$TMP/dirty-project"
@@ -269,6 +289,86 @@ else
   bad "dep-claim project: httpx=$HTTPX structlog=$STRUCT noise=$NOISE (want 1/1/0)"
 fi
 
+# --- Charter lint: missing Non-goals → exactly one charter WARN ---
+CHMISS="$TMP/charter-missing-nongoals"
+mkdir -p "$CHMISS/.claude/memory"
+cat > "$CHMISS/.claude/task-context.md" <<'EOF'
+# Task Context
+## Objective
+Ship the importer for real.
+## Acceptance
+- [x] Importer handles the happy path.
+EOF
+CHOUT=$( cd "$CHMISS" && bash "$DRIFT" 2>/dev/null )
+CHWARN=$(printf '%s\n' "$CHOUT" | grep -c 'charter missing' || true)
+if [ "$CHWARN" -eq 1 ] && printf '%s\n' "$CHOUT" | grep -q "charter missing '## Non-goals'"; then
+  ok "missing Non-goals heading → exactly one charter WARN"
+else
+  echo "  --- findings ---"; printf '%s\n' "$CHOUT" | grep 'charter' | head
+  bad "missing Non-goals: got $CHWARN 'charter missing' warning(s), want exactly 1 naming Non-goals"
+fi
+
+# --- Charter lint: untouched bracket-placeholder Objective → WARN ---
+CHPH="$TMP/charter-placeholder"
+mkdir -p "$CHPH/.claude/memory"
+cat > "$CHPH/.claude/task-context.md" <<'EOF'
+# Task Context
+## Objective
+[If user provided description beyond branch name, use it here. Otherwise: "Describe the objective of this task."]
+## Non-goals
+- Nothing beyond the sample.
+## Acceptance
+- [x] Done thing.
+EOF
+PHOUT=$( cd "$CHPH" && bash "$DRIFT" 2>/dev/null )
+PHWARN=$(printf '%s\n' "$PHOUT" | grep -c 'untouched template placeholder' || true)
+PHMISS=$(printf '%s\n' "$PHOUT" | grep -c 'charter missing' || true)
+if [ "$PHWARN" -eq 1 ] && [ "$PHMISS" -eq 0 ]; then
+  ok "untouched placeholder Objective → WARN (headings themselves fine)"
+else
+  echo "  --- findings ---"; printf '%s\n' "$PHOUT" | grep 'charter' | head
+  bad "placeholder objective: placeholder=$PHWARN missing=$PHMISS (want 1/0)"
+fi
+
+# --- Charter lint: no task-context.md → silent ---
+CHNONE="$TMP/charter-absent"
+mkdir -p "$CHNONE/.claude/memory"
+cat > "$CHNONE/.claude/memory/conventions.md" <<'EOF'
+# Conventions
+Nothing charter-shaped here.
+EOF
+NONESCORE=$(score_of "$CHNONE")
+NONEOUT=$( cd "$CHNONE" && bash "$DRIFT" 2>/dev/null | grep -c 'charter' || true )
+if [ "$NONEOUT" -eq 0 ] && [ "$NONESCORE" -eq 100 ]; then
+  ok "no task-context.md → charter checker stays silent"
+else
+  bad "charter-absent project: $NONEOUT charter finding(s), score $NONESCORE (want 0/100)"
+fi
+
+# --- Charter lint: acceptance checkbox + waiver syntax parses into the count ---
+CHWV="$TMP/charter-waiver"
+mkdir -p "$CHWV/.claude/memory"
+cat > "$CHWV/.claude/task-context.md" <<'EOF'
+# Task Context
+## Objective
+Import spreadsheets without silent data loss.
+## Non-goals
+- No new storage backends.
+## Acceptance
+- [x] CSV import works.
+- [x] Errors surface loudly.
+- [ ] XLSX import works.
+- [~] waived: PDF import deferred to v2
+EOF
+WVOUT=$( cd "$CHWV" && bash "$DRIFT" 2>/dev/null )
+if printf '%s\n' "$WVOUT" | grep -q 'INFO' && \
+   printf '%s\n' "$WVOUT" | grep -q 'charter acceptance: 2 checked / 1 open / 1 waived'; then
+  ok "acceptance progress INFO parses checked/open/waived (waiver syntax counted)"
+else
+  echo "  --- findings ---"; printf '%s\n' "$WVOUT" | grep 'charter' | head
+  bad "acceptance progress not parsed (want 'charter acceptance: 2 checked / 1 open / 1 waived' at INFO)"
+fi
+
 # --- No Memory Bank → silent skip (what CI's fresh checkout sees) ---
 EMPTY="$TMP/no-memory"
 mkdir -p "$EMPTY"
@@ -276,6 +376,25 @@ if ( cd "$EMPTY" && bash "$DRIFT" --quiet 2>/dev/null | grep -q 'No Memory Bank'
   ok "no Memory Bank: skips cleanly"
 else
   bad "no Memory Bank: did not skip"
+fi
+
+# --- No Memory Bank but a committed charter → charter checks still run ---
+# (the fresh-clone state: .claude/memory/ is gitignored, task-context.md is not)
+CHONLY="$TMP/charter-no-memory"
+mkdir -p "$CHONLY/.claude"
+cat > "$CHONLY/.claude/task-context.md" <<'EOF'
+# Task Context
+## Objective
+Ship the widget importer.
+## Acceptance
+- [ ] CSV import works.
+EOF
+CHOUT=$( cd "$CHONLY" && bash "$DRIFT" 2>/dev/null )
+if printf '%s\n' "$CHOUT" | grep -q "charter missing '## Non-goals' heading"; then
+  ok "charter checks run without a Memory Bank (fresh-clone state)"
+else
+  echo "  --- output ---"; printf '%s\n' "$CHOUT" | head -20
+  bad "charter checks skipped when Memory Bank absent but task-context present"
 fi
 
 echo ""

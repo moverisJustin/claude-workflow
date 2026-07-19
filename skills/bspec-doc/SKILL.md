@@ -91,6 +91,15 @@ unsure, ask the user.
    re-run `install.sh`).
 6. **Report**: file path, type, validation result, and any cross-links created.
 
+## Delegation
+
+Substantial docs (anything beyond a one-page DEC) delegate the **draft** to the
+`doc-generator` agent (sonnet): the brief must carry the Task Charter, the
+chosen type code, the exact filename, and the frontmatter contract above. Main
+Claude then reviews the draft, runs `bspec-validate.sh`, and fixes or accepts —
+validation and acceptance are never delegated. Short DEC records stay
+main-authored.
+
 ## Notes
 
 - **Never** use `bspec chat` / `/generate` — it requires an external

@@ -59,17 +59,21 @@ After creating the branch, initialize `.claude/task-context.md`:
 
 ```bash
 mkdir -p .claude
-# Create task-context.md with:
+# Create task-context.md (charter template from /task-branch) with:
 # - Branch name and base SHA
-# - Issue number and title as Objective
-# - Acceptance criteria from issue as Plan items
+# - Issue number and title (+ why, from the body) as Objective
+# - Non-goals from the issue's Out of Scope section (if any)
+# - Acceptance ("- [ ]" items) from the issue's acceptance criteria/checkboxes
 # - Loops ledger: Linear = this issue (In Progress), BSpec = OPEN, Handoff = none
 # - Issue body summary in Notes
 git add .claude/task-context.md
 git commit -m "chore: initialize task context for issue #$ISSUE_NUM"
 ```
 
-Pre-populate the Objective from the issue title and the Plan from any acceptance criteria or checkboxes found in the issue body.
+Pre-populate the charter from the issue: Objective from the title and body,
+Non-goals from its Out of Scope section, Acceptance from its acceptance
+criteria or checkboxes. This backfill happens ONCE — from here on the charter
+is authoritative and syncs one-way, charter → Linear.
 
 ### 3. Plan Implementation
 

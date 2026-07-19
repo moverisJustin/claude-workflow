@@ -102,6 +102,26 @@ $QUIET || echo "-- CHEATSHEET heading audit --"
 CHEAT_CORE=$(grep -m1 '^## Core Agents' "$C" 2>/dev/null | grep -oE '[0-9]+' | head -1)
 report "cheatsheet core agents" "$CORE" "$CHEAT_CORE" "CHEATSHEET"
 
+# Charter template guard — skills/task-branch/SKILL.md seeds every
+# .claude/task-context.md; if its template loses a charter heading, every new
+# task starts without a source of truth and drift-check WARNs on each one.
+# Skipped (like the doc-count SKIPs) when the file is absent — fixture repos
+# without skills/ shouldn't fail; the real repo always ships it.
+TB="$REPO_DIR/skills/task-branch/SKILL.md"
+$QUIET || echo "-- Charter template guard (task-branch) --"
+if [ -f "$TB" ]; then
+  for H in "Objective" "Non-goals" "Acceptance"; do
+    if grep -qE "^## ${H}([[:space:]]|\$)" "$TB"; then
+      $QUIET || echo "  OK    task-branch template has '## $H'"
+    else
+      $QUIET || echo "  DRIFT skills/task-branch/SKILL.md template missing '## $H' charter heading"
+      FINDINGS=$((FINDINGS + 1))
+    fi
+  done
+else
+  $QUIET || echo "  SKIP  charter template — no skills/task-branch/SKILL.md in this repo"
+fi
+
 # Memory Bank drift — ADVISORY only (does not affect exit code). The repo's own
 # .claude/memory/ is gitignored working scratch and never ships; and drift-check
 # already runs at every session boundary and post-commit. This is just a heads-up.

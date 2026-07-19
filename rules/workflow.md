@@ -8,6 +8,7 @@
 ## Plan First
 - Enter native plan mode for ANY non-trivial task (3+ steps or architectural decisions). Plan-mode approval is the gate — read-only is enforced by the harness.
 - Write detailed specs upfront to reduce ambiguity. Use plan mode for verification steps too, not just building.
+- Before presenting a plan that crosses the complexity bar (multi-module, architectural decisions, or financial/data-integrity/security surface), offer the external review gate (`/plan-review`). Reconciliation is Claude's job — verify each foreign finding, then fold it in or refute it; reviewer disagreements get per-item resolution questions before approval. A missing backend is reported, never silently substituted.
 - If something goes sideways mid-execution, STOP and re-plan. Don't keep pushing.
 - If a diagnosis goes sideways, verify with hard data (logs, stored metrics) before asserting the next theory.
 
@@ -15,6 +16,18 @@
 - Use subagents liberally to keep the main context clean: specialist agents (code-architect, test-writer, doc-generator, oncall-guide) for judgment; forks for context-carrying subtasks; background agents for parallel work; `isolation: worktree` when parallel agents mutate files.
 - Use native skills where the platform covers the job: `/simplify` (cleanup), `/verify` + `/checks` (verification), `/code-review` (review), `/security-review` (security).
 - For fan-out-scale tasks, `/boris` launches the `boris-build` saved Workflow.
+
+## Right-Sized Delegation
+
+| Tier | Work it owns |
+|------|--------------|
+| haiku | Linear ops, memory-bank curation, git mechanics |
+| sonnet | BSpec drafting (doc-generator drafts, main Claude validates + runs bspec-validate.sh), docs/retro, tests, implementers |
+| opus | design judgment, incident debugging |
+| main context (reserved) | reconciling foreign findings, plan approval, ALL persistent memory writes |
+
+- Rule of thumb: mechanical → haiku; structured authoring against a clear brief → sonnet; judgment/reconciliation → opus/main.
+- Doc/Linear ops are single steps — a subagent, not a Workflow. Reach for parallel cheap agents only where fan-out is real (e.g. the task-done closing sweep: doc-generator + linear-project-manager + main-thread memory write-back).
 
 ## Verify Before Done
 - Never mark a task complete without proving it works. `/checks` runs the stack's real gates and arms a Stop-hook verify gate that holds the turn open until green. `/verify` observes the app actually working.
@@ -30,7 +43,8 @@
 - For non-trivial changes, pause and ask "is there a more elegant way?" If a fix feels hacky: implement the elegant solution knowing everything you know now. Skip for simple, obvious fixes.
 
 ## Self-Improvement Loop
-- After ANY correction from the user: write the pattern to `.claude/memory/conventions.md`.
+- After ANY correction from the user — or a validated cross-model finding (a foreign reviewer caught something real that Claude confirmed): write the pattern to `.claude/memory/conventions.md`.
+- Foreign models never write memory files — Claude reconciles, Claude writes. Foreign lessons are proposals until validated.
 - Universal lessons (workflow patterns, cross-project pitfalls) also go to the machine-global Learned Patterns file at `~/.claude/rules/learned-patterns.md`; project-specific ones stay in conventions.md.
 - Publishing to the public workflow repo is OPT-IN: `sync-lessons.sh` promotes a lesson only if its block carries a `<!-- shareable -->` marker (placed under its `### ` heading). Untagged lessons never leave the machine.
 - Never re-propose approaches conventions.md documents as ruled out.

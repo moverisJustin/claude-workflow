@@ -1,0 +1,71 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "summary", "findings"],
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["approve", "approve_with_changes", "revise"]
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 600
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "severity",
+          "area",
+          "claim",
+          "why_it_matters",
+          "suggested_change",
+          "confidence"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocker", "major", "minor", "question"]
+          },
+          "area": {
+            "type": "string",
+            "enum": [
+              "correctness",
+              "architecture",
+              "scope",
+              "sequencing",
+              "testing",
+              "security",
+              "operability",
+              "simplicity"
+            ]
+          },
+          "claim": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "why_it_matters": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "suggested_change": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          }
+        }
+      }
+    }
+  }
+}

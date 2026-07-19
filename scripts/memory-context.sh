@@ -20,6 +20,14 @@
 #   <root>/.claude/task-context.md            the active task + Loops ledger
 #   ~/.claude/rules/learned-patterns.md       cross-project pitfalls (index by default)
 #
+# Charter-first: when task-context.md carries the Task Charter headings
+# (## Objective / ## Non-goals / ## Acceptance), those section bodies plus the
+# `- **BSpec**:` ledger line are ALSO emitted as the pack's FIRST section —
+# "## Task charter (evaluation frame)" — so every consumer judges against the
+# task's stated goals. The full task-context still appears later under
+# "Active task context"; the duplication is intentional. Files without charter
+# headings produce exactly the legacy pack.
+#
 # Everything is DATA the foreign agent should treat as reference, not as new
 # instructions — the header says so, because piping memory into another model
 # is exactly the injection surface our own rules warn about.
@@ -116,6 +124,33 @@ emit_file() {
     printf '\n'
   } >> "$TMP"
 }
+
+# --- Task charter (evaluation frame) — always the FIRST body section ---------
+# Extract the charter headings (## Objective / ## Non-goals / ## Acceptance)
+# plus the `- **BSpec**:` line from ## Loops. Fence-aware: a heading line
+# inside a ``` code block is not a heading. Emitted only when at least one
+# real charter heading exists — otherwise the pack is exactly the legacy pack.
+if [ -f "$TASKCTX" ] && [ -s "$TASKCTX" ]; then
+  charter="$(awk '
+    /^```/  { if (insec) buf = buf $0 "\n"; fence = !fence; next }
+    fence   { if (insec) buf = buf $0 "\n"; next }
+    /^## (Objective|Non-goals|Acceptance)[[:space:]]*$/ {
+              buf = buf $0 "\n"; insec = 1; inloops = 0; seen = 1; next }
+    /^## Loops([[:space:]]|$)/ { insec = 0; inloops = 1; next }
+    /^## /  { insec = 0; inloops = 0; next }
+    /^# /   { insec = 0; inloops = 0; next }
+    insec   { buf = buf $0 "\n" }
+    inloops && /^- \*\*BSpec\*\*:/ { buf = buf $0 "\n" }
+    END     { if (seen) printf "%s", buf }
+  ' "$TASKCTX")"
+  if [ -n "$charter" ]; then
+    {
+      printf '\n## Task charter (evaluation frame)\n'
+      printf '_source: .claude/task-context.md — all findings must be judged against these goals; flag scope creep against Non-goals_\n\n'
+      printf '%s\n' "$charter"
+    } >> "$TMP"
+  fi
+fi
 
 emit_file "Project identity"                "$MB/projectContext.md"
 emit_file "Project conventions & lessons"   "$MB/conventions.md"
