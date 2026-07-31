@@ -12,18 +12,29 @@ categories get one line ("none"), not a section.
 ## Gather
 
 1. **Ledger** — read `.claude/task-context.md` → the `## Loops` section
-   (Linear / BSpec / Handoff). Missing section on a feature branch = itself an
-   open loop; say so.
+   (Linear / BSpec / Handoff / Forge). Missing section on a feature branch =
+   itself an open loop; say so. A missing `**Forge**` line on an older
+   task-context is a vacuous pass, not a defect.
 2. **Delegated work** — `TaskList`: running/queued background tasks, forks,
    agents, workflows, with age. Anything running >30 min with no output is
    flagged "check on this".
 3. **Git** — `git status --short` (uncommitted), `git stash list`,
    `git worktree list` (parallel instances — Orca and Claude worktrees show
-   here), `git branch --no-merged main` (local branches never merged).
+   here), and local branches never merged into the repo's real base branch:
+   ```bash
+   git branch --no-merged "$(bash ~/.claude/scripts/resolve-base-branch.sh --base)"
+   ```
 4. **PRs** — `gh pr list --author "@me" --state open` (title, age, review
    state). A PR approved but unmerged, or open >3 days, gets flagged.
 5. **Gates** — `.claude/audit/verify-gate` exists → the /checks gate is still
    armed.
+5b. **Forge** (silent when the project has no forge repo):
+   ```bash
+   bash ~/.claude/scripts/forge-bridge.sh pending
+   ```
+   Unpushed shared context is an open loop — a teammate can't see what hasn't
+   been pushed. Also flag any teammate blocker or ACTIVE deprecation that
+   touches this branch's surface.
 6. **Tracker** (only if Linear tools are connected) — In Progress issues
    assigned to me whose branches show no activity; stale In Review issues.
 
@@ -32,7 +43,8 @@ categories get one line ("none"), not a section.
 ```
 Open loops
 
-Ledger (<branch>): Linear MOV-123 (In Progress) | BSpec OPEN | Handoff none
+Ledger (<branch>): Linear MOV-123 (In Progress) | BSpec OPEN | Handoff none | Forge published
+Forge: 2 unpushed entries  ← teammates can't see these yet
 Delegated: 2 running (research-agent 4m, ci-watch 12m) | 1 needs collection
 Git: 3 uncommitted | 1 stash | 2 worktrees | 1 unmerged branch (fix/foo)
 PRs: #23 open 2d (awaiting review)

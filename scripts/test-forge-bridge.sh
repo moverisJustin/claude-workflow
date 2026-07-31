@@ -147,6 +147,66 @@ withforge handoff "Next step: wire the touchpoints." >/dev/null
 contains "handoff reaches handoffs.md" "wire the touchpoints" "$(cat "$FR/me/handoffs.md")"
 
 echo
+echo "-- push failure: loud, lossless, non-blocking --"
+
+# The worst failure mode is a SILENT failed push: the entry is safe locally, so
+# the caller reports "published" while no teammate can see it.
+cat > "$WORK/bin/forge" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >> "$FORGE_CALL_LOG"
+sub="$1"; shift
+repo=""; type=""; infile=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) repo="$2"; shift 2 ;;
+    -f) infile="$2"; shift 2 ;;
+    *) [ -z "$type" ] && type="$1"; shift ;;
+  esac
+done
+case "$sub" in
+  write) { printf '\n## 2026-07-31 12:00 UTC — entry\n\n'; cat "$infile"; } >> "$repo/me/$type.md" ;;
+  push)  echo "fatal: could not read from remote repository" >&2; exit 128 ;;
+esac
+exit 0
+STUB
+chmod +x "$WORK/bin/forge"
+
+OUT=$(withforge publish wip "Written while the remote is down.")
+check "publish still exits 0 when the push fails" "0" \
+  "$(withforge publish wip "x" >/dev/null 2>&1; echo $?)"
+contains "the entry is NOT lost" "remote is down" "$(cat "$FR/me/wip.md")"
+contains "a failed push warns loudly" "NOT pushed" "$OUT"
+
+# Restore the working stub for the remaining tests.
+cat > "$WORK/bin/forge" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >> "$FORGE_CALL_LOG"
+sub="$1"; shift
+repo=""; type=""; infile=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) repo="$2"; shift 2 ;;
+    -f) infile="$2"; shift 2 ;;
+    *) [ -z "$type" ] && type="$1"; shift ;;
+  esac
+done
+case "$sub" in
+  write)
+    [ -n "$infile" ] || { echo "Error: Content must not be empty."; exit 1; }
+    case "$type" in
+      blockers|tickets|prs|ready) target="$repo/shared/$type.md" ;;
+      *) target="$repo/me/$type.md" ;;
+    esac
+    { printf '\n## 2026-07-31 12:00 UTC — entry\n\n'; cat "$infile"; } >> "$target"
+    ;;
+  handoff) printf '\n## Handoff — 2026-07-31\n\n%s\n' "$type" >> "$repo/me/handoffs.md" ;;
+  push) : ;;
+esac
+exit 0
+STUB
+chmod +x "$WORK/bin/forge"
+
+echo
 echo "-- reading teammate context --"
 
 cat >> "$FR/teammate/contracts.md" <<'EOF'

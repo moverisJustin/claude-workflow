@@ -156,7 +156,10 @@ cmd_publish() {
   local tmp; tmp=$(mktemp)
   printf '%s\n' "$content" >"$tmp"
   if _forge_run "$repo" write "$type" -f "$tmp"; then
-    _forge_run "$repo" push "forge: $type update" >/dev/null 2>&1 || true
+    # A failed push must not be silent: the entry is safe locally, but nobody
+    # else can see it, and the caller would otherwise report it as shared.
+    _forge_run "$repo" push "forge: $type update" >/dev/null 2>&1 \
+      || _warn "$type written locally but NOT pushed — teammates can't see it yet. Retry with /forge publish."
   fi
   rm -f "$tmp"
   return 0

@@ -35,10 +35,23 @@ Examples:
 
 ### 2. Create Branch
 
+**Resolve the base branch first — never assume `main`.** Repos differ: `main`,
+`master`, and `develop`+`main` gitflow are all common, and branching off the
+wrong one is silent (or fails outright where the branch is `master`).
+
 ```bash
-# Ensure main is up to date
-git checkout main
-git pull origin main 2>/dev/null || true
+bash ~/.claude/scripts/resolve-base-branch.sh --explain
+```
+
+Show the user the evidence line the first time a repo is resolved (e.g.
+"20/20 recent merged PRs targeted `master`") — the answer is then cached in
+`.claude/project-config.json` and later runs are silent. If the evidence looks
+wrong, set `base_branch` in that file; explicit config always wins.
+
+```bash
+BASE=$(bash ~/.claude/scripts/resolve-base-branch.sh --base)
+git checkout "$BASE"
+git pull origin "$BASE" 2>/dev/null || true
 
 # Create and switch to new branch
 BRANCH_NAME="[parsed from step 1]"
@@ -56,7 +69,7 @@ Create `.claude/task-context.md`:
 **Name**: [branch name]
 **Created**: [YYYY-MM-DD]
 **Author**: [from git config user.name]
-**Base**: main @ [short SHA of main]
+**Base**: [resolved base branch] @ [short SHA of that branch]
 **Issue**: [#number if detected from branch name, or N/A]
 
 ## Objective
@@ -78,6 +91,7 @@ Create `.claude/task-context.md`:
 - **Linear**: OPEN
 - **BSpec**: OPEN
 - **Handoff**: none
+- **Forge**: OPEN
 
 ## Decisions
 | Date | Decision | Rationale |
@@ -136,6 +150,21 @@ If there is genuinely no Linear workspace/team for this work, set
 The **BSpec** ledger entry stays OPEN until planning decides: feature /
 architecture / non-obvious decision → author the spec with `/bspec-doc`;
 otherwise resolve it `n/a — <reason>` (see the rule file).
+
+### 4b. Publish "work starting" to Forge (optional channel)
+
+Per the cadence table in `~/.claude/rules/documentation-channels.md`, work
+starting on a branch is a publish trigger. The bridge no-ops silently when the
+project has no forge repo, so this runs unconditionally:
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh publish wip "<entry>"
+```
+
+Compose the entry from the charter — what you're building, the ticket ID and
+one line of why, the branch name, what's next, and any teammate impact you can
+already see. Then set the ledger: `**Forge**: <repo> — wip published`, or
+`n/a — no forge repo for this project` if the bridge reported none.
 
 ### 5. Commit Task Context
 

@@ -49,7 +49,8 @@ Extract from the issue:
 ISSUE_NUM=$ARGUMENTS
 SLUG=$(gh issue view $ISSUE_NUM --json title -q '.title' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | cut -c1-40)
 
-git checkout main && git pull origin main
+BASE=$(bash ~/.claude/scripts/resolve-base-branch.sh --base)
+git checkout "$BASE" && git pull origin "$BASE"
 git checkout -b "issue-$ISSUE_NUM-$SLUG"
 ```
 

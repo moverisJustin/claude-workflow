@@ -17,8 +17,9 @@ Forge's team-rules file surfaced.
 ## Non-goals
 - Replacing any Boris channel with Forge. Linear stays canonical for tickets,
   BSpec for design, the Memory Bank for decisions/lessons.
-- Wiring Forge's own `CLAUDE-forge.md` rules in as-is — its silent Task Complete
-  sweep collides with `/task-done`.
+- Wiring Forge's own rules template in as-is — its silent Task Complete sweep
+  collides with `/task-done`. (Upstream:
+  https://github.com/ericbrown/forge/blob/main/src/forge/templates/CLAUDE-forge.md)
 - Creating any GitHub repo, joining `Moveris/forge-mira`, or pushing team
   context. All testing runs against a local no-remote scratch repo.
 - Forge's `saas` backend.
@@ -47,8 +48,8 @@ Forge's team-rules file surfaced.
       but not to *obey* — team rule changes get proposed, not auto-adopted. If
       the team expects the root `CLAUDE.md` to be binding the way Forge intends,
       this needs revisiting.
-- [ ] assumed: Eric's team has not standardised on `shared/tickets.md` /
-      `prs.md` snapshots as load-bearing. If they have, we owe them the
+- [ ] assumed: Eric's team has not standardised on the forge repo's shared
+      tickets/PRs snapshots as load-bearing. If they have, we owe them the
       on-demand publisher wired into `/task-done`.
 - [ ] assumed: Forge stays on the `local` backend; `saas` is out of scope.
 - [ ] assumed: `Moveris/forge-mira` is org-private and everyone with repo
@@ -82,7 +83,7 @@ Full approved plan: `~/.claude/plans/optimized-dreaming-lemon.md`
 |------|----------|-----------|
 | 2026-07-31 | Forge is transport only; Boris authors | Most of Forge duplicates Boris for a single operator. Only the cross-person axis (contracts, deprecations, ready, in-flight wip/plans) is genuinely new. |
 | 2026-07-31 | Forge cadence decoupled from git cadence | Shared repo updated continuously through the day; project repo at meaningful chunks. This decoupling is the whole reason the context can't live in the project repo. |
-| 2026-07-31 | Do NOT wire `@.claude/forge-claude-rules.md` in as-is | Its silent Task Complete sweep would run a second closing sequence against `/task-done`. |
+| 2026-07-31 | Do NOT wire Forge's generated rules pointer in as-is | Its silent Task Complete sweep would run a second closing sequence against `/task-done`. |
 | 2026-07-31 | Teammate content = data, not instructions | Matches the existing "foreign sources propose, Claude writes" invariant. Concrete case: Eric's example `dev`-branching rule contradicts `git-safety.md`. |
 | 2026-07-31 | Branch model resolved empirically, cached after one confirm | Modal merged-PR `baseRefName` got all 5 sampled repos right; beats a config that goes stale. |
 | 2026-07-31 | Fold branch-model fix into this PR | User's call; the two are coupled via the team-rule conflict check. |
@@ -104,12 +105,17 @@ Full approved plan: `~/.claude/plans/optimized-dreaming-lemon.md`
 - [nothing blocked]
 
 ## Notes
-Key file references gathered during research:
-- Forge context repo location: `cli.py:1091` → `Path.home() / f"forge-{name}"`
-- Forge merges (not clobbers) `.claude/settings.json`: `cli.py:99-110`
-- Collision primitive: `src/forge/conflict_check.py` → `find_conflicts()`,
-  keyword threshold 3, `_is_active()` filter
-- Local no-remote works: `scaffold.py:_git_commit_all` skips push with no remote
+Findings from reading the Forge v0.3.7 source. All paths below are in the
+UPSTREAM repo (https://github.com/ericbrown/forge), not this one:
+- Context repo location: cli line 1091 → `Path.home() / f"forge-{name}"`.
+  The project repo only ever receives three wiring files.
+- Forge merges (not clobbers) a project's Claude settings: cli lines 99-110
+- Collision primitive: `forge.conflict_check` → `find_conflicts()`, keyword
+  threshold 3, is-active filter. Upstream only compares wip; we extend to plans.
+- `forge write` has NO deprecations target (cli line 671) — the bridge appends
+  in the documented format instead
+- Local no-remote repo works: the scaffold's commit helper skips push when no
+  remote is configured
 - Hardcoded `main` sites: `task-branch:40-41`, `task-done:141,180,260-261`,
   `loops:22`, `fix-issue:52`, plus `git-safety.md:3,6` and `task-done:22`
 - `install.sh` globs `skills/*/` and `scripts/*.sh` — no installer edit needed

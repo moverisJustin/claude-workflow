@@ -127,6 +127,29 @@ git commit -m "chore: cognitive handoff briefing"
 
 ---
 
+## Publish to the team (optional — silent without a forge repo)
+
+A handoff is a publish trigger: leaving mid-task is exactly when a teammate
+needs to know where things stand. The next session — yours or theirs — sees it
+surfaced at startup.
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh handoff "<briefing>"
+```
+
+Send the actionable core, not the whole briefing: ticket, branch, current
+approach, what's working, what isn't, the exact next step, open questions, and
+the resume prompt. Forge's writing standard is that a teammate's AI can act on
+it without asking a clarifying question.
+
+When the task later completes, close it out:
+
+```bash
+forge handoff-complete
+```
+
+---
+
 ## Report
 
 ```
