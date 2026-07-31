@@ -2,8 +2,15 @@
 
 ## Default Orchestration
 - Non-trivial dev tasks run the **/boris protocol by default** — auto-invoke it when the user starts describing work; they should never need to type /boris. Trivial fixes and pure questions skip the ceremony (say so).
-- At the **end of every planning phase** — boris or not — run the `/anythingelse` wildcard checkpoint before presenting the plan; fold a genuinely accretive answer in (marked as the wildcard suggestion), or note nothing was worth adding.
+- Every planning phase runs two checkpoints in order: `/clarify` (ask the user; see Clarify First) then `/anythingelse` — the wildcard's answer depends on the clarifications. Fold a genuinely accretive wildcard answer in (marked as the wildcard suggestion), or note nothing was worth adding.
 - To see everything in flight (ledger, delegated tasks/forks, PRs, worktrees, stashes, gates): `/loops`.
+
+## Clarify First
+- **Every planning phase runs a clarification checkpoint** — `/clarify` — before `/anythingelse` and before the plan is presented. Sweep the six axes (scope boundary, success criteria, blast radius, data & state, interfaces & consumers, constraints only the user has), then ask in ONE batched `AskUserQuestion` (max 4, highest-leverage first). Anything answerable from the code, Memory Bank, or git history is not a question — go look. Silence is not a pass: the checkpoint ends either in questions or in the explicit line "clarification checkpoint: no material gaps."
+- **During execution, a discovered gap STOPS the work and asks.** Do not build on a guess and flag it later. Batch gaps that surface together into one call; that is the only concession. Subagents have no `AskUserQuestion`, so brief every implementer to RETURN the question rather than guess — the main thread surfaces it. An agent that guesses to avoid stalling has broken this rule.
+- **Dangerous assumptions are never taken silently, in any mode, at any stage.** Dangerous = destructive/irreversible, outward-facing (push, deploy, publish, send, external API write), security/credentials/permissions, data integrity (migrations, backfills, financial or participant data), cost-incurring, or scope-redefining. "Probably fine" and inferred prior authorization are not answers.
+- **Write down what you did not ask.** Every assumption taken without asking goes in the charter's `## Assumptions` register in `.claude/task-context.md` — it rides into the PR body and every foreign-review pack, so it gets audited instead of forgotten. `/task-done` blocks on an open `- [ ] assumed:` entry.
+- Trivial work is exempt (pure question, one-line obvious fix, read-only lookup) — say so and skip.
 
 ## Plan First
 - Enter native plan mode for ANY non-trivial task (3+ steps or architectural decisions). Plan-mode approval is the gate — read-only is enforced by the harness.
