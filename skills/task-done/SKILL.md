@@ -25,9 +25,11 @@ Read `.claude/task-context.md` using the Read tool.
   If the task-context predates the ledger, **backfill it now** (Linear / BSpec
   / Handoff) — do not skip it.
 - Read the **Task Charter** (`## Objective` / `## Non-goals` / `## Acceptance`
-  in task-context.md). If any charter section is missing or still placeholder
-  text, **backfill it now** from what the branch actually did — same treatment
-  as the ledger backfill, do not skip it.
+  / `## Assumptions` in task-context.md). If any charter section is missing or
+  still placeholder text, **backfill it now** from what the branch actually did
+  — same treatment as the ledger backfill, do not skip it. (`## Assumptions`
+  absent from a pre-register task-context is a vacuous pass, not a defect:
+  backfill it if the branch actually made assumptions, otherwise leave it.)
 
 ### 1. Update Task Context
 
@@ -79,6 +81,19 @@ work verifiably meets `- [x]`; anything you cannot check gets resolved
 unwaived item means the task is not done — deleting or silently skipping an
 item is not an option.
 
+### 2.6b. Assumption Gate
+
+**Do not report "Task Complete" while any `## Assumptions` entry is still
+`- [ ] assumed:`.** Walk the register: each entry the work verifiably settled
+becomes `- [x] confirmed: <what — how it was validated>`; each one you are
+knowingly living with becomes `- [~] accepted: <what> — <why it's safe>`.
+An assumption that turned out **wrong** is not retired here — it is a defect:
+fix the work, then record the correction.
+
+Deleting an entry to clear the gate is not an option. A charter with no
+`## Assumptions` section passes vacuously (older branches predate the
+register).
+
 ### 2.7. External Review Gate
 
 After `/checks` is green and before any PR commit, offer decorrelated
@@ -116,7 +131,7 @@ git status --short
 
 Capture task context for the PR body:
 - Read the Task Charter (Objective, Non-goals, Acceptance with final check
-  states) from task-context.md
+  states, Assumptions with final retirement states) from task-context.md
 - Read Completion Summary
 - If the external review gate (2.7) ran, capture its summary (backends,
   confirmed/refuted counts) and any ship-with-known-issues findings
@@ -156,6 +171,10 @@ gh pr create \
 [Acceptance list verbatim with final check states — [x] done, [~] waived: reason.
 The charter leaves the repo with task-context.md in step 5; this section is
 where it survives the merge.]
+**Assumptions**:
+[Assumptions register verbatim with final states — [x] confirmed, [~] accepted.
+Omit the line entirely if the register is empty. These are what the work took
+as true without asking; the reviewer should read them as claims to check.]
 
 ## Changes
 [From git log main..HEAD --oneline]
@@ -206,7 +225,9 @@ Skip only if the ledger says `Linear: n/a — <reason>`.
 Only report Task Complete when **every** Loops entry is resolved or
 explicitly waived — an OPEN entry means the task is not done — **and every
 Acceptance item is `[x]` or `[~] waived: <reason>`** (the gate from step
-2.6; an unchecked item means the task is not done).
+2.6; an unchecked item means the task is not done) **and every Assumption is
+`[x] confirmed:` or `[~] accepted:`** (the gate from step 2.6b; an
+`[ ] assumed:` entry means an unverified claim is shipping unflagged).
 
 ```
 Task Complete
@@ -216,6 +237,7 @@ PR: [URL]
 Commits: [count]
 Verification: [pass/fail summary]
 Acceptance: [n checked / m waived / 0 open]
+Assumptions: [n confirmed / m accepted / 0 open | none recorded]
 External review: [backends + confirmed/refuted counts | skipped — reason]
 Linear: [ISSUE-ID → In Review | n/a — reason]
 BSpec: [specs/<file>.md | n/a — reason]

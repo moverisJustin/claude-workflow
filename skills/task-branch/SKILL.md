@@ -68,6 +68,9 @@ Create `.claude/task-context.md`:
 ## Acceptance
 - [ ] [checkable criterion — how we know it's done]
 
+## Assumptions
+- [nothing assumed yet — entries land here as work proceeds]
+
 ## Plan
 - [ ] [To be defined]
 
@@ -94,16 +97,23 @@ Create `.claude/task-context.md`:
 [Context that helps someone picking this up cold]
 ```
 
-The first three sections — Objective / Non-goals / Acceptance — are the **task
-charter**: the authority on this task's goals and scope, which every review
-(native or foreign) judges the work against. Keep it cheap: one line each is
-fine. Never leave placeholders — fill them from the user's description, or ask
-before committing.
+The first four sections — Objective / Non-goals / Acceptance / Assumptions —
+are the **task charter**: the authority on this task's goals and scope, which
+every review (native or foreign) judges the work against. Keep it cheap: one
+line each is fine. Never leave placeholders — fill them from the user's
+description, or ask before committing.
 
 Acceptance syntax (exact forms — the `/task-done` gate greps them):
 - `- [ ]` open
 - `- [x]` done
 - `- [~] waived: <reason>` waived
+
+Assumptions syntax (same gate, its own forms — every assumption taken without
+asking the user gets an entry; see Clarify First in
+`~/.claude/rules/workflow.md`):
+- `- [ ] assumed: <what, and what breaks if it's wrong>` unresolved
+- `- [x] confirmed: <what — how it was validated>` verified
+- `- [~] accepted: <what> — <why living with it is safe>` knowingly accepted
 
 ### 4. Link Linear (documentation-channels contract)
 

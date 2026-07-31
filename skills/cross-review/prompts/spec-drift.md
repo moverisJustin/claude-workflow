@@ -3,9 +3,9 @@
 Compare the implementation in the pack against the pack's `## Spec under
 review` section (the resolved spec: an explicit spec file, the ledger's BSpec
 doc, or the task-context plan) and against the Task Charter at the top of the
-pack (`## Objective` / `## Non-goals` / `## Acceptance`).
+pack (`## Objective` / `## Non-goals` / `## Acceptance` / `## Assumptions`).
 
-Flag BOTH directions of drift:
+Flag ALL THREE directions of drift:
 
 - **Drift**: behavior the spec or charter requires that the changed code does
   not deliver, delivers differently (formats, units, defaults, error
@@ -14,6 +14,12 @@ Flag BOTH directions of drift:
 - **Scope creep**: changed code implementing things the charter's
   `## Non-goals` explicitly fence out, or that nothing in the spec asks for.
   Unrequested features are findings, not bonuses.
+- **False assumption**: an entry in the charter's `## Assumptions` that the
+  changed code contradicts, or that the codebase proves wrong. Those entries
+  are what the author took as true **without asking** — treat every one as an
+  unverified claim to attack, never as an established fact. Check each against
+  the actual code. A false assumption is a finding even when the code is
+  internally consistent, because the work rests on it.
 
 Rules:
 

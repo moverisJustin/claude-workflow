@@ -110,7 +110,7 @@ report "cheatsheet core agents" "$CORE" "$CHEAT_CORE" "CHEATSHEET"
 TB="$REPO_DIR/skills/task-branch/SKILL.md"
 $QUIET || echo "-- Charter template guard (task-branch) --"
 if [ -f "$TB" ]; then
-  for H in "Objective" "Non-goals" "Acceptance"; do
+  for H in "Objective" "Non-goals" "Acceptance" "Assumptions"; do
     if grep -qE "^## ${H}([[:space:]]|\$)" "$TB"; then
       $QUIET || echo "  OK    task-branch template has '## $H'"
     else

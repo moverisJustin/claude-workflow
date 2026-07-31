@@ -10,7 +10,7 @@ Every session begins with:
 
 ## Scope Rules
 - ONLY look at tools, repos, files, and resources the user specifically points to. Do NOT explore adjacent codebases uninvited.
-- Do not assume what the user wants — ask if unclear rather than guessing.
+- Ask more questions. Fill in all gaps. Make no dangerous assumptions. This is a real checkpoint, not a platitude — `/clarify` runs at the start of every planning phase, a gap found mid-execution stops the work and asks, and anything assumed without asking goes in the charter's `## Assumptions` register. See `~/.claude/rules/workflow.md` (Clarify First).
 - Stay focused on the exact question asked.
 
 # Quick Reference (Boris v3)
@@ -18,6 +18,7 @@ Every session begins with:
 ```bash
 # Orchestration
 /boris <task>        # Plan (plan mode) -> delegate -> verify -> ship; fan-out via boris-build Workflow. DEFAULT for non-trivial tasks (auto-invoked)
+/clarify             # Question checkpoint — auto-runs at the START of every planning phase, and on any gap found mid-execution
 /anythingelse        # Wildcard checkpoint — auto-runs at the end of every planning phase
 /loops               # One board of everything open: ledger, delegated tasks/forks, PRs, worktrees, gates
 /session-start       # Load Memory Bank, orient to project

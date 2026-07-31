@@ -21,8 +21,9 @@
 #   ~/.claude/rules/learned-patterns.md       cross-project pitfalls (index by default)
 #
 # Charter-first: when task-context.md carries the Task Charter headings
-# (## Objective / ## Non-goals / ## Acceptance), those section bodies plus the
-# `- **BSpec**:` ledger line are ALSO emitted as the pack's FIRST section —
+# (## Objective / ## Non-goals / ## Acceptance / ## Assumptions), those section
+# bodies plus the `- **BSpec**:` ledger line are ALSO emitted as the pack's
+# FIRST section —
 # "## Task charter (evaluation frame)" — so every consumer judges against the
 # task's stated goals. The full task-context still appears later under
 # "Active task context"; the duplication is intentional. Files without charter
@@ -126,15 +127,16 @@ emit_file() {
 }
 
 # --- Task charter (evaluation frame) — always the FIRST body section ---------
-# Extract the charter headings (## Objective / ## Non-goals / ## Acceptance)
-# plus the `- **BSpec**:` line from ## Loops. Fence-aware: a heading line
+# Extract the charter headings (## Objective / ## Non-goals / ## Acceptance /
+# ## Assumptions) plus the `- **BSpec**:` line from ## Loops. Fence-aware: a
+# heading line
 # inside a ``` code block is not a heading. Emitted only when at least one
 # real charter heading exists — otherwise the pack is exactly the legacy pack.
 if [ -f "$TASKCTX" ] && [ -s "$TASKCTX" ]; then
   charter="$(awk '
     /^```/  { if (insec) buf = buf $0 "\n"; fence = !fence; next }
     fence   { if (insec) buf = buf $0 "\n"; next }
-    /^## (Objective|Non-goals|Acceptance)[[:space:]]*$/ {
+    /^## (Objective|Non-goals|Acceptance|Assumptions)[[:space:]]*$/ {
               buf = buf $0 "\n"; insec = 1; inloops = 0; seen = 1; next }
     /^## Loops([[:space:]]|$)/ { insec = 0; inloops = 1; next }
     /^## /  { insec = 0; inloops = 0; next }
@@ -146,7 +148,8 @@ if [ -f "$TASKCTX" ] && [ -s "$TASKCTX" ]; then
   if [ -n "$charter" ]; then
     {
       printf '\n## Task charter (evaluation frame)\n'
-      printf '_source: .claude/task-context.md — all findings must be judged against these goals; flag scope creep against Non-goals_\n\n'
+      printf '_source: .claude/task-context.md — all findings must be judged against these goals; flag scope creep against Non-goals_\n'
+      printf '_`## Assumptions` are UNVERIFIED — what the author took as true WITHOUT asking. Treat each as a claim to attack, not a fact; a false assumption is a finding._\n\n'
       printf '%s\n' "$charter"
     } >> "$TMP"
   fi

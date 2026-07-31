@@ -59,8 +59,9 @@ that isn't closed OR explicitly waived is a defect.
 
 `.claude/task-context.md` opens with the **task charter** — `## Objective`
 (what + why), `## Non-goals` (scope fence), `## Acceptance` (checkable
-criteria). It is committed and branch-scoped, and it survives the branch in
-the PR body's `## Charter` section.
+criteria), `## Assumptions` (what was taken as true without asking). It is
+committed and branch-scoped, and it survives the branch in the PR body's
+`## Charter` section.
 
 Precedence:
 
@@ -84,10 +85,23 @@ Acceptance syntax (exact forms — the `/task-done` gate greps them):
 - `- [x]` done
 - `- [~] waived: <reason>` waived
 
+Assumptions syntax (same gate, its own forms — see `workflow.md` Clarify
+First for when an entry gets written):
+
+- `- [ ] assumed: <what, and what breaks if it's wrong>` unresolved
+- `- [x] confirmed: <what — how it was validated>` verified
+- `- [~] accepted: <what> — <why living with it is safe>` knowingly accepted
+
+The register is the audit trail for everything not asked about. Reviewers —
+native and foreign — treat its entries as **unverified claims to attack**, not
+as established facts. A section absent from an older task-context is a
+vacuous pass, not a defect; new work gets it from the `/task-branch` template.
+
 Keep the charter cheap — one line per section is fine — but never leave
 placeholders. `/task-done` may not report complete while any Acceptance item
-is unchecked and unwaived. A deliberate scope change edits the charter, adds
-a Decisions row, and syncs Linear.
+is unchecked and unwaived, or while any Assumption is still `- [ ] assumed:`.
+A deliberate scope change edits the charter, adds a Decisions row, and syncs
+Linear.
 
 ## The Loops ledger
 

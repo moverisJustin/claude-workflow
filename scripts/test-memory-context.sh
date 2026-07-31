@@ -172,6 +172,10 @@ SENTINEL_NONGOALS out of scope.
 - [ ] SENTINEL_ACCEPT_ONE open item
 - [x] SENTINEL_ACCEPT_TWO done item
 
+## Assumptions
+- [ ] assumed: SENTINEL_ASSUME_ONE open assumption
+- [~] accepted: SENTINEL_ASSUME_TWO — knowingly accepted
+
 ## Notes
 SENTINEL_NOTES should not be in the charter.
 
@@ -192,6 +196,7 @@ first_sec="$(printf '%s\n' "$out" | grep '^## ' | sed -n 1p)"
 assert_eq        "charter is the FIRST body section" "## Task charter (evaluation frame)" "$first_sec"
 assert_contains  "charter source/framing line"   "$out" "judged against these goals"
 assert_contains  "charter flags scope creep"     "$out" "flag scope creep against Non-goals"
+assert_contains  "charter labels assumptions unverified" "$out" "are UNVERIFIED"
 
 # Isolate the charter section (everything before the next pack-level section).
 charter_sec="$(printf '%s\n' "$out" | awk '/^## Task charter/ { c = 1; next } /^## Project identity/ { c = 0 } c')"
@@ -199,6 +204,8 @@ assert_contains  "charter has Objective body"    "$charter_sec" "SENTINEL_OBJECT
 assert_contains  "charter has Non-goals body"    "$charter_sec" "SENTINEL_NONGOALS"
 assert_contains  "charter has open Acceptance"   "$charter_sec" "SENTINEL_ACCEPT_ONE"
 assert_contains  "charter has done Acceptance"   "$charter_sec" "SENTINEL_ACCEPT_TWO"
+assert_contains  "charter has open Assumption"   "$charter_sec" "SENTINEL_ASSUME_ONE"
+assert_contains  "charter has accepted Assumption" "$charter_sec" "SENTINEL_ASSUME_TWO"
 assert_contains  "charter has the BSpec line"    "$charter_sec" "**BSpec**: specs/SENTINEL_BSPEC.md"
 assert_not_contains "charter omits Notes section" "$charter_sec" "SENTINEL_NOTES"
 assert_not_contains "charter omits Linear line"  "$charter_sec" "**Linear**"

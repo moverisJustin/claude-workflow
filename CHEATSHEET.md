@@ -29,6 +29,7 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 | `/bspec-doc` | Author a spec/PRD/feature/architecture/decision doc in BSpec format, then validate it offline (`scripts/bspec-validate.sh`) |
 | `/memory-migrate` | Convert a project's pre-v3 Memory Bank to v3 (auto-offered at session start when detected) |
 | `/first-principles` | Break down a complex problem from fundamentals |
+| `/clarify` | Batched six-axis question sweep at the user — auto-runs at the start of every planning phase and on any gap found during execution |
 | `/anythingelse` | Creative wildcard prompt — auto-runs at the end of every planning phase |
 
 ## Native Replacements (retired workflow commands)

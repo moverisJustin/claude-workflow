@@ -28,10 +28,10 @@ documentation; delegate to specialists; native features over reimplementation.
 ### 0. Branch + track
 If on main/master and the task is non-trivial: create a feature branch
 (`feature/`, `fix/`, or `task/` prefix) and initialize `.claude/task-context.md`
-with the **Task Charter** (`## Objective` / `## Non-goals` / `## Acceptance` —
-the source of truth every reviewer judges against; one line each is fine,
-never placeholders), the plan, and the **Loops ledger** (committed — it is the
-cross-machine handoff). Then link Linear per
+with the **Task Charter** (`## Objective` / `## Non-goals` / `## Acceptance` /
+`## Assumptions` — the source of truth every reviewer judges against; one line
+each is fine, never placeholders), the plan, and the **Loops ledger**
+(committed — it is the cross-machine handoff). Then link Linear per
 `~/.claude/rules/documentation-channels.md`: delegate to the
 `linear-project-manager` subagent to find (search all statuses first) or
 create the issue, move it to In Progress, and record its ID in the ledger.
@@ -41,6 +41,17 @@ Enter plan mode (EnterPlanMode) for any non-trivial task. Explore, design,
 write the plan file, and get approval via ExitPlanMode. Never gate on a prose
 "Shall I proceed?" — plan-mode approval is the gate. If something goes
 sideways mid-execution, STOP and re-plan; don't keep pushing.
+
+**Clarification checkpoint (every planning phase, runs FIRST).** Before the
+wildcard and before the plan is presented, run `/clarify`: sweep the six axes
+(scope boundary, success criteria, blast radius, data & state, interfaces &
+consumers, constraints only the user has) and ask in ONE batched
+`AskUserQuestion` — max 4, highest-leverage first. Anything answerable from
+the code, Memory Bank, or git history is not a question; go look. End the
+checkpoint out loud: either the questions, or "clarification checkpoint: no
+material gaps." Every assumption you take instead of asking goes in the
+charter's `## Assumptions` register. This runs before `/anythingelse` on
+purpose — what is smartest to add depends on the answers.
 
 **Anything-else checkpoint (end of every planning phase).** Before
 presenting the plan for approval, run `/anythingelse` — "what's the single
@@ -85,7 +96,21 @@ resolve the ledger's BSpec entry `n/a — <reason>`.
 | Review | native `/code-review <effort>` |
 | Security | native `/security-review` |
 
+**Gaps stop the work.** A requirement gap discovered after approval halts
+execution and asks — do not build on a guess and flag it later (see Clarify
+First in `~/.claude/rules/workflow.md`). Batch gaps that surface together
+into one `AskUserQuestion`. Dangerous assumptions — destructive, outward-
+facing, security, data-integrity, cost-incurring, or scope-redefining — are
+never taken silently, at any stage. Anything you do assume without asking is
+appended to the charter's `## Assumptions` register as you go, not
+reconstructed at PR time.
+
 Toolkit notes:
+- **Subagents cannot ask the user** — `AskUserQuestion` is unavailable to
+  them. Brief every implementer to **return the question rather than guess**
+  when it hits a gap; the main thread surfaces it. An agent that guesses to
+  avoid stalling has broken the rule. (The `boris-build` workflow inherits
+  this: a work item that hits a gap stops and reports it.)
 - **Forks** (`subagent_type: "fork"`) inherit the conversation — use for
   subtasks that need the full mental model without re-briefing.
 - **`run_in_background: true`** for independent parallel work; you are
