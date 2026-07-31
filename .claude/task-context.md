@@ -25,55 +25,71 @@ Forge's team-rules file surfaced.
 - Forge's `saas` backend.
 
 ## Acceptance
-- [ ] `scripts/forge-bridge.sh` is the single point that knows Forge exists;
-      every touchpoint no-ops silently when the CLI is absent
-- [ ] Publish cadence implemented: forge written+pushed continuously (work
+- [x] `scripts/forge-bridge.sh` is the single point that knows Forge exists;
+      every touchpoint no-ops silently when the CLI is absent — smoke-tested
+      across all 9 subcommands in a plain repo, every one exit 0
+- [x] Publish cadence implemented: forge written+pushed continuously (work
       start, plan approved, plan amended, phase done, contract change,
       deprecation, ready, session end); project repo unchanged at chunk cadence
-- [ ] A forge failure warns and continues — never blocks the turn
-- [ ] Teammate content is read as data; a team rule conflicting with a Boris
+      — full cadence walk green, incl. the negative case proving independence
+- [x] A forge failure warns and continues — never blocks the turn (unreachable
+      remote: entry preserved, exit 0, loud warning, backlog drained on retry)
+- [x] Teammate content is read as data; a team rule conflicting with a Boris
       rule is surfaced for adoption, never silently obeyed
-- [ ] `/clarify` turns a real teammate collision into a batched question, and
-      stays silent on non-overlapping work
-- [ ] `scripts/resolve-base-branch.sh` returns `master` for
+- [x] `/clarify` turns a real teammate collision into a batched question, and
+      stays silent on non-overlapping work — both directions tested
+- [x] `scripts/resolve-base-branch.sh` returns `master` for
       `moveris_training_data`, `main` for `mira`, `develop` +
-      `{develop,main}` protected for `moveris-verification-ui`
-- [ ] All 8 hardcoded `main` references use the resolver; `git-safety.md` and
+      `{develop,main}` protected for `moveris-verification-ui` — verified
+      against the live repos
+- [x] All 8 hardcoded `main` references use the resolver; `git-safety.md` and
       `/task-done`'s preflight speak in terms of *protected* branches (plural)
-- [ ] `test-forge-bridge.sh`, `test-resolve-base-branch.sh`, `test-install.sh`,
-      `drift-check.sh` all green
+- [x] `test-forge-bridge.sh` (42), `test-resolve-base-branch.sh` (20),
+      `test-install.sh` (44), `test-hooks.sh` (43) green; drift 98/100;
+      maintenance-check clean
 
 ## Assumptions
-- [ ] assumed: Teammate-authored forge content is trusted enough to *surface*
-      but not to *obey* — team rule changes get proposed, not auto-adopted. If
-      the team expects the root `CLAUDE.md` to be binding the way Forge intends,
-      this needs revisiting.
-- [ ] assumed: Eric's team has not standardised on the forge repo's shared
-      tickets/PRs snapshots as load-bearing. If they have, we owe them the
-      on-demand publisher wired into `/task-done`.
-- [ ] assumed: Forge stays on the `local` backend; `saas` is out of scope.
-- [ ] assumed: `Moveris/forge-mira` is org-private and everyone with repo
-      access is meant to see every contract, plan, and handoff for Mira. If any
-      Mira work is client-sensitive, that access boundary needs checking before
-      joining — the forge repo is NOT covered by the Mira code repo's
-      permissions.
+- [~] accepted: Teammate-authored forge content is surfaced but never obeyed —
+      team rule changes are proposed to the user, not auto-adopted. Safe to
+      live with because it fails in the conservative direction (a real team
+      rule gets surfaced and adopted one turn later, rather than a teammate's
+      file silently reconfiguring git behaviour). Deliberately stricter than
+      Forge intends; one paragraph in `documentation-channels.md` reverses it.
+- [~] accepted: Eric's team may treat the shared tickets/PRs snapshots as
+      load-bearing; we don't publish them because Linear and `gh` are
+      canonical. Safe because the fix is already available with no code change
+      — `forge-bridge.sh publish tickets "..."` passes straight through to
+      `forge write`, which accepts that type.
+- [x] confirmed: Forge stays on the `local` backend — verified from the
+      backend resolver that `local` is the default and `saas` requires an
+      explicit `api_key` + `workspace` in `~/.forge/config`, neither of which
+      this integration sets or reads.
+- [~] accepted: for THIS branch — nothing was published and no repo was
+      joined, so the access boundary is not yet live. **Still open for Justin
+      before running `forge init`**: `Moveris/forge-mira` is org-private, and
+      anyone with access to it sees every contract, plan, and handoff for Mira
+      regardless of their access to the Mira code repo. Worth a look if any
+      Mira work is client-sensitive. Carried into the PR body deliberately.
 
 ## Plan
 Full approved plan: `~/.claude/plans/optimized-dreaming-lemon.md`
 
-- [ ] 1. Charter + ledger (this file)
-- [ ] 2. `scripts/resolve-base-branch.sh` + `test-resolve-base-branch.sh`
-- [ ] 3. `scripts/forge-bridge.sh` + `test-forge-bridge.sh`
-- [ ] 4. `skills/forge/SKILL.md`
-- [ ] 5. Rules: `documentation-channels.md` (channel 4 + cadence),
+- [x] 1. Charter + ledger (this file)
+- [x] 2. `scripts/resolve-base-branch.sh` + `test-resolve-base-branch.sh`
+- [x] 3. `scripts/forge-bridge.sh` + `test-forge-bridge.sh`
+- [x] 4. `skills/forge/SKILL.md`
+- [x] 5. Rules: `documentation-channels.md` (channel 4 + cadence),
        `git-safety.md` (protected branches)
-- [ ] 6. Skill touchpoints + the 8 hardcoded `main` refs
-- [ ] 7. README + CHEATSHEET
-- [ ] 8. Verification (incl. cadence walk and resolver vs real repos)
+- [x] 6. Skill touchpoints + the 8 hardcoded `main` refs
+- [x] 7. README + CHEATSHEET
+- [x] 8. Verification (incl. cadence walk and resolver vs real repos)
 
 ## Loops
 - **Linear**: MOV-2883 (In Progress) — https://linear.app/moveris/issue/MOV-2883
-- **BSpec**: OPEN
+- **BSpec**: n/a — the durable design record is the ARC spec's sibling concern;
+  this change is an integration of an external tool plus a bug fix, and the
+  precedence/cadence contract lives in `rules/documentation-channels.md`
+  (the rule file IS the durable record here, not a separate spec)
 - **Handoff**: none
 - **Forge**: n/a — this repo (claude-workflow) has no forge repo; Mira is the
   first consumer of what's built here
@@ -98,8 +114,12 @@ Full approved plan: `~/.claude/plans/optimized-dreaming-lemon.md`
   scaffold, Justin not yet a member)
 - Plan approved
 
+- All 8 plan steps complete; both commits landed (cc4ce4b, b7f4252)
+- Verification: 20 resolver + 42 bridge + 44 installer + 43 hook tests green;
+  drift 98/100; maintenance-check clean; installer output grepped not trusted
+
 ### In Progress
-- Charter + ledger
+- PR
 
 ### Blocked
 - [nothing blocked]
