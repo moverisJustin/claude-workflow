@@ -21,6 +21,7 @@ Every session begins with:
 /clarify             # Question checkpoint — auto-runs at the START of every planning phase, and on any gap found mid-execution
 /anythingelse        # Wildcard checkpoint — auto-runs at the end of every planning phase
 /loops               # One board of everything open: ledger, delegated tasks/forks, PRs, worktrees, gates
+/forge               # Shared team context (optional) — teammate wip/contracts, publish yours
 /session-start       # Load Memory Bank, orient to project
 /session-end         # Save context for next session
 
@@ -60,7 +61,7 @@ Modes are native and harness-enforced: plan mode (Shift+Tab or `/plan`) for read
 Always-on rules live in `~/.claude/rules/` (installed from this repo's `rules/`):
 - `git-safety.md` — branch strategy, push-target verification, signed commits, PR review policy, recovery routing
 - `workflow.md` — plan-first, delegation, verify-before-done, self-improvement loop, compaction recovery
-- `documentation-channels.md` — one documentation contract for every task: Linear tracking (find/create → In Progress → comment → Done), BSpec for all saved specs/decisions, explicit handoffs; enforced via the task-context Loops ledger
+- `documentation-channels.md` — one documentation contract for every task: Linear tracking (find/create → In Progress → comment → Done), BSpec for all saved specs/decisions, Forge for shared team context (optional; published continuously as work happens), explicit handoffs; enforced via the task-context Loops ledger
 - `learned-patterns.md` — accumulated cross-project lessons. This is the lesson-capture target and the `sync-lessons.sh` sync point (public-repo promotion is opt-in via `<!-- shareable -->`)
 
 # Memory Bank (Persistent Context)

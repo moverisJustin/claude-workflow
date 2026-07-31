@@ -72,6 +72,28 @@ next). If no issue is linked yet and this is real tracked work, link one now
 (search first, create only if none exists) — or record `n/a — <reason>`.
 Skip silently only when the ledger already says `n/a`.
 
+## 3.6. Publish shared context (optional — silent without a forge repo)
+
+Session end is a publish trigger. Teammates should not have to wait for your
+branch to land to see where things stand.
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh publish wip "<current state: done / in progress / next>"
+```
+
+**If you are stopping mid-task**, publish a handoff too — that is the entry the
+next session (yours or a teammate's) sees at startup:
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh handoff "<ticket, branch, approach, what works, what doesn't, exact next step, resume prompt>"
+```
+
+Then confirm nothing is stranded locally — an unpushed entry helps nobody:
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh pending
+```
+
 ## 4. Drift check
 
 Run the project-local script if present, else the global one:
@@ -92,6 +114,7 @@ Committed: [count] | Stashed/WIP: [yes/no]
 Persisted: [decisionLog / conventions entries added, or "nothing new"]
 Task context: [updated on <branch> / N/A (on main)]
 Linear: [ISSUE-ID — progress comment added | n/a]
+Forge: [what was published + pushed | n/a — no forge repo]
 Open loops: [list any ledger entries still OPEN, or "none"]
 Drift: [X/100]
 

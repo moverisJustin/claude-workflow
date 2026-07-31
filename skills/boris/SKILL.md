@@ -83,6 +83,18 @@ durable form with `/bspec-doc` (FEA/ARC/DEC/…) and record the path in the
 ledger. Plan-mode text is ephemeral; the spec is the record. Otherwise
 resolve the ledger's BSpec entry `n/a — <reason>`.
 
+**Publish the approved plan to the team.** Plan approval is a forge publish
+trigger — teammates read `plans` to see what you are *about to* do, which is
+what makes collision avoidance possible before any code exists:
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh publish plans "<goal, approach, ordered steps, files/interfaces touched>"
+```
+
+Silent when the project has no forge repo. **Re-publish on every amendment** —
+the files are append-only and the most recent entry is the current plan, so a
+mid-execution re-plan gets a new entry rather than an edit.
+
 ### 2. Execute — delegate with the modern Agent toolkit
 | Need | Use |
 |---|---|
@@ -104,6 +116,20 @@ facing, security, data-integrity, cost-incurring, or scope-redefining — are
 never taken silently, at any stage. Anything you do assume without asking is
 appended to the charter's `## Assumptions` register as you go, not
 reconstructed at PR time.
+
+**Publish as you go, not at the end.** The shared repo runs on a faster clock
+than the code repo: it gets updated continuously through the day, while the
+project repo is committed at meaningful chunks. At each phase or task-group
+completion — not just at `/task-done` — publish current state, and publish an
+interface change the moment it's made rather than batching it:
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh publish wip "<done / in progress / next / teammate impact>"
+bash ~/.claude/scripts/forge-bridge.sh publish contracts "[API|DB|ENV|MODEL] <what changed, old → new, status, what teammates must do>"
+```
+
+Write and push are one operation, and a failure warns without blocking. Full
+trigger table in `~/.claude/rules/documentation-channels.md`.
 
 Toolkit notes:
 - **Subagents cannot ask the user** — `AskUserQuestion` is unavailable to

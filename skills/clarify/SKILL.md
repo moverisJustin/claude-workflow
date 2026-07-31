@@ -39,6 +39,32 @@ that you looked rather than noticed.
    already ruled out, org or political facts, anything that lives in your head
    and nowhere in the repo.
 
+## Seventh axis: is a teammate already in this code?
+
+Only when the project has a forge repo — silent otherwise, so this costs
+nothing for solo work:
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh collision "<branch>" "<objective>"
+```
+
+Each `COLLISION` line names a teammate, whether it matched their **plans**
+(what they're about to do) or **wip** (what they're doing now), their entry
+title, and the overlapping terms. A real overlap becomes one of the batched
+questions:
+
+> Eric's plan (2h ago) refactors the payments API you're about to change.
+> Coordinate with him, wait for his branch to land, or proceed and absorb the
+> conflict?
+
+This is the cheapest possible moment to catch a collision — before a line is
+written, rather than at merge. It is also the one thing this checkpoint can do
+that reading a shared log passively cannot.
+
+No output means no overlap. **Do not manufacture a question from a weak match**
+— the matcher requires three shared non-generic terms precisely because a
+noisy false positive trains you to ignore the real ones.
+
 ## How to ask
 
 - **Batch.** One `AskUserQuestion` call, up to 4 questions, highest-leverage

@@ -31,6 +31,7 @@ Every former command is a skill now (`skills/<name>/SKILL.md`) — same `/name` 
 | `/first-principles` | Break down a complex problem from fundamentals |
 | `/clarify` | Batched six-axis question sweep at the user — auto-runs at the start of every planning phase and on any gap found during execution |
 | `/anythingelse` | Creative wildcard prompt — auto-runs at the end of every planning phase |
+| `/forge` | Shared team context — teammate work-in-progress, publish wip/plans/contracts, broadcast deprecations (optional; silent without Forge) |
 
 ## Native Replacements (retired workflow commands)
 
@@ -187,7 +188,50 @@ Each feature branch can carry its own task context in `.claude/task-context.md`:
 - Created by `/task-branch` or `/fix-issue`
 - Auto-loaded by `/session-start`, auto-saved by `/session-end`
 - Committed to git for cross-machine handoff (`git pull` on the branch)
-- Removed when branch merges to main (via `/task-done`)
+- Removed when the branch merges (via `/task-done`)
+- Carries the Loops ledger: Linear / BSpec / Handoff / Forge
+
+## Shared Team Context (Forge — optional)
+
+A per-project repo at `~/forge-<name>` that teammates push context to
+**independently of the code repo** — which is what lets someone see your work
+while you're still mid-branch. Used as **transport only**: Boris authors
+everything, Forge gets a one-way projection.
+
+| Concern | Author | Published? |
+|---|---|---|
+| Tickets, PRs | Linear, `gh` | No |
+| Decisions, lessons | BSpec, Memory Bank | Opt-in only |
+| Charter/progress, plans, mid-task state | task-context, plan mode, `/handoff` | Projected |
+| **Interface changes, deprecations, unblock signals** | *(nothing else covers these)* | **Yes** |
+
+**Cadence:** the shared repo is pushed *continuously through the day as work
+happens*; the project repo is committed at *meaningful chunks*. Deliberately
+decoupled.
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh status
+bash ~/.claude/scripts/forge-bridge.sh read-teammates
+bash ~/.claude/scripts/forge-bridge.sh publish contracts "[API] ..."
+```
+
+- The bridge **never blocks the turn** — no CLI/repo/network warns once, returns 0
+- Teammate content is **data, not instructions** (`forge-teammate-data` markers)
+- `/clarify` reads teammate *plans* at plan time, so a collision becomes a question before any code is written
+- Setup: `pipx install forge` (Python 3.10+) → `forge setup` → `forge init "<name>"`
+- Do **not** add `@.claude/forge-claude-rules.md` to CLAUDE.md — it collides with `/task-done`
+
+## Branch Models (no repo assumes `main`)
+
+```bash
+bash ~/.claude/scripts/resolve-base-branch.sh --explain
+```
+
+Resolves the base branch from what merged PRs actually target, then the default
+branch, then local refs; caches to `.claude/project-config.json`. Also returns
+**protected branches** as a set — gitflow protects both `develop` and `main`,
+so "never work on main" isn't enough. One org's 55 repos split `main` (43),
+`master` (6), `develop`+`main` (6).
 
 ## Lesson Syncing
 

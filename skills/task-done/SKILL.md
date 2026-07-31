@@ -19,7 +19,14 @@ Read `.claude/task-context.md` using the Read tool.
 
 ### 0. Pre-flight Checks
 
-- Confirm we are **NOT on main/master**. If we are, abort: "Cannot run /task-done on main. Switch to your task branch first."
+- Confirm we are **not on a protected branch**. Protected means every branch
+  that receives PRs — in a gitflow repo that is both `develop` and `main`, so
+  checking for `main`/`master` literally is not enough:
+  ```bash
+  bash ~/.claude/scripts/resolve-base-branch.sh --protected
+  ```
+  If the current branch is in that list, abort: "Cannot run /task-done on a
+  protected branch (`<name>`). Switch to your task branch first."
 - If `.claude/task-context.md` does not exist, warn but continue: "No task-context.md found. Proceeding without task context."
 - Read the `## Loops` ledger (see `~/.claude/rules/documentation-channels.md`).
   If the task-context predates the ledger, **backfill it now** (Linear / BSpec
@@ -71,6 +78,32 @@ each one now (or waive it with an explicit reason):
 - **Linear**: confirm the issue ID is recorded (search/create via the
   `linear-project-manager` subagent if it was never linked). The final status
   move + comment happens in step 6.5 once the PR URL exists.
+
+### 2.5b. Close the Forge loop (optional channel)
+
+Skip entirely if the project has no forge repo — the bridge no-ops and the
+ledger entry becomes `n/a — no forge repo`.
+
+Most forge publishing already happened *during* the work, per the cadence
+table. This step is the **backstop for what was missed**, not the primary
+write path:
+
+```bash
+bash ~/.claude/scripts/forge-bridge.sh publish wip "<final state — done, PR, impact>"
+```
+
+- **Contracts**: review `git diff <base>..HEAD` for interface changes —
+  exported types, function signatures, endpoints, schema/migrations, env vars.
+  Anything a teammate consumes gets a `contracts` entry with the type tag
+  (`[API]`/`[DB]`/`[ENV]`/`[MODEL]`), exactly what changed old → new, the
+  status, and what they must do about it. Reading the real diff beats Forge's
+  path-based watcher — use it.
+- **Ready**: if this work unblocks someone, publish a `shared/ready` entry
+  saying what finished and what can now start.
+- **Deprecations**: anything formally retired gets
+  `forge-bridge.sh publish-deprecation`.
+
+Then resolve the ledger: `**Forge**: <repo> — wip/contracts published`.
 
 ### 2.6. Acceptance Gate
 
@@ -138,7 +171,10 @@ Capture task context for the PR body:
 - Read key Decisions
 - Read the resolved Loops ledger (it leaves the repo with task-context.md in
   step 5 — the PR body is where it survives)
-- Get commit log: `git log main..HEAD --oneline`
+- Get commit log against the repo's real base branch (not necessarily `main`):
+  ```bash
+  git log "$(bash ~/.claude/scripts/resolve-base-branch.sh --base)"..HEAD --oneline
+  ```
 
 ### 5. Remove task-context.md
 
@@ -177,7 +213,7 @@ Omit the line entirely if the register is empty. These are what the work took
 as true without asking; the reviewer should read them as claims to check.]
 
 ## Changes
-[From git log main..HEAD --oneline]
+[From the git log against the resolved base branch, above]
 
 ## Key Decisions
 [From task-context.md decisions table]
@@ -186,6 +222,7 @@ as true without asking; the reviewer should read them as claims to check.]
 - Linear: [ISSUE-ID | n/a — reason]
 - BSpec: [specs/<file>.md | n/a — reason]
 - Handoff: [assignee | none]
+- Forge: [repo — what was published | n/a — reason]
 
 ## External Review
 [Only when step 2.7 ran: one summary line — backends run, confirmed/refuted
@@ -242,6 +279,7 @@ External review: [backends + confirmed/refuted counts | skipped — reason]
 Linear: [ISSUE-ID → In Review | n/a — reason]
 BSpec: [specs/<file>.md | n/a — reason]
 Handoff: [assignee | none]
+Forge: [repo — what was published | n/a — reason]
 
 Task context captured in PR description.
 Durable decisions/conventions persisted (if any).
@@ -257,11 +295,12 @@ Next: Review and merge the PR, then delete the remote branch.
 If the user explicitly asks for a direct merge instead of a PR:
 
 ```bash
-git checkout main
-git pull origin main
+BASE=$(bash ~/.claude/scripts/resolve-base-branch.sh --base)
+git checkout "$BASE"
+git pull origin "$BASE"
 git merge --no-ff [branch] -m "Merge [branch]: [description]"
 # task-context.md already removed in step 5
-git push origin main
+git push origin "$BASE"
 git branch -d [branch-name]
 ```
 
