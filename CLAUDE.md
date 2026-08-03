@@ -13,6 +13,13 @@ Every session begins with:
 - Ask more questions. Fill in all gaps. Make no dangerous assumptions. This is a real checkpoint, not a platitude — `/clarify` runs at the start of every planning phase, a gap found mid-execution stops the work and asks, and anything assumed without asking goes in the charter's `## Assumptions` register. See `~/.claude/rules/workflow.md` (Clarify First).
 - Stay focused on the exact question asked.
 
+## Connected Tools (Linear, Slack, Figma, Gmail, Calendar, Drive)
+These are connected as **claude.ai account connectors** and they work. Assume they are present.
+- Their tools load under **opaque UUID server ids** — `mcp__<uuid>__save_issue`, not `mcp__linear__save_issue`. The vendor name appears NOWHERE in the tool name, so `ToolSearch "linear"` returning nothing means nothing.
+- The session-start banner listing `plugin:linear:linear` (or `plugin:slack:slack`) as "requires authentication" is a **different server** from the account connector. It is never grounds for saying a connector is unavailable.
+- Locate tools by exact name or capability: `ToolSearch "select:save_issue,list_teams,list_issues"`, plus a scan of the deferred-tool list for `mcp__<uuid>__*` suffixes. That list fills in **incrementally** — re-run the check before acting on any earlier miss.
+- **Never** tell the user a connector is unreachable, ask them to re-authorize, ask them to paste a token, or go hunting for an API key. If an exact-name `select:` search truly comes up empty this turn, say so once in a sentence naming the query, then continue with other evidence. Do not relitigate when the user says it is connected — they can see the settings pane and you cannot.
+
 # Quick Reference (Boris v3)
 
 ```bash
