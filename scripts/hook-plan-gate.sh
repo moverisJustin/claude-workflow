@@ -86,9 +86,23 @@ done
 # write during plan mode (the model cannot).
 AUDIT_DIR="$PROJECT_DIR/.claude/audit"
 COUNTER="$AUDIT_DIR/plan-gate-denials"
+# Scoped to the SESSION. A bare counter persisted across sessions and episodes,
+# so denials from yesterday could arrive pre-exhausted (or, worse, silently
+# spend the escape hatch of an unrelated plan).
+SESSION_ID="$(printf '%s' "$PAYLOAD" | python3 -c '
+import json,sys
+try: print(json.load(sys.stdin).get("session_id","") or "none")
+except Exception: print("none")
+' 2>/dev/null)"
+[ -n "$SESSION_ID" ] || SESSION_ID="none"
+
 DENIALS=0
 if [ -f "$COUNTER" ]; then
-  DENIALS="$(cat "$COUNTER" 2>/dev/null || echo 0)"
+  RAW="$(cat "$COUNTER" 2>/dev/null || echo)"
+  case "$RAW" in
+    "$SESSION_ID:"*) DENIALS="${RAW#*:}" ;;
+    *)               DENIALS=0 ;;   # different session: start fresh
+  esac
   case "$DENIALS" in ''|*[!0-9]*) DENIALS=0 ;; esac
 fi
 if [ "$DENIALS" -ge "$GATE_MAX_DENIALS" ]; then
@@ -149,7 +163,7 @@ window = records[start:]
 # errors[tool_use_id] = True when the call came back an error. Credit COMPLETION,
 # not invocation: a Skill that errored, or a /plan-review whose backend timed
 # out, must not satisfy the gate.
-errors, skill_calls, typed = {}, [], set()
+errors, returned, skill_calls, typed = {}, set(), [], set()
 
 for rec in window:
     rtype = rec.get("type")
@@ -167,6 +181,9 @@ for rec in window:
             if name:
                 skill_calls.append((b.get("id"), name.split(":")[-1]))
         elif btype == "tool_result":
+            # A tool_result is what proves the call actually came back. Absence
+            # means in-flight or crashed, which is NOT completion.
+            returned.add(b.get("tool_use_id"))
             if b.get("is_error"):
                 errors[b.get("tool_use_id")] = True
         elif btype == "text" and rtype == "user":
@@ -179,38 +196,71 @@ for rec in window:
 def satisfied(step):
     if step in typed:
         return True
-    return any(n == step and not errors.get(tid) for tid, n in skill_calls)
+    # Credit COMPLETION, not invocation: the call must have RETURNED and not
+    # errored. Checking only `not errors[id]` counted a launched-but-never-
+    # returned Skill as satisfied, so a crashed or in-flight checkpoint opened
+    # the gate.
+    return any(n == step and tid in returned and not errors.get(tid)
+               for tid, n in skill_calls)
 
 missing = [s for s in REQUIRED if not satisfied(s)]
 
+# plan-review is ADVISORY, never blocking. Recording its waiver requires editing
+# task-context.md, which plan mode hard-denies — so a genuinely below-the-bar
+# plan could not satisfy a blocking check by any means except exhausting the
+# escape hatch. It is surfaced in the denial text when absent, and the
+# /task-done Checkpoint gate still requires it to be resolved before shipping.
+advisory = []
 if not satisfied(CONDITIONAL):
     # Accept an explicit waiver in the charter for the below-the-bar case.
+    #
+    # The waiver must be the plan-review LINE inside the ## Checkpoints SECTION.
+    # An earlier version searched the whole file for any `- [~] waived:`, which
+    # meant a waived Acceptance item — or a waiver of a different checkpoint —
+    # silently satisfied plan-review. Caught by /cross-review on this very
+    # branch and reproduced before fixing. This scoping now matches
+    # hook-destructive-guard.sh, which reads the same section; the two parsers
+    # must agree on waiver syntax.
     try:
         tc = open(os.environ["TASK_CONTEXT"], errors="ignore").read()
     except Exception:
         tc = ""
-    if not re.search(r"^\s*-\s*\[~\]\s*waived:.*", tc, re.M | re.I):
-        missing.append(CONDITIONAL)
+    # One unambiguous shape: a [~] line, inside ## Checkpoints, naming
+    # plan-review. Both the template and hook-destructive-guard.sh use it.
+    sec = re.search(r"^## Checkpoints[ \t]*$(.*?)(?=^## |\Z)", tc, re.M | re.S)
+    body = sec.group(1) if sec else ""
+    if not re.search(r"^\s*-\s*\[~\][^\n]*plan-review", body, re.M | re.I):
+        advisory.append(CONDITIONAL)
 
-print(" ".join(missing))
+# Only REQUIRED steps gate. Advisory steps ride along in the message so they are
+# visible, but never on their own cause a denial.
+print(" ".join(missing) + ("\t" + " ".join(advisory) if advisory else ""))
 ' 2>/dev/null)" || allow_through
 
-[ -n "$MISSING" ] || { rm -f "$COUNTER" 2>/dev/null || true; allow_through; }
+REQUIRED_MISSING="${MISSING%%	*}"
+case "$MISSING" in *"	"*) ADVISORY_MISSING="${MISSING#*	}" ;; *) ADVISORY_MISSING="" ;; esac
+
+# Advisory-only gaps never deny.
+[ -n "$REQUIRED_MISSING" ] || { rm -f "$COUNTER" 2>/dev/null || true; allow_through; }
 
 # --- deny --------------------------------------------------------------------
 mkdir -p "$AUDIT_DIR" 2>/dev/null || true
-echo "$((DENIALS + 1))" > "$COUNTER" 2>/dev/null || true
+echo "$SESSION_ID:$((DENIALS + 1))" > "$COUNTER" 2>/dev/null || true
 
 REMAINING=$((GATE_MAX_DENIALS - DENIALS - 1))
-MISSING="$MISSING" REMAINING="$REMAINING" python3 -c '
+MISSING="$REQUIRED_MISSING" ADVISORY="$ADVISORY_MISSING" REMAINING="$REMAINING" python3 -c '
 import json, os
 missing = os.environ["MISSING"].split()
 names = {
     "clarify": "/clarify — ask the user the questions that close the gaps",
     "anythingelse": "/anythingelse — the wildcard checkpoint",
-    "plan-review": "/plan-review — foreign-model review (or record `- [~] waived: below complexity bar` in task-context.md if under the bar)",
+    "plan-review": "/plan-review — foreign-model review (or record `- [~] plan-review: waived — below complexity bar` under ## Checkpoints)",
 }
 lines = "\n".join("  - " + names.get(m, m) for m in missing)
+adv = [a for a in os.environ.get("ADVISORY", "").split() if a]
+if adv:
+    lines += "\n\nAlso not run (advisory — not blocking this approval):\n" + \
+             "\n".join("  - " + names.get(a, a) for a in adv)
 remaining = os.environ["REMAINING"]
 print(json.dumps({"hookSpecificOutput": {
     "hookEventName": "PreToolUse",

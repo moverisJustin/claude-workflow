@@ -226,6 +226,33 @@ print(json.dumps({"hookSpecificOutput": {
 ' 2>/dev/null || true
 }
 
+# publish_check — ask ONLY when this branch charter says the PR-stage review is
+# still open. Scoped hard so it is not a reflexive click-through: friction that
+# fires on every push trains people to approve without reading, which is worse
+# than no gate.
+#
+# Silent when: not a repo, no task-context.md (untracked work), no
+# ## Checkpoints section (legacy branch — vacuous pass, never retroactively
+# flunked), or the cross-review line is already resolved [x] or waived [~].
+publish_check() {
+  PUB_CTX="$PROJECT_DIR/.claude/task-context.md"
+  [ "$IN_GIT_REPO" = "true" ] || return 0
+  [ -f "$PUB_CTX" ] || return 0
+  PUB_OPEN="$(python3 -c '
+import re, sys
+try: t = open(sys.argv[1], errors="ignore").read()
+except Exception: sys.exit(0)
+sec = re.search(r"^## Checkpoints[ \t]*$(.*?)(?=^## |\Z)", t, re.M | re.S)
+if not sec:
+    sys.exit(0)                       # legacy charter: vacuous pass
+if re.search(r"^\s*-\s*\[ \]\s*cross-review\b", sec.group(1), re.M):
+    print("open")
+' "$PUB_CTX" 2>/dev/null)"
+  if [ "$PUB_OPEN" = "open" ]; then
+    emit_ask "$PATTERN publishes this branch, but the charter cross-review checkpoint is still open (- [ ] cross-review). Run /cross-review pr, or record it waived with a reason, or confirm to publish un-reviewed."
+  fi
+}
+
 case "$CATEGORY" in
   RM_RISKY)
     if [ -n "$CHECKPOINT" ]; then
@@ -242,34 +269,14 @@ case "$CATEGORY" in
     if [ "$IN_GIT_REPO" = "true" ] && [ -z "$CHECKPOINT" ]; then
       emit_ask "Destructive git command ($PATTERN) and no safety checkpoint could be created. Confirm before proceeding."
     fi
-    # Checkpoint exists (or not a repo, where git will fail on its own):
-    # stay silent so the normal permission flow applies.
+    # A force push is destructive AND a publication. It classifies as GIT
+    # (the more serious category) and so never reached publish_check, which
+    # meant `git push --force` slipped past the cross-review gate that plain
+    # `git push` was stopped by — the bypass was one flag wide.
+    case "$PATTERN" in *push*) publish_check ;; esac
     ;;
   PUBLISH)
-    # Ask ONLY when this branch's charter says the PR-stage review is still
-    # open. Scoped hard so it is not a reflexive click-through — friction that
-    # fires on every push trains people to approve without reading, which is
-    # worse than no gate.
-    #
-    # Silent when: not a repo, no task-context.md (untracked work), no
-    # ## Checkpoints section (legacy branch — vacuous pass, never retroactively
-    # flunked), or the cross-review line is already resolved [x] or waived [~].
-    PUB_CTX="$PROJECT_DIR/.claude/task-context.md"
-    if [ "$IN_GIT_REPO" = "true" ] && [ -f "$PUB_CTX" ]; then
-      PUB_OPEN="$(python3 -c '
-import re, sys
-try: t = open(sys.argv[1], errors="ignore").read()
-except Exception: sys.exit(0)
-sec = re.search(r"^## Checkpoints[ \t]*$(.*?)(?=^## |\Z)", t, re.M | re.S)
-if not sec:
-    sys.exit(0)                       # legacy charter: vacuous pass
-if re.search(r"^\s*-\s*\[ \]\s*cross-review\b", sec.group(1), re.M):
-    print("open")
-' "$PUB_CTX" 2>/dev/null)"
-      if [ "$PUB_OPEN" = "open" ]; then
-        emit_ask "$PATTERN publishes this branch, but the charter's cross-review checkpoint is still open (- [ ] cross-review). Run /cross-review pr, or record it waived with a reason, or confirm to publish un-reviewed."
-      fi
-    fi
+    publish_check
     ;;
 esac
 

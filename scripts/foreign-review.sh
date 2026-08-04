@@ -523,6 +523,16 @@ transport_failure() {
   return 1
 }
 
+# preserve_stream — the cleanup trap deletes HTTP_OUT, so telling the user a
+# partial stream is "preserved at $HTTP_OUT" was a promise about a file that no
+# longer existed by the time they looked. Copy it somewhere that survives and
+# report THAT path. Echoes the surviving path, or nothing.
+preserve_stream() {
+  [ -s "$HTTP_OUT" ] || return 0
+  _keep="${RAW_FILE}.stream"
+  cp "$HTTP_OUT" "$_keep" 2>/dev/null && printf '%s' "$_keep"
+}
+
 # --- run (retry ONCE on transport-class failure, then loud exit 4) -----------
 if [ "$BACKEND" = "openrouter" ]; then
   build_openrouter_body || exit 4
@@ -543,7 +553,7 @@ while :; do
     # the whole input and is likely to expire the same way.
     err "backend call failed: $BACKEND_ARG timed out after ${TIMEOUT}s (process group killed)"
     [ -s "$RAW_FILE" ] && err "partial raw output preserved at $RAW_FILE"
-    [ -s "$HTTP_OUT" ] && err "partial stream preserved at $HTTP_OUT"
+    kept="$(preserve_stream)"; [ -n "$kept" ] && err "partial stream preserved at $kept"
     exit 4
   fi
   if [ $rc -eq 125 ]; then
@@ -551,7 +561,7 @@ while :; do
     # was open but produced no assistant content for the idle window, which is a
     # stalled provider rather than a slow one.
     err "backend call failed: $BACKEND_ARG produced no content for ${IDLE_TIMEOUT}s (stalled; process group killed after ${wd_waited:-?}s)"
-    [ -s "$HTTP_OUT" ] && err "partial stream preserved at $HTTP_OUT"
+    kept="$(preserve_stream)"; [ -n "$kept" ] && err "partial stream preserved at $kept"
     exit 4
   fi
   if [ "$attempt" -eq 1 ] && transport_failure "$rc"; then

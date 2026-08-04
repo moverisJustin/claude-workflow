@@ -86,8 +86,8 @@ Create `.claude/task-context.md`:
 ## Checkpoints
 - [ ] clarify: [the questions actually asked, or the six axes swept + what each returned]
 - [ ] wildcard: [the actual suggestion, and why it was folded in or dropped]
-- [ ] plan-review: [backends + verdict, or `- [~] waived: below complexity bar`]
-- [ ] cross-review: [backends + verdict, or `- [~] waived: <reason>`]
+- [ ] plan-review: [backends + verdict]   # waive as: - [~] plan-review: waived — below complexity bar
+- [ ] cross-review: [backends + verdict]  # waive as: - [~] cross-review: waived — <reason>
 
 ## Plan
 - [ ] [To be defined]

@@ -326,6 +326,19 @@ printf '# Task\n## Checkpoints\n- [x] cross-review: codex+kimi, 0 confirmed\n\n#
 OUT=$(pub_out "git push origin HEAD")
 [ -z "$OUT" ] && ok "silent once cross-review is done" || bad "completed cross-review still gated ($OUT)"
 
+# Force pushes are destructive AND a publication. They classify as GIT (the more
+# serious category), which used to mean they never reached the publish check —
+# so `git push --force` slipped past the cross-review gate that plain `git push`
+# was stopped by. The bypass was exactly one flag wide.
+printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n' > "$PUBREPO/.claude/task-context.md"
+for c in "git push --force origin HEAD" "git push --force-with-lease origin HEAD"; do
+  OUT=$(pub_out "$c")
+  if printf '%s' "$OUT" | grep -q 'cross-review'; then ok "gated: $c"; else bad "force variant bypassed the cross-review gate: $c"; fi
+done
+printf '# Task\n## Checkpoints\n- [x] cross-review: done\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push --force origin HEAD")
+if printf '%s' "$OUT" | grep -q 'cross-review'; then bad "force push gated after cross-review resolved"; else ok "force push silent once cross-review resolved"; fi
+
 # Pushing must not litter the repo with recovery tags: nothing local is at risk.
 printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n' > "$PUBREPO/.claude/task-context.md"
 PT1=$(git -C "$PUBREPO" tag -l 'auto-checkpoint/*' | wc -l | tr -d ' ')
@@ -380,7 +393,7 @@ OUT="$(printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"; pg_run
 if printf '%s' "$OUT" | grep -q '"allow"'; then bad "gate emitted allow (would SKIP plan approval)"; else ok "never emits allow"; fi
 
 { pg_skill clarify 1; pg_skill anythingelse 2; } > "$PGT"
-printf -- '- [~] waived: below complexity bar\n' >> "$PG/.claude/task-context.md"
+printf '\n## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' >> "$PG/.claude/task-context.md"
 D="$(pg_run | pg_decision)"; pg_reset
 [ "$D" = "none" ] && ok "silent when checkpoints ran and plan-review waived" || bad "satisfied case gave '$D' (want none)"
 
@@ -398,6 +411,55 @@ D="$(pg_run | pg_decision)"; pg_reset
 printf '{"type":"user","message":{"content":[{"type":"text","text":"<command-name>/clarify</command-name>"}]}}\n{"type":"user","message":{"content":[{"type":"text","text":"<command-name>/anythingelse</command-name>"}]}}\n' > "$PGT"
 D="$(pg_run | pg_decision)"; pg_reset
 [ "$D" = "none" ] && ok "user-typed slash commands satisfy the gate" || bad "user-typed commands gave '$D' (want none)"
+
+# plan-review is ADVISORY: it is surfaced but never denies on its own. Recording
+# its waiver means editing task-context.md, which plan mode hard-denies — a
+# blocking check would have been unsatisfiable for a genuinely below-bar plan
+# except by burning the escape hatch.
+{ pg_skill clarify 1; pg_skill anythingelse 2; } > "$PGT"
+printf '## Checkpoints\n- [ ] plan-review: never ran\n' > "$PG/.claude/task-context.md"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "missing plan-review alone does NOT deny (advisory)" || bad "plan-review denied on its own ('$D')"
+
+# Waiver SCOPING still decides whether plan-review is credited — it just shows up
+# as advisory text rather than a denial. Regression: the first version searched
+# the WHOLE charter for any `- [~] waived:`, so a waived Acceptance item credited
+# plan-review. Both foreign reviewers flagged it independently; reproduced first.
+{ pg_skill anythingelse 2; } > "$PGT"   # clarify missing -> denial, so we can read the text
+
+printf '## Acceptance\n- [~] waived: an unrelated acceptance item\n\n## Checkpoints\n- [ ] plan-review: never ran\n' > "$PG/.claude/task-context.md"
+OUT="$(pg_run)"; pg_reset
+if printf '%s' "$OUT" | grep -q 'plan-review'; then ok "waiver OUTSIDE ## Checkpoints does not credit plan-review"; else bad "unrelated waiver credited plan-review"; fi
+
+printf '## Checkpoints\n- [~] cross-review: waived — solo repo\n- [ ] plan-review: never ran\n' > "$PG/.claude/task-context.md"
+OUT="$(pg_run)"; pg_reset
+if printf '%s' "$OUT" | grep -q 'plan-review'; then ok "waiver of a DIFFERENT checkpoint does not credit plan-review"; else bad "cross-review waiver credited plan-review"; fi
+
+printf '## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' > "$PG/.claude/task-context.md"
+OUT="$(pg_run)"; pg_reset
+if printf '%s' "$OUT" | grep -q 'plan-review'; then bad "valid plan-review waiver was ignored"; else ok "correctly-scoped plan-review waiver is credited"; fi
+
+# A launched-but-never-returned Skill is NOT a completed checkpoint.
+printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","id":"z1","input":{"skill":"clarify"}}]}}\n{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","id":"z2","input":{"skill":"anythingelse"}}]}}\n' > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "in-flight Skill (no tool_result) does not satisfy the gate" || bad "unreturned Skill counted as completed ('$D')"
+
+# Escape-hatch state must not leak between sessions.
+printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"
+pg_reset
+pg_run >/dev/null; pg_run >/dev/null; pg_run >/dev/null   # exhaust for session "test"
+D="$(D="$PG" T="$PGT" python3 -c '
+import json, os
+print(json.dumps({"session_id": "a-different-session", "hook_event_name": "PreToolUse",
+                  "tool_name": "ExitPlanMode", "cwd": os.environ["D"],
+                  "transcript_path": os.environ["T"], "tool_input": {"plan": "x"}}))' \
+  | bash "$PGATE" 2>/dev/null | pg_decision)"
+[ "$D" = "deny" ] && ok "denial counter is per-session (fresh session still gates)" || bad "counter leaked across sessions ('$D')"
+pg_reset
+
+# Restore a satisfied charter for the tests that follow.
+{ pg_skill clarify 1; pg_skill anythingelse 2; } > "$PGT"
+printf '# charter\n## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' > "$PG/.claude/task-context.md"
 
 # Evidence is scoped to the plan EPISODE: checkpoints before a previous
 # ExitPlanMode belong to that episode, not this one.
