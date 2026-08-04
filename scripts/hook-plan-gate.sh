@@ -27,6 +27,8 @@
 
 set -u
 
+# Denials before the gate stands down. Override per-project or per-shell with
+# GATE_MAX_DENIALS=<n>; documented in the README hooks table.
 GATE_MAX_DENIALS="${GATE_MAX_DENIALS:-3}"
 
 # Fail-open helper: emit nothing, exit 0.
@@ -76,9 +78,14 @@ if [ -z "$PROTECTED" ]; then
   PROTECTED="$(git -C "$PROJECT_DIR" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
   [ -n "$PROTECTED" ] || PROTECTED="main master develop"
 fi
-for p in $PROTECTED; do
-  [ "$BRANCH" = "$p" ] && allow_through
+# Newline-separated + quoted: an unquoted `for p in $PROTECTED` word-splits a
+# branch name containing whitespace and GLOB-EXPANDS one containing `*`
+# (e.g. a `release/*` entry), silently failing the comparison.
+printf '%s\n' "$PROTECTED" | tr ' ' '\n' | while IFS= read -r p; do
+  [ -n "$p" ] || continue
+  [ "$BRANCH" = "$p" ] && exit 17
 done
+[ $? -eq 17 ] && allow_through
 
 # --- escape hatch: disarm after N denials ------------------------------------
 # Mirrors hook-stop-verify.sh's MAX_ATTEMPTS. A gate nobody can satisfy is worse
@@ -148,14 +155,32 @@ for ln in lines:
 # train the disarm hatch into the normal path. The window is everything since
 # the previous ExitPlanMode; this hook fires BEFORE the current call is
 # recorded, so the last one present belongs to the previous episode.
-start = 0
+# CRITICAL: anchor on the last SUCCESSFUL ExitPlanMode, not merely the last one
+# recorded. A DENIED ExitPlanMode is itself written to the transcript, so
+# anchoring on any occurrence made every denial reset the window and discard the
+# checkpoints already earned: deny naming /anythingelse -> user runs it -> window
+# now starts after the denial and contains only /anythingelse -> deny naming
+# /clarify. A treadmill that can only be escaped by burning the disarm hatch.
+# A denial comes back as a tool_result with is_error, so success == an
+# ExitPlanMode tool_use whose result is not an error (or has no result yet).
+epm_ids = {}          # index -> tool_use id
+epm_errors = set()
 for i, rec in enumerate(records):
     content = (rec.get("message") or {}).get("content")
     if not isinstance(content, list):
         continue
     for b in content:
-        if isinstance(b, dict) and b.get("type") == "tool_use" and b.get("name") == "ExitPlanMode":
-            start = i + 1
+        if not isinstance(b, dict):
+            continue
+        if b.get("type") == "tool_use" and b.get("name") == "ExitPlanMode":
+            epm_ids[i] = b.get("id")
+        elif b.get("type") == "tool_result" and b.get("is_error"):
+            epm_errors.add(b.get("tool_use_id"))
+
+start = 0
+for i in sorted(epm_ids):
+    if epm_ids[i] not in epm_errors:      # this approval actually went through
+        start = i + 1
 
 window = records[start:]
 
@@ -234,17 +259,32 @@ if not satisfied(CONDITIONAL):
 
 # Only REQUIRED steps gate. Advisory steps ride along in the message so they are
 # visible, but never on their own cause a denial.
-print(" ".join(missing) + ("\t" + " ".join(advisory) if advisory else ""))
+# Explicit sentinel, never whitespace: an invisible TAB delimiter breaks
+# silently if anything ever normalizes tabs to spaces, and the failure mode is
+# an advisory-only gap starting to DENY.
+parts = " ".join(missing)
+if advisory:
+    # No leading separator when nothing is required-missing: the shell splits on
+    # the sentinel, and a lone space would read as a non-empty required list.
+    parts = (parts + " " if parts else "") + "ADVISORY: " + " ".join(advisory)
+print(parts)
 ' 2>/dev/null)" || allow_through
 
-REQUIRED_MISSING="${MISSING%%	*}"
-case "$MISSING" in *"	"*) ADVISORY_MISSING="${MISSING#*	}" ;; *) ADVISORY_MISSING="" ;; esac
+REQUIRED_MISSING="${MISSING%%ADVISORY:*}"
+case "$MISSING" in
+  *ADVISORY:*) ADVISORY_MISSING="${MISSING#*ADVISORY:}" ;;
+  *)           ADVISORY_MISSING="" ;;
+esac
 
 # Advisory-only gaps never deny.
 [ -n "$REQUIRED_MISSING" ] || { rm -f "$COUNTER" 2>/dev/null || true; allow_through; }
 
 # --- deny --------------------------------------------------------------------
 mkdir -p "$AUDIT_DIR" 2>/dev/null || true
+# Self-gitignoring, same as hook-destructive-guard.sh:213. Without it the
+# counter is an untracked file in any repo that does not already ignore
+# .claude/audit/, and `git add -A` sweeps session ids into a commit.
+[ -f "$AUDIT_DIR/.gitignore" ] || echo '*' > "$AUDIT_DIR/.gitignore" 2>/dev/null || true
 echo "$SESSION_ID:$((DENIALS + 1))" > "$COUNTER" 2>/dev/null || true
 
 REMAINING=$((GATE_MAX_DENIALS - DENIALS - 1))

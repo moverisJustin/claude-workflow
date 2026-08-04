@@ -128,7 +128,7 @@ emit_file() {
 
 # --- Task charter (evaluation frame) — always the FIRST body section ---------
 # Extract the charter headings (## Objective / ## Non-goals / ## Acceptance /
-# ## Assumptions / ## Checkpoints) plus the `- **BSpec**:` line from ## Loops. Fence-aware: a
+# ## Assumptions) plus the `- **BSpec**:` line from ## Loops. Fence-aware: a
 # heading line
 # inside a ``` code block is not a heading. Emitted only when at least one
 # real charter heading exists — otherwise the pack is exactly the legacy pack.
@@ -136,7 +136,7 @@ if [ -f "$TASKCTX" ] && [ -s "$TASKCTX" ]; then
   charter="$(awk '
     /^```/  { if (insec) buf = buf $0 "\n"; fence = !fence; next }
     fence   { if (insec) buf = buf $0 "\n"; next }
-    /^## (Objective|Non-goals|Acceptance|Assumptions|Checkpoints)[[:space:]]*$/ {
+    /^## (Objective|Non-goals|Acceptance|Assumptions)[[:space:]]*$/ {
               buf = buf $0 "\n"; insec = 1; inloops = 0; seen = 1; next }
     /^## Loops([[:space:]]|$)/ { insec = 0; inloops = 1; next }
     /^## /  { insec = 0; inloops = 0; next }

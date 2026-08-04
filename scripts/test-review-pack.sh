@@ -313,8 +313,12 @@ printf 'PEM_FIXTURE_CONTENT\n'    > "$EXREPO/certs/tls.pem"
 printf 'NESTED_SECRET_CONTENT\n'  > "$EXREPO/secrets/token.txt"
 git -C "$EXREPO" add -A && git -C "$EXREPO" commit -qm feat
 
+# review-backends.json's exclude array is applied automatically now, so `.env*`
+# is filtered with no flag at all — that is the point of the config being live.
+# Use a path no shipped glob covers to prove flag-less inclusion still works.
 out="$(bash "$SUT" main --root "$EXREPO" 2>/dev/null)"
-assert_contains     "no --exclude: secret-shaped files ARE included" "$out" "SECRET_FIXTURE_CONTENT"
+assert_contains     "no --exclude: non-matching files still included" "$out" "KEEPME_CONTENT"
+assert_not_contains "config excludes apply with no flag"              "$out" "SECRET_FIXTURE_CONTENT"
 
 out="$(bash "$SUT" main --root "$EXREPO" \
         --exclude '.env*' --exclude '**/*.pem' --exclude '**/secrets/**' 2>/dev/null)"
@@ -324,10 +328,35 @@ assert_not_contains "'**/*.pem' excluded"             "$out" "PEM_FIXTURE_CONTEN
 assert_not_contains "'**/secrets/**' excluded"        "$out" "NESTED_SECRET_CONTENT"
 
 err="$(bash "$SUT" main --root "$EXREPO" --exclude '.env*' 2>&1 >/dev/null)"
-assert_contains     "exclusion is announced, not silent" "$err" "excluded 1 file"
+assert_contains     "exclusion is announced, not silent" "$err" "excluded"
 
 bash "$SUT" main --root "$EXREPO" --exclude >/dev/null 2>&1
 assert_eq           "--exclude with no GLOB exits 2"  2 "$?"
+
+# The pack must DECLARE what it withheld. A reviewer that cannot see the
+# exclusion reports the withheld file as missing coverage — this produced false
+# "no tests anywhere in the pack" findings in two consecutive real reviews.
+out="$(bash "$SUT" main --root "$EXREPO" --exclude '.env*' 2>/dev/null)"
+assert_contains     "pack declares the exclusion"        "$out" "EXCLUDED:"
+assert_contains     "declaration names the file"         "$out" ".env.local"
+assert_contains     "declaration warns against false gaps" "$out" "NOT"
+# Config-sourced exclusions are declared too — the reviewer's blindness is the
+# same whether the glob came from a flag or from review-backends.json.
+out="$(bash "$SUT" main --root "$EXREPO" 2>/dev/null)"
+assert_contains     "config-sourced exclusions are declared too" "$out" "EXCLUDED:"
+
+# Config precedence: a PROJECT review-backends.json wins over the shipped one.
+mkdir -p "$EXREPO/.claude"
+printf '{"version":1,"exclude":["keep.txt"]}' > "$EXREPO/.claude/review-backends.json"
+out="$(bash "$SUT" main --root "$EXREPO" 2>/dev/null)"
+assert_not_contains "project config excludes are applied"  "$out" "KEEPME_CONTENT"
+assert_contains     "project config REPLACES shipped globs" "$out" "SECRET_FIXTURE_CONTENT"
+rm -f "$EXREPO/.claude/review-backends.json"
+
+# An all-excluded diff must announce itself. Reading as "no changed files" would
+# tell a reviewer the branch is empty.
+err="$(bash "$SUT" main --root "$EXREPO" --exclude '*' 2>&1 >/dev/null)"
+assert_contains "all-excluded diff is loud, not silently empty" "$err" "NO diff content"
 
 # --- summary ----------------------------------------------------------------
 echo

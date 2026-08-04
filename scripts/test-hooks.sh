@@ -318,13 +318,20 @@ if printf '%s' "$OUT" | grep -q '"ask"'; then ok "asks on push with open cross-r
 OUT=$(pub_out "gh pr create --fill")
 if printf '%s' "$OUT" | grep -q '"ask"'; then ok "asks on gh pr create with open cross-review"; else bad "open cross-review did not gate gh pr create"; fi
 
-printf '# Task\n## Checkpoints\n- [~] waived: solo repo, no second reviewer\n\n## Loops\n' > "$PUBREPO/.claude/task-context.md"
+printf '# Task\n## Checkpoints\n- [~] cross-review: waived — solo repo, no second reviewer\n\n## Loops\n' > "$PUBREPO/.claude/task-context.md"
 OUT=$(pub_out "git push origin HEAD")
 [ -z "$OUT" ] && ok "silent once cross-review is waived" || bad "waived cross-review still gated ($OUT)"
 
 printf '# Task\n## Checkpoints\n- [x] cross-review: codex+kimi, 0 confirmed\n\n## Loops\n' > "$PUBREPO/.claude/task-context.md"
 OUT=$(pub_out "git push origin HEAD")
 [ -z "$OUT" ] && ok "silent once cross-review is done" || bad "completed cross-review still gated ($OUT)"
+
+# A ## Checkpoints section that exists but carries NO cross-review entry must
+# count as OPEN. Treating absence as satisfied made deleting one line — the
+# easiest possible edit — a silent bypass of the entire publish gate.
+printf '# Task\n## Checkpoints\n- [x] clarify: asked 3\n- [x] wildcard: folded in\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push origin HEAD")
+if printf '%s' "$OUT" | grep -q 'cross-review'; then ok "deleted cross-review line still gates (no silent bypass)"; else bad "deleting the cross-review line bypassed the gate"; fi
 
 # Force pushes are destructive AND a publication. They classify as GIT (the more
 # serious category), which used to mean they never reached the publish check —
@@ -338,6 +345,19 @@ done
 printf '# Task\n## Checkpoints\n- [x] cross-review: done\n' > "$PUBREPO/.claude/task-context.md"
 OUT=$(pub_out "git push --force origin HEAD")
 if printf '%s' "$OUT" | grep -q 'cross-review'; then bad "force push gated after cross-review resolved"; else ok "force push silent once cross-review resolved"; fi
+
+# A force push is destructive AND a publication. Two emitters printed two
+# concatenated JSON objects — malformed output the CLI cannot parse, which
+# fails open and silently disables BOTH guards in the most dangerous case.
+# Exactly one decision must be emitted, carrying both reasons.
+printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push --force origin HEAD")
+if printf '%s' "$OUT" | python3 -c 'import json,sys; json.loads(sys.stdin.read().strip()); print("ok")' >/dev/null 2>&1; then
+  ok "force push emits ONE parseable decision"
+else
+  bad "force push emitted malformed/multiple hook decisions"
+fi
+if printf '%s' "$OUT" | grep -q 'cross-review'; then ok "combined reason keeps the publish gate"; else bad "publish reason lost when merged"; fi
 
 # Pushing must not litter the repo with recovery tags: nothing local is at risk.
 printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n' > "$PUBREPO/.claude/task-context.md"
@@ -355,6 +375,13 @@ echo "--- hook-plan-gate.sh ---"
 PGATE="$SCRIPT_DIR/hook-plan-gate.sh"
 PG="$(mktemp -d "${TMPDIR:-/tmp}/plangate.XXXXXX")"
 git -C "$PG" init -q . 2>/dev/null
+# An initial commit is REQUIRED: in a repo with no commits every branch is
+# unborn, so `git checkout <existing-branch>` fails and the fixture silently
+# stays on whichever branch was created last. That made every test after the
+# protected-branch case run on `main`, where the gate always allows — masking
+# any real failure in them.
+git -C "$PG" -c user.email=t@t -c user.name=t -c commit.gpgsign=false \
+  commit --allow-empty -qm init 2>/dev/null
 git -C "$PG" checkout -qb feature/gate 2>/dev/null
 mkdir -p "$PG/.claude/audit"
 printf '# charter\n' > "$PG/.claude/task-context.md"
@@ -444,6 +471,31 @@ printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Ski
 D="$(pg_run | pg_decision)"; pg_reset
 [ "$D" = "deny" ] && ok "in-flight Skill (no tool_result) does not satisfy the gate" || bad "unreturned Skill counted as completed ('$D')"
 
+# THE treadmill regression. A DENIED ExitPlanMode is recorded in the transcript,
+# so anchoring the episode window on any occurrence made every denial discard the
+# checkpoints already earned: deny -> user runs the missing one -> the window now
+# starts after the denial and the OTHER checkpoint reads as missing. Unsatisfiable
+# except by burning the disarm hatch.
+pg_epm() { # <id> <is_error>
+  printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"ExitPlanMode","id":"e%s"}]}}\n{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"e%s","is_error":%s}]}}\n' "$1" "$1" "$2"
+}
+printf '## Checkpoints\n- [~] plan-review: waived\n' > "$PG/.claude/task-context.md"
+
+{ pg_skill clarify t1; pg_epm 1 true; pg_skill anythingelse t2; } > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "a denial does not discard already-earned checkpoints" || bad "treadmill: denial reset the episode window ('$D')"
+
+{ pg_skill clarify t1; pg_skill anythingelse t2; pg_epm 1 false; } > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "a SUCCESSFUL approval does start a new episode" || bad "successful approval did not close the episode ('$D')"
+
+# Advisory-only gaps must never deny — regression on the required/advisory split.
+{ pg_skill clarify t1; pg_skill anythingelse t2; } > "$PGT"
+printf '## Checkpoints\n- [ ] plan-review: never ran\n' > "$PG/.claude/task-context.md"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "advisory-only gap does not deny (no stray separator)" || bad "advisory-only gap denied ('$D')"
+printf '# charter\n## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' > "$PG/.claude/task-context.md"
+
 # Escape-hatch state must not leak between sessions.
 printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"
 pg_reset
@@ -486,6 +538,19 @@ git -C "$PG" checkout -qb main 2>/dev/null || git -C "$PG" checkout -q main 2>/d
 D="$(pg_run | pg_decision)"; pg_reset
 [ "$D" = "none" ] && ok "silent on a protected branch" || bad "gated on main ('$D')"
 git -C "$PG" checkout -q feature/gate 2>/dev/null
+
+# protected_branches from project-config.json (the gitflow SET case). Tests
+# previously only exercised the local-refs fallback, so the config path — the
+# one that actually runs in a configured repo — was unverified.
+printf '{"base_branch":"main","protected_branches":["main","develop"]}' > "$PG/.claude/project-config.json"
+{ pg_skill clarify g1; } > "$PGT"
+git -C "$PG" checkout -qb develop 2>/dev/null
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "silent on 'develop' from protected_branches config" || bad "gated on a configured protected branch ('$D')"
+git -C "$PG" checkout -q feature/gate 2>/dev/null
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "still gates on a feature branch with that config" || bad "config made every branch protected ('$D')"
+rm -f "$PG/.claude/project-config.json"
 
 D="$(printf 'not json at all' | bash "$PGATE" 2>/dev/null | pg_decision)"
 [ "$D" = "none" ] && ok "fails open on garbage stdin" || bad "garbage stdin produced '$D' (must fail open)"
