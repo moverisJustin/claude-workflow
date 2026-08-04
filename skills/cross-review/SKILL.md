@@ -200,14 +200,29 @@ never fabricate" rule holds.
 Build one review pack (memory charter-first + resolved spec + changed files
 within each backend's byte budget, diff hunks for the rest):
 
+The base branch is POSITIONAL (this doc said `--base` for a while; the script
+never accepted it, so every documented invocation failed usage). Pass the
+config's `exclude` globs through as repeated `--exclude` flags — they are what
+keeps sensitive paths out of the pack:
+
 ```bash
-bash .claude/scripts/review-pack.sh --base <base-branch> --out <scratch>/pack.md \
-  || bash ~/.claude/scripts/review-pack.sh --base <base-branch> --out <scratch>/pack.md
+bash .claude/scripts/review-pack.sh <base-branch> \
+  --exclude '.env*' --exclude '**/*.pem' --exclude '**/secrets/**' \
+  --out <scratch>/pack.md \
+  || bash ~/.claude/scripts/review-pack.sh <base-branch> \
+       --exclude '.env*' --exclude '**/*.pem' --exclude '**/secrets/**' \
+       --out <scratch>/pack.md
 ```
 
-Pass the config's `exclude` globs through so sensitive paths never enter the
-pack. Surface the pack's `SPEC:` line and any `TRUNCATED:` notes now — both
-must reappear in the report footer.
+**Exclusion is not the same as the secret scrub, and you want both.** The scrub
+in `foreign-review.sh` is a HARD STOP: one secret-shaped string anywhere in the
+pack aborts the entire review (exit 6). Excluding a path trims the pack instead.
+Any repo containing scrub *fixtures* — this one does, in
+`scripts/test-foreign-review.sh` — is otherwise un-reviewable by its own tool.
+Exclude such files and record the coverage gap in the footer.
+
+Surface the pack's `SPEC:` line and any `TRUNCATED:` notes now — both must
+reappear in the report footer.
 
 Then launch every AVAILABLE backend **in parallel** (background Bash), one
 `foreign-review.sh` call per backend, each with the shared schema and its

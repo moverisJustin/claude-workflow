@@ -293,6 +293,42 @@ echo "arg validation"
 "$SUT" main extra-positional >/dev/null 2>&1; assert_eq "extra positional exits 2" 2 "$?"
 "$SUT" --help                >/dev/null 2>&1; assert_eq "--help exits 0"           0 "$?"
 
+# --- --exclude ---------------------------------------------------------------
+# Exclusion exists so a secret-bearing or fixture file can be kept OUT of a
+# third-party pack. Without it the only backstop is foreign-review.sh's secret
+# scrub, which is a hard stop: one secret-shaped fixture makes the whole review
+# impossible rather than trimming the pack. This repo hit exactly that.
+echo "--exclude"
+EXREPO="$WORK/exrepo"
+git init -q "$EXREPO"
+git -C "$EXREPO" config user.email t@t.t
+git -C "$EXREPO" config user.name t
+printf 'baseline\n' > "$EXREPO/base.txt"
+git -C "$EXREPO" add -A && git -C "$EXREPO" commit -qm base
+git -C "$EXREPO" checkout -qb feat
+mkdir -p "$EXREPO/secrets" "$EXREPO/certs"
+printf 'KEEPME_CONTENT\n'         > "$EXREPO/keep.txt"
+printf 'SECRET_FIXTURE_CONTENT\n' > "$EXREPO/.env.local"
+printf 'PEM_FIXTURE_CONTENT\n'    > "$EXREPO/certs/tls.pem"
+printf 'NESTED_SECRET_CONTENT\n'  > "$EXREPO/secrets/token.txt"
+git -C "$EXREPO" add -A && git -C "$EXREPO" commit -qm feat
+
+out="$(bash "$SUT" main --root "$EXREPO" 2>/dev/null)"
+assert_contains     "no --exclude: secret-shaped files ARE included" "$out" "SECRET_FIXTURE_CONTENT"
+
+out="$(bash "$SUT" main --root "$EXREPO" \
+        --exclude '.env*' --exclude '**/*.pem' --exclude '**/secrets/**' 2>/dev/null)"
+assert_contains     "kept file survives exclusion"    "$out" "KEEPME_CONTENT"
+assert_not_contains "'.env*' excluded at repo root"   "$out" "SECRET_FIXTURE_CONTENT"
+assert_not_contains "'**/*.pem' excluded"             "$out" "PEM_FIXTURE_CONTENT"
+assert_not_contains "'**/secrets/**' excluded"        "$out" "NESTED_SECRET_CONTENT"
+
+err="$(bash "$SUT" main --root "$EXREPO" --exclude '.env*' 2>&1 >/dev/null)"
+assert_contains     "exclusion is announced, not silent" "$err" "excluded 1 file"
+
+bash "$SUT" main --root "$EXREPO" --exclude >/dev/null 2>&1
+assert_eq           "--exclude with no GLOB exits 2"  2 "$?"
+
 # --- summary ----------------------------------------------------------------
 echo
 echo "review-pack: $PASS passed, $FAIL failed"
