@@ -122,7 +122,7 @@ PROMPT_FILE=""
 TIMEOUT=600
 IDLE_TIMEOUT=60
 IDLE_EXPLICIT=0
-MAX_TOKENS=8000
+MAX_TOKENS=0   # 0 = derive from the schema (see below)
 PROBE=0
 QUIET=0
 
@@ -240,8 +240,21 @@ case "$IDLE_TIMEOUT" in
 esac
 case "$MAX_TOKENS" in
   ''|*[!0-9]*) err "--max-tokens must be a positive integer (got '$MAX_TOKENS')"; exit 2 ;;
-  0)           err "--max-tokens must be a positive integer (got '0')"; exit 2 ;;
 esac
+if [ "$MAX_TOKENS" -eq 0 ] && [ -n "$SCHEMA" ] && [ -f "$SCHEMA" ]; then
+  # Derive the cap from what the schema actually permits. A flat default is a
+  # trap: cross-review allows maxItems:25 rich findings, so a fixed 8000 turns
+  # the most productive reviews into finish_reason:length hard failures — losing
+  # a review that would previously have completed.
+  MAX_TOKENS="$(python3 -c '
+import json,sys
+try: d=json.load(open(sys.argv[1]))
+except Exception: print(16000); sys.exit(0)
+n=(((d.get("properties") or {}).get("findings") or {}).get("maxItems")) or 12
+print(max(4000, min(64000, int(n) * 900 + 2000)))
+' "$SCHEMA" 2>/dev/null)"
+  case "$MAX_TOKENS" in ''|*[!0-9]*) MAX_TOKENS=16000 ;; esac
+fi
 # Idle abort is openrouter-only and is only meaningful strictly inside the wall
 # clock. An EXPLICIT --idle-timeout that can never fire is a usage error; the
 # DEFAULT silently clamps, so a short --timeout stays legal (codex tests use
@@ -343,6 +356,9 @@ cleanup() {
     kill -KILL -- "-$CURRENT_CHILD" 2>/dev/null
   fi
   rm -f "$SEND_FILE" "$BODY_FILE" "$LOG_FILE" "$HTTP_OUT" "$HTTP_CODE_FILE"
+  # The .stream copy is only worth keeping next to a real --out; without one,
+  # RAW_FILE is a temp path and the copy would be orphaned in TMPDIR forever.
+  [ -n "${OUT_FILE:-}" ] || rm -f "${RAW_FILE:-}.stream" 2>/dev/null || true
   if [ -n "${RAW_FILE:-}" ] && [ -f "$RAW_FILE" ] && [ ! -s "$RAW_FILE" ]; then
     rm -f "$RAW_FILE"
   fi
@@ -454,11 +470,27 @@ run_openrouter_watchdog() {
   run_openrouter &
   CURRENT_CHILD=$!
   set +m
-  wd_waited=0; wd_idle=0; wd_last_len=0
+  wd_waited=0; wd_idle=0; wd_last_len=0; wd_seen=0
   while kill -0 "$CURRENT_CHILD" 2>/dev/null; do
     sleep 1
     wd_waited=$((wd_waited + 1))
-    wd_len="$(sse_content "$HTTP_OUT" | wc -c | tr -d ' ')"
+    # Incremental: only the lines appended since the last tick are parsed.
+    # Re-parsing the whole stream every second is quadratic in the length of the
+    # generation and spawns two processes per tick, competing for CPU with the
+    # very request it is monitoring.
+    wd_total="$(wc -l < "$HTTP_OUT" 2>/dev/null | tr -d ' ')"
+    case "$wd_total" in ''|*[!0-9]*) wd_total=0 ;; esac
+    if [ "$wd_total" -gt "$wd_seen" ]; then
+      wd_new="$(sed -n "$((wd_seen + 1)),${wd_total}p" "$HTTP_OUT" 2>/dev/null \
+                | sed -n 's/^data: //p' \
+                | jq -j -R 'select(. != "[DONE]") | fromjson? | .choices[0].delta.content // empty' 2>/dev/null \
+                | wc -c | tr -d ' ')"
+      case "$wd_new" in ''|*[!0-9]*) wd_new=0 ;; esac
+      wd_seen="$wd_total"
+      wd_len=$((wd_last_len + wd_new))
+    else
+      wd_len="$wd_last_len"
+    fi
     case "$wd_len" in ''|*[!0-9]*) wd_len="$wd_last_len" ;; esac
     if [ "$wd_len" -gt "$wd_last_len" ]; then
       wd_last_len="$wd_len"; wd_idle=0
@@ -542,6 +574,10 @@ attempt=1
 while :; do
   : > "$RAW_FILE"
   : > "$LOG_FILE"
+  # Also the stream file: on a retry the content-idle watchdog would otherwise
+  # measure the PREVIOUS attempt's leftover frames as a high-water mark and
+  # count a genuinely progressing retry as stalled.
+  : > "$HTTP_OUT"
   case "$BACKEND" in
     codex)      run_with_watchdog run_codex ;;
     openrouter) run_openrouter_watchdog ;;

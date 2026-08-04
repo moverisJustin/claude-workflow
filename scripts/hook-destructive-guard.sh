@@ -245,7 +245,13 @@ except Exception: sys.exit(0)
 sec = re.search(r"^## Checkpoints[ \t]*$(.*?)(?=^## |\Z)", t, re.M | re.S)
 if not sec:
     sys.exit(0)                       # legacy charter: vacuous pass
-if re.search(r"^\s*-\s*\[ \]\s*cross-review\b", sec.group(1), re.M):
+body = sec.group(1)
+# A section that exists but carries NO cross-review entry counts as OPEN, not as
+# satisfied. Deleting the line is the single easiest edit, and treating absence
+# as a pass made deletion a silent bypass of the whole gate.
+if not re.search(r"^\s*-\s*\[[ x~]\]\s*cross-review\b", body, re.M):
+    print("open")
+elif re.search(r"^\s*-\s*\[ \]\s*cross-review\b", body, re.M):
     print("open")
 ' "$PUB_CTX" 2>/dev/null)"
   if [ "$PUB_OPEN" = "open" ]; then

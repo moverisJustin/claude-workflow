@@ -313,8 +313,12 @@ printf 'PEM_FIXTURE_CONTENT\n'    > "$EXREPO/certs/tls.pem"
 printf 'NESTED_SECRET_CONTENT\n'  > "$EXREPO/secrets/token.txt"
 git -C "$EXREPO" add -A && git -C "$EXREPO" commit -qm feat
 
+# review-backends.json's exclude array is applied automatically now, so `.env*`
+# is filtered with no flag at all — that is the point of the config being live.
+# Use a path no shipped glob covers to prove flag-less inclusion still works.
 out="$(bash "$SUT" main --root "$EXREPO" 2>/dev/null)"
-assert_contains     "no --exclude: secret-shaped files ARE included" "$out" "SECRET_FIXTURE_CONTENT"
+assert_contains     "no --exclude: non-matching files still included" "$out" "KEEPME_CONTENT"
+assert_not_contains "config excludes apply with no flag"              "$out" "SECRET_FIXTURE_CONTENT"
 
 out="$(bash "$SUT" main --root "$EXREPO" \
         --exclude '.env*' --exclude '**/*.pem' --exclude '**/secrets/**' 2>/dev/null)"
@@ -324,7 +328,7 @@ assert_not_contains "'**/*.pem' excluded"             "$out" "PEM_FIXTURE_CONTEN
 assert_not_contains "'**/secrets/**' excluded"        "$out" "NESTED_SECRET_CONTENT"
 
 err="$(bash "$SUT" main --root "$EXREPO" --exclude '.env*' 2>&1 >/dev/null)"
-assert_contains     "exclusion is announced, not silent" "$err" "excluded 1 file"
+assert_contains     "exclusion is announced, not silent" "$err" "excluded"
 
 bash "$SUT" main --root "$EXREPO" --exclude >/dev/null 2>&1
 assert_eq           "--exclude with no GLOB exits 2"  2 "$?"

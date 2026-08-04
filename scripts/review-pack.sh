@@ -142,6 +142,30 @@ fi
 # the list was dead config and the secret scrub was the only backstop. A scrub is
 # a HARD STOP, not an exclusion: one matching file made the whole review
 # impossible rather than merely trimming the pack.
+# Config-sourced excludes. review-backends.json has always carried an `exclude`
+# array and nothing read it, so the protection existed only if an operator
+# retyped the same globs on the command line — the exact unenforced-instruction
+# pattern this repo keeps getting bitten by. Resolution order matches the
+# cross-review skill: project, then user, then the shipped default.
+for _cfg in "$ROOT/.claude/review-backends.json" \
+            "$HOME/.claude/review-backends.json" \
+            "$HOME/.claude/skills/cross-review/review-backends.json"; do
+  [ -f "$_cfg" ] || continue
+  _from_cfg="$(python3 -c '
+import json,sys
+try: d=json.load(open(sys.argv[1]))
+except Exception: sys.exit(0)
+for g in (d.get("exclude") or []):
+    if isinstance(g,str) and g.strip(): print(g)
+' "$_cfg" 2>/dev/null)"
+  if [ -n "$_from_cfg" ]; then
+    EXCLUDES="$EXCLUDES$_from_cfg
+"
+    note "applied $(printf '%s\n' "$_from_cfg" | grep -c .) exclude glob(s) from $_cfg"
+  fi
+  break
+done
+
 if [ -n "$EXCLUDES" ]; then
   KEPT=""
   DROPPED=0

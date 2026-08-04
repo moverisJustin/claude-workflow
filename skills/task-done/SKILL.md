@@ -136,6 +136,9 @@ conditional ones, `- [~] waived: <reason>`.
   recorded. If one genuinely did not run, that is a defect to fix, not an entry
   to erase.
 - `plan-review` and `cross-review` are complexity-gated and may be waived.
+- **`cross-review` is resolved by step 2.7, which runs AFTER this gate.** Leave it
+  open here; 2.7 owns it. Do not waive it at this point to clear the gate — that
+  waives a step that is about to run, which is how waiving becomes reflexive.
 
 **Reject a placeholder.** An entry still carrying the template's bracketed text,
 or a bare verdict like "nothing worth adding", does not close the gate — the
