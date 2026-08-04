@@ -110,7 +110,11 @@ report "cheatsheet core agents" "$CORE" "$CHEAT_CORE" "CHEATSHEET"
 TB="$REPO_DIR/skills/task-branch/SKILL.md"
 $QUIET || echo "-- Charter template guard (task-branch) --"
 if [ -f "$TB" ]; then
-  for H in "Objective" "Non-goals" "Acceptance" "Assumptions"; do
+  # Checkpoints is guarded HERE, at the template, and deliberately NOT in
+  # drift-check.sh's required-heading loop: adding it there would WARN on every
+  # task-context.md written before the section existed. New branches are born
+  # with it; old ones are backfilled opportunistically, never punished.
+  for H in "Objective" "Non-goals" "Acceptance" "Assumptions" "Checkpoints"; do
     if grep -qE "^## ${H}([[:space:]]|\$)" "$TB"; then
       $QUIET || echo "  OK    task-branch template has '## $H'"
     else

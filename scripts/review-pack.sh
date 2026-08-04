@@ -26,12 +26,18 @@
 #
 # Usage:
 #   review-pack.sh <base-branch> [--spec FILE] [--budget BYTES] [--root DIR]
-#                  [--out FILE] [--quiet]
+#                  [--exclude GLOB]... [--out FILE] [--quiet]
 #     <base-branch>   base ref to diff against (BASE...HEAD)
 #     --spec FILE     explicit spec document (skips ledger/task-context lookup)
 #     --budget BYTES  total pack byte budget (default 400000); 20% is reserved
 #                     as headroom for model output
 #     --root DIR      repo root to operate in (default: $PWD)
+#     --exclude GLOB  omit matching paths from the pack entirely (repeatable).
+#                     This is the mechanism review-backends.json's `exclude`
+#                     array feeds; without it the secret scrub in
+#                     foreign-review.sh is the only backstop, and a scrub is a
+#                     HARD STOP — one secret-shaped fixture makes the entire
+#                     review impossible instead of just trimming the pack.
 #     --out FILE      write the pack to FILE instead of stdout
 #     --quiet         suppress informational notes on stderr (errors and
 #                     truncation warnings always print)
@@ -50,7 +56,8 @@ set -u
 
 usage() {
   cat >&2 <<'EOF'
-Usage: review-pack.sh <base-branch> [--spec FILE] [--budget BYTES] [--root DIR] [--out FILE] [--quiet]
+Usage: review-pack.sh <base-branch> [--spec FILE] [--budget BYTES] [--root DIR]
+                      [--exclude GLOB]... [--out FILE] [--quiet]
   Assemble a review pack (memory context + spec + changed files + diff hunks)
   for an external PR reviewer.
     <base-branch>   base ref to diff against (BASE...HEAD)
@@ -58,6 +65,8 @@ Usage: review-pack.sh <base-branch> [--spec FILE] [--budget BYTES] [--root DIR] 
     --budget BYTES  total byte budget (default 400000; 20% output headroom reserved)
     --root DIR      repo root (default: $PWD)
     --out FILE      write the pack to FILE instead of stdout
+    --exclude GLOB  omit matching paths from the pack (repeatable); use for
+                    secret-bearing or fixture files that must never be sent
     --quiet         suppress informational notes (errors always print)
 EOF
 }
@@ -67,6 +76,7 @@ BASE=""
 SPEC_ARG=""
 BUDGET=400000
 OUT_FILE=""
+EXCLUDES=""
 QUIET=0
 
 while [ $# -gt 0 ]; do
@@ -83,6 +93,10 @@ while [ $# -gt 0 ]; do
     --out)
       [ $# -ge 2 ] || { echo "review-pack: --out needs a FILE" >&2; exit 2; }
       OUT_FILE="$2"; shift 2 ;;
+    --exclude)
+      [ $# -ge 2 ] || { echo "review-pack: --exclude needs a GLOB" >&2; exit 2; }
+      EXCLUDES="$EXCLUDES$2
+"; shift 2 ;;
     --quiet) QUIET=1; shift ;;
     -h|--help) usage; exit 0 ;;
     -*) echo "review-pack: unknown arg: $1" >&2; usage; exit 2 ;;
@@ -118,6 +132,44 @@ fi
 if ! CHANGED="$(GIT diff --no-renames --name-only "$BASE...HEAD" 2>/dev/null)"; then
   loud "cannot diff $BASE...HEAD in $ROOT (unrelated histories?) — nothing written"
   exit 0
+fi
+
+# --- exclusions ---------------------------------------------------------------
+# Drop paths matching any --exclude glob BEFORE they can reach a third party.
+# review-backends.json has shipped an `exclude` array (.env*, **/*.pem,
+# **/secrets/**) since it was written and cross-review/SKILL.md instructs callers
+# to "pass the config's exclude globs through" — but nothing consumed them, so
+# the list was dead config and the secret scrub was the only backstop. A scrub is
+# a HARD STOP, not an exclusion: one matching file made the whole review
+# impossible rather than merely trimming the pack.
+if [ -n "$EXCLUDES" ]; then
+  KEPT=""
+  DROPPED=0
+  OLDIFS="$IFS"
+  IFS='
+'
+  for f in $CHANGED; do
+    skip=0
+    for g in $EXCLUDES; do
+      # shellcheck disable=SC2254 — $g is a glob on purpose
+      case "$f" in
+        $g) skip=1; break ;;
+      esac
+      # `**/x` should also match `x` at the repo root.
+      case "$g" in
+        '**/'*) case "$f" in ${g#**/}) skip=1; break ;; esac ;;
+      esac
+    done
+    if [ "$skip" -eq 1 ]; then
+      DROPPED=$((DROPPED + 1))
+    else
+      KEPT="$KEPT$f
+"
+    fi
+  done
+  IFS="$OLDIFS"
+  CHANGED="$(printf '%s' "$KEPT")"
+  [ "$DROPPED" -gt 0 ] && loud "excluded $DROPPED file(s) from the pack per --exclude"
 fi
 
 EFFECTIVE=$((BUDGET - BUDGET / 5)) # reserve 20% headroom for model output

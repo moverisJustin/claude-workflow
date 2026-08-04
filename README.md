@@ -32,7 +32,7 @@ This workflow fixes that:
 | Community agents | 44 active / 105 vendored | Dev-focused set (engineering, testing, dev design/specialized) installed by default + model-tiered; sales/marketing/product/etc. vendored opt-in |
 | Skills | 24 | `/boris` (default for non-trivial tasks), `/clarify`, `/plan-review`, `/cross-review`, `/forge`, `/prime-agent`, `/loops`, `/session-start`, `/checks`, `/bspec-doc`, `/fix-issue`, `/drift-check`, `/handoff`, `/memory-migrate`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
-| Hook scripts | 8 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate |
+| Hook scripts | 9 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate, plan-approval checkpoint gate |
 | Rules | 4 | `git-safety.md`, `workflow.md` (always-on policy), `documentation-channels.md` (Linear + BSpec loop-closing contract), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
 | Settings | -- | Curated permission allowlist, hardened deny list (destructive fs, pipe-to-shell, force-push to main), audit + prettier hooks |
 | Plugin (optional) | 1 | `.claude-plugin/` manifest + marketplace so teammates can `/plugin install` (namespaced commands; install.sh stays the bare-name path) |
@@ -254,6 +254,8 @@ Manage community agents by editing `agents/community/MANIFEST.txt`: uncomment an
 | **Compaction snapshot** | Before context compaction | Writes a git-state snapshot (branch, uncommitted files, recent commits) to `.claude/memory/compaction-snapshot.md` |
 | **Post-compaction recovery** | After context compaction | Injects a directive to verify the summary against the snapshot and save a cognitive handoff to `task-context.md` |
 | **Verify gate** | Turn end (Stop), only while `/checks` has the gate armed | Blocks ending the turn until quality gates pass or are explicitly waived; 3-attempt escape hatch, 2h staleness disarm |
+| **Plan-approval gate** | Before `ExitPlanMode`, on task branches only | **Denies** plan approval until `/clarify` and `/anythingelse` have actually run this plan episode (`/plan-review` if its complexity trigger fired, or an explicit `- [~] plan-review: waived` line). Evidence is read from the session transcript, not from a self-report — a checkpoint record in `task-context.md` is one edit from being forged, and plan mode cannot write that file anyway. 3-denial escape hatch. Uses `deny` because `ask` is silently discarded on this tool |
+| **Publish gate** | Before `git push` / `gh pr create`, on task branches only | Asks when the charter's `cross-review` checkpoint is still open. This is the mechanical containment that makes `/task-done` safe to auto-invoke — a skill instructing itself to stop and ask is the exact class of instruction that measurably does not run |
 
 Hooks read the tool payload as JSON on stdin per the current Claude Code hooks contract and are covered by `scripts/test-hooks.sh` in CI, so a contract change can never silently disable them again.
 

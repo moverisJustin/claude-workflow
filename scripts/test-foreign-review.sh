@@ -98,11 +98,38 @@ printf '{"verdict":"revise","findings":[%s]}\n' "$items" > "$THIRTEEN"
 BADENUM="$DIR/bad-enum.json"
 printf '{"verdict":"revise","findings":[{"id":"F1","severity":"catastrophic","summary":"x"}]}\n' > "$BADENUM"
 
-# OpenRouter completion envelopes (content is the stringified findings JSON).
-GOOD_ENVELOPE="$DIR/good-envelope.json"
-jq -n --rawfile c "$GOOD" '{choices:[{message:{content:$c}}]}' > "$GOOD_ENVELOPE"
-EMPTY_ENVELOPE="$DIR/empty-envelope.json"
-printf '{"choices":[]}\n' > "$EMPTY_ENVELOPE"
+# OpenRouter SSE streams (content is the stringified findings JSON, delivered as
+# delta chunks). The request sets stream:true, so every fixture is a stream —
+# there is no non-streaming envelope any more.
+#
+# sse_stream <content-file> -> a healthy stream: a keepalive COMMENT frame (the
+# thing that must never count as liveness), the content as one delta, a
+# finish_reason, and the [DONE] sentinel.
+sse_stream() { # <content-file>
+  printf ': OPENROUTER PROCESSING\n'
+  # -c is load-bearing: an SSE frame is ONE line, and jq pretty-prints by default.
+  jq -cRs '{choices:[{delta:{content:.}}]}' < "$1" | sed 's/^/data: /'
+  printf 'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n'
+  printf 'data: [DONE]\n'
+}
+
+GOOD_ENVELOPE="$DIR/good-stream.sse"
+sse_stream "$GOOD" > "$GOOD_ENVELOPE"
+
+# Stream that completes cleanly but carries no assistant content.
+EMPTY_ENVELOPE="$DIR/empty-stream.sse"
+printf 'data: {"choices":[{"delta":{}}]}\ndata: [DONE]\n' > "$EMPTY_ENVELOPE"
+
+# Streaming-specific failure fixtures.
+# TRUNC: content, then the stream just stops — no finish_reason, no [DONE].
+TRUNC_STREAM="$DIR/trunc-stream.sse"
+printf 'data: {"choices":[{"delta":{"content":"{\\"verdict\\": \\"par"}}]}\n' > "$TRUNC_STREAM"
+# LENGTH: capped at max_tokens. Terminates properly, so ONLY finish_reason catches it.
+LENGTH_STREAM="$DIR/length-stream.sse"
+printf 'data: {"choices":[{"delta":{"content":"{\\"verdict\\":\\"x\\"}"}}]}\ndata: {"choices":[{"delta":{},"finish_reason":"length"}]}\ndata: [DONE]\n' > "$LENGTH_STREAM"
+# STREAMERR: HTTP 200, error delivered inside the stream body.
+STREAMERR_STREAM="$DIR/streamerr-stream.sse"
+printf 'data: {"error":{"message":"upstream provider timeout"}}\n' > "$STREAMERR_STREAM"
 
 # --- stub builders -----------------------------------------------------------
 # Codex stub: consumes stdin (logged), finds -o FILE on argv, copies a canned
@@ -454,8 +481,68 @@ CURL_EMPTY="$STUBDIR/curl-empty"
 write_curl_stub "$CURL_EMPTY" "$EMPTY_ENVELOPE" 200
 out="$(OPENROUTER_API_KEY=stubkey CURL_CMD="$CURL_EMPTY" "$SUT" --backend openrouter:test/model --mode code --schema "$SCHEMA" --input "$INPUT" --out "$DIR/o10.json" 2>&1)"; rc=$?
 assert_eq          "empty envelope exits 4"  4 "$rc"
-assert_contains    "empty content reported"  "$out" "no message content"
+assert_contains    "empty content reported"  "$out" "no assistant content"
 assert_file_absent "no out on empty content" "$DIR/o10.json"
+
+# --- 10b. streaming-specific failures (exit 4) -------------------------------
+# Every case here returns HTTP 200 with a well-formed stream. They are exactly
+# the failures a non-streaming reader could not see.
+echo "SSE stream failures (exit 4)"
+
+# Truncated: content arrived, then the stream stopped. Must fail as TRUNCATED
+# rather than falling through to the validator, where a cut-off JSON string
+# surfaces as a confusing schema error instead of the real cause.
+CURL_TRUNC="$STUBDIR/curl-trunc"
+write_curl_stub "$CURL_TRUNC" "$TRUNC_STREAM" 200
+out="$(OPENROUTER_API_KEY=stubkey CURL_CMD="$CURL_TRUNC" "$SUT" --backend openrouter:test/model --mode code --schema "$SCHEMA" --input "$INPUT" --out "$DIR/o13.json" 2>&1)"; rc=$?
+assert_eq          "truncated stream exits 4"      4 "$rc"
+assert_contains    "truncation named, not schema"  "$out" "TRUNCATED"
+assert_file_absent "no out on truncated stream"    "$DIR/o13.json"
+
+# Capped at max_tokens: terminates cleanly WITH [DONE], so only finish_reason
+# distinguishes it from a good response.
+CURL_LENGTH="$STUBDIR/curl-length"
+write_curl_stub "$CURL_LENGTH" "$LENGTH_STREAM" 200
+out="$(OPENROUTER_API_KEY=stubkey CURL_CMD="$CURL_LENGTH" "$SUT" --backend openrouter:test/model --mode code --schema "$SCHEMA" --input "$INPUT" --out "$DIR/o14.json" 2>&1)"; rc=$?
+assert_eq          "max_tokens cap exits 4"     4 "$rc"
+assert_contains    "cap reported with limit"    "$out" "max_tokens"
+assert_file_absent "no out on capped output"    "$DIR/o14.json"
+
+# Error inside a 200 body.
+CURL_STREAMERR="$STUBDIR/curl-streamerr"
+write_curl_stub "$CURL_STREAMERR" "$STREAMERR_STREAM" 200
+out="$(OPENROUTER_API_KEY=stubkey CURL_CMD="$CURL_STREAMERR" "$SUT" --backend openrouter:test/model --mode code --schema "$SCHEMA" --input "$INPUT" --out "$DIR/o15.json" 2>&1)"; rc=$?
+assert_eq          "mid-stream error exits 4"     4 "$rc"
+assert_contains    "provider message surfaced"    "$out" "upstream provider timeout"
+assert_file_absent "no out on mid-stream error"   "$DIR/o15.json"
+
+# --- 10c. THE regression test: keepalive-only stall --------------------------
+# A stub that emits ': OPENROUTER PROCESSING' comment frames forever. Wire bytes
+# keep flowing, so a byte-rate watchdog (curl --speed-limit, or polling the raw
+# file size) NEVER fires and the request runs to the wall clock. The idle window
+# is measured on parsed delta.content instead, which stays at zero here.
+CURL_KEEPALIVE="$STUBDIR/curl-keepalive"
+cat > "$CURL_KEEPALIVE" <<EOF
+#!/bin/bash
+out=""; prev=""
+for a in "\$@"; do [ "\$prev" = "-o" ] && out="\$a"; prev="\$a"; done
+printf '%s\n' "\$*" >> "$STUBDIR/curl-calls.log"
+while :; do printf ': OPENROUTER PROCESSING\n' >> "\$out"; sleep 1; done
+EOF
+chmod +x "$CURL_KEEPALIVE"
+reset_logs
+start=$(date +%s)
+out="$(OPENROUTER_API_KEY=stubkey CURL_CMD="$CURL_KEEPALIVE" "$SUT" --backend openrouter:test/model --mode code --schema "$SCHEMA" --input "$INPUT" --out "$DIR/o16.json" --timeout 20 --idle-timeout 3 2>&1)"; rc=$?
+elapsed=$(( $(date +%s) - start ))
+assert_eq          "keepalive stall exits 4"        4 "$rc"
+assert_contains    "reported as stalled, not slow"  "$out" "no content for"
+assert_file_absent "no out on keepalive stall"      "$DIR/o16.json"
+# The whole point: it must die on the IDLE window (~3-8s), not the 20s ceiling.
+if [ "$elapsed" -lt 15 ]; then
+  pass "idle abort beat the wall clock (${elapsed}s < 20s)"
+else
+  fail "idle abort beat the wall clock" "ran ${elapsed}s — wire-byte keepalives defeated the idle window"
+fi
 
 # --- 11. watchdog: hanging backend killed (exit 4) ---------------------------
 echo "watchdog"

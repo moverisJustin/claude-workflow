@@ -296,6 +296,205 @@ echo '{"git_enabled": true}' > "$BROKEN/.claude/project-config.json"
 OUT=$(CLAUDE_PROJECT_DIR="$BROKEN" bash "$SS")
 if printf '%s' "$OUT" | grep -q 'Pre-v3 Memory Bank'; then ok "broken .git does not abort before the migrate check"; else bad "broken .git aborted the hook (git-status set-e trap)"; fi
 
+echo "--- hook-destructive-guard.sh: PUBLISH gate ---"
+# The mechanical containment that makes unlocking /task-done safe. Must be
+# SILENT unless this branch's charter actually has an open cross-review — a
+# gate that fires on every push is friction that trains click-through.
+PUBREPO="$(mktemp -d "${TMPDIR:-/tmp}/pubgate.XXXXXX")"
+git -C "$PUBREPO" init -q . 2>/dev/null
+mkdir -p "$PUBREPO/.claude"
+pub_out() { bash_payload "$1" | CLAUDE_PROJECT_DIR="$PUBREPO" bash "$GUARD" 2>/dev/null; }
+
+OUT=$(pub_out "git push origin HEAD")
+[ -z "$OUT" ] && ok "silent: no task-context.md" || bad "asked with no task-context ($OUT)"
+
+printf '# Task\n## Objective\nx\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push origin HEAD")
+[ -z "$OUT" ] && ok "silent: legacy charter with no Checkpoints section" || bad "legacy charter was gated ($OUT)"
+
+printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n\n## Loops\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push origin HEAD")
+if printf '%s' "$OUT" | grep -q '"ask"'; then ok "asks on push with open cross-review"; else bad "open cross-review did not gate the push"; fi
+OUT=$(pub_out "gh pr create --fill")
+if printf '%s' "$OUT" | grep -q '"ask"'; then ok "asks on gh pr create with open cross-review"; else bad "open cross-review did not gate gh pr create"; fi
+
+printf '# Task\n## Checkpoints\n- [~] waived: solo repo, no second reviewer\n\n## Loops\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push origin HEAD")
+[ -z "$OUT" ] && ok "silent once cross-review is waived" || bad "waived cross-review still gated ($OUT)"
+
+printf '# Task\n## Checkpoints\n- [x] cross-review: codex+kimi, 0 confirmed\n\n## Loops\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push origin HEAD")
+[ -z "$OUT" ] && ok "silent once cross-review is done" || bad "completed cross-review still gated ($OUT)"
+
+# Force pushes are destructive AND a publication. They classify as GIT (the more
+# serious category), which used to mean they never reached the publish check —
+# so `git push --force` slipped past the cross-review gate that plain `git push`
+# was stopped by. The bypass was exactly one flag wide.
+printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n' > "$PUBREPO/.claude/task-context.md"
+for c in "git push --force origin HEAD" "git push --force-with-lease origin HEAD"; do
+  OUT=$(pub_out "$c")
+  if printf '%s' "$OUT" | grep -q 'cross-review'; then ok "gated: $c"; else bad "force variant bypassed the cross-review gate: $c"; fi
+done
+printf '# Task\n## Checkpoints\n- [x] cross-review: done\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push --force origin HEAD")
+if printf '%s' "$OUT" | grep -q 'cross-review'; then bad "force push gated after cross-review resolved"; else ok "force push silent once cross-review resolved"; fi
+
+# Pushing must not litter the repo with recovery tags: nothing local is at risk.
+printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n' > "$PUBREPO/.claude/task-context.md"
+PT1=$(git -C "$PUBREPO" tag -l 'auto-checkpoint/*' | wc -l | tr -d ' ')
+pub_out "git push origin HEAD" >/dev/null
+PT2=$(git -C "$PUBREPO" tag -l 'auto-checkpoint/*' | wc -l | tr -d ' ')
+[ "$PT1" = "$PT2" ] && ok "push creates no auto-checkpoint tag" || bad "push tagged a checkpoint ($PT1 -> $PT2)"
+rm -rf "$PUBREPO"
+
+echo "--- hook-plan-gate.sh ---"
+# NOTE ON SCOPE: these assert the hook's OUTPUT contract. They cannot prove the
+# CLI acts on it — that was established separately by a live spike (deny blocks
+# ExitPlanMode; the reason reaches the caller) and must be re-checked live after
+# any install. A green run here is necessary, not sufficient.
+PGATE="$SCRIPT_DIR/hook-plan-gate.sh"
+PG="$(mktemp -d "${TMPDIR:-/tmp}/plangate.XXXXXX")"
+git -C "$PG" init -q . 2>/dev/null
+git -C "$PG" checkout -qb feature/gate 2>/dev/null
+mkdir -p "$PG/.claude/audit"
+printf '# charter\n' > "$PG/.claude/task-context.md"
+PGT="$PG/t.jsonl"
+
+pg_payload() {
+  D="$1" T="$2" python3 -c '
+import json, os
+print(json.dumps({
+    "session_id": "test", "hook_event_name": "PreToolUse",
+    "tool_name": "ExitPlanMode", "cwd": os.environ["D"],
+    "transcript_path": os.environ["T"], "tool_input": {"plan": "x"},
+}))'
+}
+pg_run() { pg_payload "$PG" "$PGT" | bash "$PGATE" 2>/dev/null; }
+pg_decision() {
+  python3 -c '
+import json, sys
+raw = sys.stdin.read().strip()
+if not raw:
+    print("none"); raise SystemExit
+try: print(json.loads(raw)["hookSpecificOutput"]["permissionDecision"])
+except Exception: print("unparseable")'
+}
+pg_reset() { rm -f "$PG/.claude/audit/plan-gate-denials"; }
+# A completed Skill call = tool_use plus a non-error tool_result.
+pg_skill() { printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","id":"i%s","input":{"skill":"%s"}}]}}\n{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"i%s","is_error":%s}]}}\n' "$2" "$1" "$2" "${3:-false}"; }
+
+printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "denies when no checkpoint ran" || bad "no-checkpoint case gave '$D' (want deny)"
+
+# The gate must NEVER emit allow: on ExitPlanMode a hook allow satisfies
+# requiresUserInteraction and would skip plan approval entirely.
+OUT="$(printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"; pg_run)"; pg_reset
+if printf '%s' "$OUT" | grep -q '"allow"'; then bad "gate emitted allow (would SKIP plan approval)"; else ok "never emits allow"; fi
+
+{ pg_skill clarify 1; pg_skill anythingelse 2; } > "$PGT"
+printf '\n## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' >> "$PG/.claude/task-context.md"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "silent when checkpoints ran and plan-review waived" || bad "satisfied case gave '$D' (want none)"
+
+# Credit COMPLETION, not invocation — an errored Skill must not satisfy the gate.
+{ pg_skill clarify 1; pg_skill anythingelse 2 true; } > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "errored Skill call does not credit the checkpoint" || bad "errored call gave '$D' (want deny)"
+
+# <command-name> must be read from USER messages only. Assistant prose ABOUT the
+# tag would otherwise let the gate satisfy itself (hit live while building this).
+printf '{"type":"assistant","message":{"content":[{"type":"text","text":"matches <command-name>/clarify</command-name> and <command-name>/anythingelse</command-name>"}]}}\n' > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "assistant prose about <command-name> cannot self-satisfy" || bad "assistant prose satisfied the gate ('$D')"
+
+printf '{"type":"user","message":{"content":[{"type":"text","text":"<command-name>/clarify</command-name>"}]}}\n{"type":"user","message":{"content":[{"type":"text","text":"<command-name>/anythingelse</command-name>"}]}}\n' > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "user-typed slash commands satisfy the gate" || bad "user-typed commands gave '$D' (want none)"
+
+# plan-review is ADVISORY: it is surfaced but never denies on its own. Recording
+# its waiver means editing task-context.md, which plan mode hard-denies — a
+# blocking check would have been unsatisfiable for a genuinely below-bar plan
+# except by burning the escape hatch.
+{ pg_skill clarify 1; pg_skill anythingelse 2; } > "$PGT"
+printf '## Checkpoints\n- [ ] plan-review: never ran\n' > "$PG/.claude/task-context.md"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "missing plan-review alone does NOT deny (advisory)" || bad "plan-review denied on its own ('$D')"
+
+# Waiver SCOPING still decides whether plan-review is credited — it just shows up
+# as advisory text rather than a denial. Regression: the first version searched
+# the WHOLE charter for any `- [~] waived:`, so a waived Acceptance item credited
+# plan-review. Both foreign reviewers flagged it independently; reproduced first.
+{ pg_skill anythingelse 2; } > "$PGT"   # clarify missing -> denial, so we can read the text
+
+printf '## Acceptance\n- [~] waived: an unrelated acceptance item\n\n## Checkpoints\n- [ ] plan-review: never ran\n' > "$PG/.claude/task-context.md"
+OUT="$(pg_run)"; pg_reset
+if printf '%s' "$OUT" | grep -q 'plan-review'; then ok "waiver OUTSIDE ## Checkpoints does not credit plan-review"; else bad "unrelated waiver credited plan-review"; fi
+
+printf '## Checkpoints\n- [~] cross-review: waived — solo repo\n- [ ] plan-review: never ran\n' > "$PG/.claude/task-context.md"
+OUT="$(pg_run)"; pg_reset
+if printf '%s' "$OUT" | grep -q 'plan-review'; then ok "waiver of a DIFFERENT checkpoint does not credit plan-review"; else bad "cross-review waiver credited plan-review"; fi
+
+printf '## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' > "$PG/.claude/task-context.md"
+OUT="$(pg_run)"; pg_reset
+if printf '%s' "$OUT" | grep -q 'plan-review'; then bad "valid plan-review waiver was ignored"; else ok "correctly-scoped plan-review waiver is credited"; fi
+
+# A launched-but-never-returned Skill is NOT a completed checkpoint.
+printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","id":"z1","input":{"skill":"clarify"}}]}}\n{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","id":"z2","input":{"skill":"anythingelse"}}]}}\n' > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "in-flight Skill (no tool_result) does not satisfy the gate" || bad "unreturned Skill counted as completed ('$D')"
+
+# Escape-hatch state must not leak between sessions.
+printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"
+pg_reset
+pg_run >/dev/null; pg_run >/dev/null; pg_run >/dev/null   # exhaust for session "test"
+D="$(D="$PG" T="$PGT" python3 -c '
+import json, os
+print(json.dumps({"session_id": "a-different-session", "hook_event_name": "PreToolUse",
+                  "tool_name": "ExitPlanMode", "cwd": os.environ["D"],
+                  "transcript_path": os.environ["T"], "tool_input": {"plan": "x"}}))' \
+  | bash "$PGATE" 2>/dev/null | pg_decision)"
+[ "$D" = "deny" ] && ok "denial counter is per-session (fresh session still gates)" || bad "counter leaked across sessions ('$D')"
+pg_reset
+
+# Restore a satisfied charter for the tests that follow.
+{ pg_skill clarify 1; pg_skill anythingelse 2; } > "$PGT"
+printf '# charter\n## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' > "$PG/.claude/task-context.md"
+
+# Evidence is scoped to the plan EPISODE: checkpoints before a previous
+# ExitPlanMode belong to that episode, not this one.
+{ pg_skill clarify 1; pg_skill anythingelse 2; printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"ExitPlanMode","id":"e1"}]}}\n'; } > "$PGT"
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "prior-episode checkpoints do not carry over" || bad "stale episode evidence counted ('$D')"
+
+# Escape hatch: a gate nobody can satisfy must stand down.
+printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"
+pg_reset
+pg_run >/dev/null; pg_run >/dev/null; pg_run >/dev/null
+D="$(pg_run | pg_decision)"
+[ "$D" = "none" ] && ok "disarms after 3 denials" || bad "gate still '$D' after 3 denials (wedge risk)"
+pg_reset
+
+# Blast-radius guards.
+NOCTX="$(mktemp -d "${TMPDIR:-/tmp}/plangate-noctx.XXXXXX")"
+git -C "$NOCTX" init -q . 2>/dev/null
+D="$(D="$NOCTX" T="$PGT" pg_payload "$NOCTX" "$PGT" | bash "$PGATE" 2>/dev/null | pg_decision)"
+[ "$D" = "none" ] && ok "silent with no task-context.md" || bad "gated a repo with no task-context ('$D')"
+rm -rf "$NOCTX"
+
+git -C "$PG" checkout -qb main 2>/dev/null || git -C "$PG" checkout -q main 2>/dev/null
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "silent on a protected branch" || bad "gated on main ('$D')"
+git -C "$PG" checkout -q feature/gate 2>/dev/null
+
+D="$(printf 'not json at all' | bash "$PGATE" 2>/dev/null | pg_decision)"
+[ "$D" = "none" ] && ok "fails open on garbage stdin" || bad "garbage stdin produced '$D' (must fail open)"
+
+D="$(printf '' | bash "$PGATE" 2>/dev/null | pg_decision)"
+[ "$D" = "none" ] && ok "fails open on empty stdin" || bad "empty stdin produced '$D' (must fail open)"
+
+rm -rf "$PG"
+
 echo ""
 echo "Passed: $pass  Failed: $fail"
 [ "$fail" -ne 0 ] && exit 1

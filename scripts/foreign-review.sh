@@ -35,17 +35,30 @@
 # TERM, then KILL. One automatic retry on transport-class failures only (curl
 # exit 18/52/56, or codex "stream disconnected" — observed live), then exit 4.
 #
+# STREAMING (openrouter): the request sets stream:true and liveness is measured
+# on PARSED ASSISTANT CONTENT, never on wire bytes — OpenRouter pads upstream
+# stalls with `: OPENROUTER PROCESSING` comment frames, so a byte-rate check
+# (curl --speed-limit, or polling the response file's size) stays green through
+# exactly the hang it is meant to catch. Two distinct aborts, which curl itself
+# cannot tell apart (both are its exit 28): 124 wall clock, 125 content-idle.
+# A truncated stream is caught by the [DONE] sentinel and finish_reason rather
+# than by letting JSON.parse discover it downstream.
+#
 # Usage:
 #   foreign-review.sh --backend codex|openrouter:<model> --mode plan|code
 #                     --schema FILE --input FILE [--out FILE] [--prompt FILE]
-#                     [--timeout SECS] [--probe] [--quiet]
+#                     [--timeout SECS] [--idle-timeout SECS] [--max-tokens N]
+#                     [--probe] [--quiet]
 #     --backend   codex, or openrouter:<model-id> (e.g. openrouter:moonshotai/kimi-k2)
 #     --mode      plan (plan-stage review) | code (PR-stage review)
 #     --schema    JSON Schema (restricted dialect) the findings must satisfy
 #     --input     the review pack to send (charter-first memory pack + payload)
 #     --out       write validated findings JSON here (raw always at <out>.raw)
 #     --prompt    reviewer prompt file, prepended to the pack on stdin
-#     --timeout   watchdog seconds for the backend call (default 300)
+#     --timeout   wall-clock seconds for the backend call (default 600)
+#     --idle-timeout  abort after N seconds with no ASSISTANT CONTENT (default
+#                 60; openrouter only, immune to SSE keepalive frames)
+#     --max-tokens    cap the generation (default 8000)
 #     --probe     only report whether the backend is usable (exit 0/3); needs
 #                 just --backend
 #     --quiet     suppress informational notes on stderr (errors always print)
@@ -71,7 +84,8 @@ usage() {
   cat >&2 <<'EOF'
 Usage: foreign-review.sh --backend codex|openrouter:<model> --mode plan|code
                          --schema FILE --input FILE [--out FILE] [--prompt FILE]
-                         [--timeout SECS] [--probe] [--quiet]
+                         [--timeout SECS] [--idle-timeout SECS] [--max-tokens N]
+                         [--probe] [--quiet]
   Send a review pack to a foreign-model backend; validated JSON findings out.
   Exit: 0 valid review / 2 usage or endpoint refusal / 3 backend unavailable /
         4 backend call failed / 5 schema-invalid output /
@@ -89,7 +103,26 @@ SCHEMA=""
 INPUT=""
 OUT_FILE=""
 PROMPT_FILE=""
-TIMEOUT=300
+# Wall clock vs idle window. These move together and the reasoning matters:
+#
+# The old default was 300s with NO idle detection, so the ceiling was the only
+# bound — and a real Kimi plan review measures ~240s, i.e. 80% of it. That is
+# why reviews "time out often": healthy generations were racing the only guard.
+#
+# Raising the ceiling was previously unsafe because a stalled provider keeps
+# emitting `: OPENROUTER PROCESSING` keepalives, so any wire-byte liveness check
+# stays green and a hang would run the full ceiling. The idle window below is
+# measured on parsed assistant content instead (see sse_content), which is
+# immune to keepalives — proven by the keepalive-only stall test, which aborts
+# in ~4s. With a real hang now dying at IDLE_TIMEOUT, the ceiling only ever
+# bounds genuinely long generations, so it can afford to be generous.
+#
+# Net effect vs. the old behavior: slow-but-healthy succeeds instead of dying at
+# 300s, and an actual hang fails in 60s instead of 300s. Both directions improve.
+TIMEOUT=600
+IDLE_TIMEOUT=60
+IDLE_EXPLICIT=0
+MAX_TOKENS=8000
 PROBE=0
 QUIET=0
 
@@ -109,6 +142,10 @@ while [ $# -gt 0 ]; do
                PROMPT_FILE="$2"; shift 2 ;;
     --timeout) [ $# -ge 2 ] || { err "--timeout needs SECS"; exit 2; }
                TIMEOUT="$2"; shift 2 ;;
+    --idle-timeout) [ $# -ge 2 ] || { err "--idle-timeout needs SECS"; exit 2; }
+               IDLE_TIMEOUT="$2"; IDLE_EXPLICIT=1; shift 2 ;;
+    --max-tokens)   [ $# -ge 2 ] || { err "--max-tokens needs N"; exit 2; }
+               MAX_TOKENS="$2"; shift 2 ;;
     --probe)   PROBE=1; shift ;;
     --quiet)   QUIET=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -197,6 +234,26 @@ case "$TIMEOUT" in
   ''|*[!0-9]*) err "--timeout must be a positive integer (got '$TIMEOUT')"; exit 2 ;;
   0)           err "--timeout must be a positive integer (got '0')"; exit 2 ;;
 esac
+case "$IDLE_TIMEOUT" in
+  ''|*[!0-9]*) err "--idle-timeout must be a positive integer (got '$IDLE_TIMEOUT')"; exit 2 ;;
+  0)           err "--idle-timeout must be a positive integer (got '0')"; exit 2 ;;
+esac
+case "$MAX_TOKENS" in
+  ''|*[!0-9]*) err "--max-tokens must be a positive integer (got '$MAX_TOKENS')"; exit 2 ;;
+  0)           err "--max-tokens must be a positive integer (got '0')"; exit 2 ;;
+esac
+# Idle abort is openrouter-only and is only meaningful strictly inside the wall
+# clock. An EXPLICIT --idle-timeout that can never fire is a usage error; the
+# DEFAULT silently clamps, so a short --timeout stays legal (codex tests use
+# --timeout 1, and the default idle window must not turn that into exit 2).
+if [ "$IDLE_TIMEOUT" -ge "$TIMEOUT" ]; then
+  if [ "$IDLE_EXPLICIT" -eq 1 ]; then
+    err "--idle-timeout ($IDLE_TIMEOUT) must be less than --timeout ($TIMEOUT), or it can never fire"
+    exit 2
+  fi
+  IDLE_TIMEOUT=$((TIMEOUT - 1))
+  [ "$IDLE_TIMEOUT" -lt 1 ] && IDLE_TIMEOUT=1
+fi
 
 VALIDATOR="$SCRIPT_DIR/validate-findings.mjs"
 [ -f "$VALIDATOR" ] || { err "validator missing: $VALIDATOR"; exit 2; }
@@ -321,9 +378,19 @@ run_codex() {
 }
 
 build_openrouter_body() {
-  jq -n --rawfile content "$SEND_FILE" --slurpfile schema "$SCHEMA_ABS" --arg model "$MODEL" '
+  # stream:true is what makes idle detection possible at all — a non-streaming
+  # call yields nothing until it finishes, so a slow-but-healthy generation and
+  # a hang are indistinguishable and a timeout loses the entire response.
+  # max_tokens bounds the generation; reasoning is disabled because reasoning
+  # tokens are billable, invisible in the answer, and (before the content-aware
+  # watchdog below) used to look like liveness.
+  jq -n --rawfile content "$SEND_FILE" --slurpfile schema "$SCHEMA_ABS" \
+        --arg model "$MODEL" --argjson max_tokens "$MAX_TOKENS" '
     { model: $model,
       temperature: 0.2,
+      stream: true,
+      max_tokens: $max_tokens,
+      reasoning: { enabled: false },
       response_format: {
         type: "json_schema",
         json_schema: { name: "review_findings", strict: true, schema: $schema[0] }
@@ -332,12 +399,85 @@ build_openrouter_body() {
   || { err "failed to build request body (is $SCHEMA_ABS valid JSON?)"; return 1; }
 }
 
+# --- SSE readers -------------------------------------------------------------
+# All three tolerate a truncated trailing line (`fromjson?` drops it), because
+# they are called against a file curl is still writing to.
+
+# Accumulated ASSISTANT CONTENT. Deliberately NOT the raw byte count: OpenRouter
+# pads upstream stalls with `: OPENROUTER PROCESSING` comment frames, which are
+# wire bytes. Measuring liveness on the wire would keep a stalled request alive
+# until the wall clock — the exact hang this is built to catch.
+sse_content() {
+  sed -n 's/^data: //p' "$1" 2>/dev/null \
+    | jq -j -R 'select(. != "[DONE]") | fromjson? | .choices[0].delta.content // empty' 2>/dev/null
+}
+
+sse_finish_reason() {
+  sed -n 's/^data: //p' "$1" 2>/dev/null \
+    | jq -r -R 'select(. != "[DONE]") | fromjson? | .choices[0].finish_reason // empty' 2>/dev/null \
+    | grep -v '^$' | tail -n 1
+}
+
+sse_error() {
+  sed -n 's/^data: //p' "$1" 2>/dev/null \
+    | jq -r -R 'select(. != "[DONE]") | fromjson? | .error.message // empty' 2>/dev/null \
+    | grep -v '^$' | head -n 1
+}
+
 run_openrouter() {
-  "$CURL_CMD" -sS -X POST "$ENDPOINT" \
+  # -N disables curl's output buffering. Without it the file grows in kilobyte
+  # steps and a healthy generation can look idle between flushes.
+  "$CURL_CMD" -sS -N -X POST "$ENDPOINT" \
     -H "Authorization: Bearer $OR_KEY" \
     -H "Content-Type: application/json" \
     --data @"$BODY_FILE" \
     -o "$HTTP_OUT" -w '%{http_code}' > "$HTTP_CODE_FILE" 2>> "$LOG_FILE"
+}
+
+kill_child_group() {
+  kill -TERM -- "-$CURRENT_CHILD" 2>/dev/null || kill -TERM "$CURRENT_CHILD" 2>/dev/null
+  wd_grace=0
+  while kill -0 "$CURRENT_CHILD" 2>/dev/null && [ "$wd_grace" -lt 2 ]; do
+    sleep 1; wd_grace=$((wd_grace + 1))
+  done
+  kill -KILL -- "-$CURRENT_CHILD" 2>/dev/null || kill -KILL "$CURRENT_CHILD" 2>/dev/null
+  wait "$CURRENT_CHILD" 2>/dev/null
+  CURRENT_CHILD=""
+}
+
+# Content-aware watchdog, openrouter only. `run_with_watchdog` is left untouched
+# for codex — it is the best-tested path and is generic across backends.
+# Returns 124 on wall-clock expiry, 125 on content-idle expiry (two conditions
+# curl itself reports as the same exit 28, which is why this is not curl's job).
+run_openrouter_watchdog() {
+  set -m
+  run_openrouter &
+  CURRENT_CHILD=$!
+  set +m
+  wd_waited=0; wd_idle=0; wd_last_len=0
+  while kill -0 "$CURRENT_CHILD" 2>/dev/null; do
+    sleep 1
+    wd_waited=$((wd_waited + 1))
+    wd_len="$(sse_content "$HTTP_OUT" | wc -c | tr -d ' ')"
+    case "$wd_len" in ''|*[!0-9]*) wd_len="$wd_last_len" ;; esac
+    if [ "$wd_len" -gt "$wd_last_len" ]; then
+      wd_last_len="$wd_len"; wd_idle=0
+    else
+      wd_idle=$((wd_idle + 1))
+    fi
+    if [ "$wd_idle" -ge "$IDLE_TIMEOUT" ]; then
+      kill_child_group
+      return 125
+    fi
+    if [ "$wd_waited" -ge "$TIMEOUT" ]; then
+      kill_child_group
+      return 124
+    fi
+  done
+  wait "$CURRENT_CHILD"
+  wd_rc=$?
+  CURRENT_CHILD=""
+  return $wd_rc
 }
 
 # --- portable watchdog (no timeout(1) on macOS) ------------------------------
@@ -383,6 +523,16 @@ transport_failure() {
   return 1
 }
 
+# preserve_stream — the cleanup trap deletes HTTP_OUT, so telling the user a
+# partial stream is "preserved at $HTTP_OUT" was a promise about a file that no
+# longer existed by the time they looked. Copy it somewhere that survives and
+# report THAT path. Echoes the surviving path, or nothing.
+preserve_stream() {
+  [ -s "$HTTP_OUT" ] || return 0
+  _keep="${RAW_FILE}.stream"
+  cp "$HTTP_OUT" "$_keep" 2>/dev/null && printf '%s' "$_keep"
+}
+
 # --- run (retry ONCE on transport-class failure, then loud exit 4) -----------
 if [ "$BACKEND" = "openrouter" ]; then
   build_openrouter_body || exit 4
@@ -394,13 +544,24 @@ while :; do
   : > "$LOG_FILE"
   case "$BACKEND" in
     codex)      run_with_watchdog run_codex ;;
-    openrouter) run_with_watchdog run_openrouter ;;
+    openrouter) run_openrouter_watchdog ;;
   esac
   rc=$?
   [ $rc -eq 0 ] && break
   if [ $rc -eq 124 ]; then
+    # Wall clock. NOT retried: the request was progressing, so a retry re-bills
+    # the whole input and is likely to expire the same way.
     err "backend call failed: $BACKEND_ARG timed out after ${TIMEOUT}s (process group killed)"
     [ -s "$RAW_FILE" ] && err "partial raw output preserved at $RAW_FILE"
+    kept="$(preserve_stream)"; [ -n "$kept" ] && err "partial stream preserved at $kept"
+    exit 4
+  fi
+  if [ $rc -eq 125 ]; then
+    # Content-idle. A distinguishable condition with its own message: the stream
+    # was open but produced no assistant content for the idle window, which is a
+    # stalled provider rather than a slow one.
+    err "backend call failed: $BACKEND_ARG produced no content for ${IDLE_TIMEOUT}s (stalled; process group killed after ${wd_waited:-?}s)"
+    kept="$(preserve_stream)"; [ -n "$kept" ] && err "partial stream preserved at $kept"
     exit 4
   fi
   if [ "$attempt" -eq 1 ] && transport_failure "$rc"; then
@@ -429,14 +590,44 @@ if [ "$BACKEND" = "openrouter" ]; then
     fi
     exit 4
   fi
-  if ! jq -r '.choices[0].message.content // empty' "$HTTP_OUT" > "$RAW_FILE" 2>> "$LOG_FILE" \
-     || [ ! -s "$RAW_FILE" ]; then
-    err "backend call failed: no message content in openrouter response"
-    err "envelope preserved for inspection:"
+  # An error can arrive INSIDE a 200 stream — check before trusting content.
+  stream_err="$(sse_error "$HTTP_OUT")"
+  if [ -n "$stream_err" ]; then
+    err "backend call failed: openrouter reported an error mid-stream: $stream_err"
+    exit 4
+  fi
+
+  sse_content "$HTTP_OUT" > "$RAW_FILE" 2>> "$LOG_FILE"
+  if [ ! -s "$RAW_FILE" ]; then
+    err "backend call failed: no assistant content in openrouter stream"
+    err "stream preserved for inspection:"
     head -c 500 "$HTTP_OUT" | sed 's/^/foreign-review:   /' >&2
     printf '\n' >&2
     exit 4
   fi
+
+  # Completeness gate. Without this, a stream cut short yields a truncated JSON
+  # string and `JSON.parse` becomes the truncation detector — which reports a
+  # confusing schema error instead of the real cause, and (worse) could accept a
+  # partial finding set that merely happens to close.
+  if ! grep -q '^data: \[DONE\]' "$HTTP_OUT" 2>/dev/null; then
+    err "backend call failed: stream ended without [DONE] — response is TRUNCATED, not merely invalid"
+    err "partial content preserved at $RAW_FILE (NOT written to --out)"
+    exit 4
+  fi
+
+  finish="$(sse_finish_reason "$HTTP_OUT")"
+  case "$finish" in
+    stop|'') : ;;
+    length)
+      err "backend call failed: output capped at max_tokens ($MAX_TOKENS) — findings are incomplete"
+      err "re-run with a larger --max-tokens, or narrow the review scope"
+      err "partial content preserved at $RAW_FILE (NOT written to --out)"
+      exit 4 ;;
+    *)
+      err "backend call failed: unexpected finish_reason '$finish'"
+      exit 4 ;;
+  esac
 fi
 
 if [ ! -s "$RAW_FILE" ]; then

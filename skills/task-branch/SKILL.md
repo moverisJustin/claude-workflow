@@ -2,7 +2,6 @@
 name: task-branch
 description: Create a feature branch with task context. Initializes .claude/task-context.md for cross-machine handoff.
 argument-hint: [branch-name]
-disable-model-invocation: true
 allowed-tools: Bash(git checkout:*), Bash(git switch:*), Bash(git branch:*), Bash(git status:*), Bash(git push:*)
 ---
 
@@ -84,6 +83,12 @@ Create `.claude/task-context.md`:
 ## Assumptions
 - [nothing assumed yet — entries land here as work proceeds]
 
+## Checkpoints
+- [ ] clarify: [the questions actually asked, or the six axes swept + what each returned]
+- [ ] wildcard: [the actual suggestion, and why it was folded in or dropped]
+- [ ] plan-review: [backends + verdict]   # waive as: - [~] plan-review: waived — below complexity bar
+- [ ] cross-review: [backends + verdict]  # waive as: - [~] cross-review: waived — <reason>
+
 ## Plan
 - [ ] [To be defined]
 
@@ -128,6 +133,22 @@ asking the user gets an entry; see Clarify First in
 - `- [ ] assumed: <what, and what breaks if it's wrong>` unresolved
 - `- [x] confirmed: <what — how it was validated>` verified
 - `- [~] accepted: <what> — <why living with it is safe>` knowingly accepted
+
+Checkpoints syntax (same three states). This section is the **durable record**
+of the planning checkpoints; the live enforcement is `hook-plan-gate.sh`, which
+reads the transcript rather than trusting this file (a self-report is one edit
+from being forged, and plan mode cannot write this file anyway). Fill it as a
+first post-approval act.
+
+**Record content, not a verdict.** "nothing worth adding" is indistinguishable
+from never running the checkpoint, so it is not an acceptable entry — write
+what was actually asked, suggested, or found. `plan-review` and `cross-review`
+are conditional by design and may be waived with a reason; `clarify` and
+`wildcard` are not.
+
+An older `task-context.md` with no `## Checkpoints` section is a **vacuous
+pass**, never a defect — the requirement gates at this template, so new
+branches are born with it and old ones are backfilled opportunistically.
 
 ### 4. Link Linear (documentation-channels contract)
 

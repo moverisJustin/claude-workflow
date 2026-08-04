@@ -1,7 +1,6 @@
 ---
 name: task-done
 description: Complete a task branch - verify, create PR, and clean up task-context.md for merge.
-disable-model-invocation: true
 allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git commit:*), Bash(git remote:*), Bash(git push:*), Bash(git rm:*), Bash(gh pr create:*)
 ---
 
@@ -127,6 +126,26 @@ Deleting an entry to clear the gate is not an option. A charter with no
 `## Assumptions` section passes vacuously (older branches predate the
 register).
 
+### 2.6c. Checkpoint Gate
+
+**Do not report "Task Complete" while any `## Checkpoints` entry is still
+`- [ ]`.** Each becomes `- [x] <what actually happened>` or, for the two
+conditional ones, `- [~] waived: <reason>`.
+
+- `clarify` and `wildcard` are **unconditional** — they cannot be waived, only
+  recorded. If one genuinely did not run, that is a defect to fix, not an entry
+  to erase.
+- `plan-review` and `cross-review` are complexity-gated and may be waived.
+
+**Reject a placeholder.** An entry still carrying the template's bracketed text,
+or a bare verdict like "nothing worth adding", does not close the gate — the
+line must say what was asked, suggested, or found. That is the whole point of
+the section: a record that cannot be satisfied without the work having happened.
+
+A charter with **no** `## Checkpoints` section passes vacuously — older branches
+predate it, and the requirement gates at the `/task-branch` template so new work
+is born with it rather than old work being retroactively flunked.
+
 ### 2.7. External Review Gate
 
 After `/checks` is green and before any PR commit, offer decorrelated
@@ -164,7 +183,8 @@ git status --short
 
 Capture task context for the PR body:
 - Read the Task Charter (Objective, Non-goals, Acceptance with final check
-  states, Assumptions with final retirement states) from task-context.md
+  states, Assumptions with final retirement states, Checkpoints with final
+  states) from task-context.md
 - Read Completion Summary
 - If the external review gate (2.7) ran, capture its summary (backends,
   confirmed/refuted counts) and any ship-with-known-issues findings
@@ -211,6 +231,11 @@ where it survives the merge.]
 [Assumptions register verbatim with final states — [x] confirmed, [~] accepted.
 Omit the line entirely if the register is empty. These are what the work took
 as true without asking; the reviewer should read them as claims to check.]
+**Checkpoints**:
+[Checkpoints section verbatim with final states. Omit entirely if the branch
+predates the section. This is what makes the record worth writing: without it
+the checkpoints are authored by the gate that consumes them and then deleted at
+merge, so no human ever reads them.]
 
 ## Changes
 [From the git log against the resolved base branch, above]

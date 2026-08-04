@@ -80,6 +80,18 @@ git_pats = [
     (r"\bgit\s+push\b[^;|&]*\s(?:--force|-f)(?=\s|$)", "git push --force"),
 ]
 
+# Outward-facing publication. These are not destructive, so they are NOT in
+# git_pats — they get their own category with a different question. This is the
+# mechanical half of unlocking /task-done for autonomous sessions. A skill that
+# tells itself to stop and ask before pushing is prose in a markdown file, which
+# is exactly the class of instruction that measurably does not run. A hook does.
+# NOTE: no apostrophes in this block — it lives inside a single-quoted
+# `python3 -c` string, so one would terminate it and silently break the parse.
+publish_pats = [
+    (r"\bgit\s+(?:-C\s+\S+\s+)?push\b", "git push"),
+    (r"\bgh\s+pr\s+create\b", "gh pr create"),
+]
+
 SAFE_TMP_PREFIXES = ("/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/")
 
 def rm_risky_target(tail):
@@ -134,6 +146,13 @@ for pat, label in git_pats:
     if re.search(pat, cmd):
         print("GIT\t" + label + "\t")
         sys.exit(0)
+
+# Publishing the branch outward. Checked AFTER git_pats so `git push --force`
+# still classifies as the more serious GIT case.
+for pat, label in publish_pats:
+    if re.search(pat, cmd):
+        print("PUBLISH\t" + label + "\t")
+        sys.exit(0)
 ' 2>/dev/null) || MATCH=""
 [ -z "$MATCH" ] && exit 0
 
@@ -144,8 +163,11 @@ TARGET=$(printf '%s' "$MATCH" | cut -f3)
 # --- Non-mutating checkpoint (tag HEAD + tag a stash-create commit) ---
 CHECKPOINT=""
 IN_GIT_REPO=false
-if git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1; then
-  IN_GIT_REPO=true
+git -C "$PROJECT_DIR" rev-parse --git-dir >/dev/null 2>&1 && IN_GIT_REPO=true
+# PUBLISH is deliberately excluded: pushing does not destroy local state, so
+# there is nothing to recover and tagging every push would litter the repo with
+# auto-checkpoint tags (and burn a stash-create) for no benefit.
+if [ "$IN_GIT_REPO" = "true" ] && [ "$CATEGORY" != "PUBLISH" ]; then
   # PID suffix: two guard firings in the same second must not collide
   TS="$(date +%Y%m%d-%H%M%S)-$$"
   TAG="auto-checkpoint/$TS"
@@ -204,6 +226,33 @@ print(json.dumps({"hookSpecificOutput": {
 ' 2>/dev/null || true
 }
 
+# publish_check — ask ONLY when this branch charter says the PR-stage review is
+# still open. Scoped hard so it is not a reflexive click-through: friction that
+# fires on every push trains people to approve without reading, which is worse
+# than no gate.
+#
+# Silent when: not a repo, no task-context.md (untracked work), no
+# ## Checkpoints section (legacy branch — vacuous pass, never retroactively
+# flunked), or the cross-review line is already resolved [x] or waived [~].
+publish_check() {
+  PUB_CTX="$PROJECT_DIR/.claude/task-context.md"
+  [ "$IN_GIT_REPO" = "true" ] || return 0
+  [ -f "$PUB_CTX" ] || return 0
+  PUB_OPEN="$(python3 -c '
+import re, sys
+try: t = open(sys.argv[1], errors="ignore").read()
+except Exception: sys.exit(0)
+sec = re.search(r"^## Checkpoints[ \t]*$(.*?)(?=^## |\Z)", t, re.M | re.S)
+if not sec:
+    sys.exit(0)                       # legacy charter: vacuous pass
+if re.search(r"^\s*-\s*\[ \]\s*cross-review\b", sec.group(1), re.M):
+    print("open")
+' "$PUB_CTX" 2>/dev/null)"
+  if [ "$PUB_OPEN" = "open" ]; then
+    emit_ask "$PATTERN publishes this branch, but the charter cross-review checkpoint is still open (- [ ] cross-review). Run /cross-review pr, or record it waived with a reason, or confirm to publish un-reviewed."
+  fi
+}
+
 case "$CATEGORY" in
   RM_RISKY)
     if [ -n "$CHECKPOINT" ]; then
@@ -220,8 +269,14 @@ case "$CATEGORY" in
     if [ "$IN_GIT_REPO" = "true" ] && [ -z "$CHECKPOINT" ]; then
       emit_ask "Destructive git command ($PATTERN) and no safety checkpoint could be created. Confirm before proceeding."
     fi
-    # Checkpoint exists (or not a repo, where git will fail on its own):
-    # stay silent so the normal permission flow applies.
+    # A force push is destructive AND a publication. It classifies as GIT
+    # (the more serious category) and so never reached publish_check, which
+    # meant `git push --force` slipped past the cross-review gate that plain
+    # `git push` was stopped by — the bypass was one flag wide.
+    case "$PATTERN" in *push*) publish_check ;; esac
+    ;;
+  PUBLISH)
+    publish_check
     ;;
 esac
 
