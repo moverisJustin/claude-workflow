@@ -67,7 +67,7 @@ For teammates who prefer one-line onboarding, the repo also ships as a Claude Co
 /plugin install boris-workflow@boris
 ```
 
-The plugin bundles the **18 workflow skills, the 8 model-tiered core agents, and the full safety/audit hook layer**. Two tradeoffs to know:
+The plugin bundles the **24 workflow skills, the 8 model-tiered core agents, and the full safety/audit hook layer**. Two tradeoffs to know:
 
 - **Commands are namespaced** — `/boris-workflow:task-done` instead of `/task-done` (Claude Code always namespaces plugin skills to prevent conflicts; there is no bare-name plugin form).
 - **Not included** (use `install.sh` for these): the 44 community agents, the `boris-build` saved workflow, the permission allowlist (plugins can't ship permissions), and the `~/.claude/rules/` lesson-sync files.
@@ -254,7 +254,7 @@ Manage community agents by editing `agents/community/MANIFEST.txt`: uncomment an
 | **Compaction snapshot** | Before context compaction | Writes a git-state snapshot (branch, uncommitted files, recent commits) to `.claude/memory/compaction-snapshot.md` |
 | **Post-compaction recovery** | After context compaction | Injects a directive to verify the summary against the snapshot and save a cognitive handoff to `task-context.md` |
 | **Verify gate** | Turn end (Stop), only while `/checks` has the gate armed | Blocks ending the turn until quality gates pass or are explicitly waived; 3-attempt escape hatch, 2h staleness disarm |
-| **Plan-approval gate** | Before `ExitPlanMode`, on task branches only | **Denies** plan approval until `/clarify` and `/anythingelse` have actually run this plan episode (`/plan-review` if its complexity trigger fired, or an explicit `- [~] plan-review: waived` line). Evidence is read from the session transcript, not from a self-report — a checkpoint record in `task-context.md` is one edit from being forged, and plan mode cannot write that file anyway. 3-denial escape hatch (`GATE_MAX_DENIALS` overrides the count). Uses `deny` because `ask` is silently discarded on this tool |
+| **Plan-approval gate** | Before `ExitPlanMode`, on task branches only | **Denies** plan approval until `/clarify` and `/anythingelse` have actually run this plan episode. `/plan-review` is **advisory** — named in the denial text when absent, but never blocking on its own, because recording its waiver means editing `task-context.md`, which plan mode forbids. Evidence is read from the session transcript, not from a self-report — a checkpoint record in `task-context.md` is one edit from being forged, and plan mode cannot write that file anyway. 3-denial escape hatch (`GATE_MAX_DENIALS` overrides the count). Uses `deny` because `ask` is silently discarded on this tool |
 | **Publish gate** | Before `git push` / `gh pr create`, on task branches only | Asks when the charter's `cross-review` checkpoint is still open. This is the mechanical containment that makes `/task-done` safe to auto-invoke — a skill instructing itself to stop and ask is the exact class of instruction that measurably does not run |
 
 Hooks read the tool payload as JSON on stdin per the current Claude Code hooks contract and are covered by `scripts/test-hooks.sh` in CI, so a contract change can never silently disable them again.

@@ -346,6 +346,19 @@ printf '# Task\n## Checkpoints\n- [x] cross-review: done\n' > "$PUBREPO/.claude/
 OUT=$(pub_out "git push --force origin HEAD")
 if printf '%s' "$OUT" | grep -q 'cross-review'; then bad "force push gated after cross-review resolved"; else ok "force push silent once cross-review resolved"; fi
 
+# A force push is destructive AND a publication. Two emitters printed two
+# concatenated JSON objects — malformed output the CLI cannot parse, which
+# fails open and silently disables BOTH guards in the most dangerous case.
+# Exactly one decision must be emitted, carrying both reasons.
+printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n' > "$PUBREPO/.claude/task-context.md"
+OUT=$(pub_out "git push --force origin HEAD")
+if printf '%s' "$OUT" | python3 -c 'import json,sys; json.loads(sys.stdin.read().strip()); print("ok")' >/dev/null 2>&1; then
+  ok "force push emits ONE parseable decision"
+else
+  bad "force push emitted malformed/multiple hook decisions"
+fi
+if printf '%s' "$OUT" | grep -q 'cross-review'; then ok "combined reason keeps the publish gate"; else bad "publish reason lost when merged"; fi
+
 # Pushing must not litter the repo with recovery tags: nothing local is at risk.
 printf '# Task\n## Checkpoints\n- [ ] cross-review: pending\n' > "$PUBREPO/.claude/task-context.md"
 PT1=$(git -C "$PUBREPO" tag -l 'auto-checkpoint/*' | wc -l | tr -d ' ')
@@ -362,6 +375,13 @@ echo "--- hook-plan-gate.sh ---"
 PGATE="$SCRIPT_DIR/hook-plan-gate.sh"
 PG="$(mktemp -d "${TMPDIR:-/tmp}/plangate.XXXXXX")"
 git -C "$PG" init -q . 2>/dev/null
+# An initial commit is REQUIRED: in a repo with no commits every branch is
+# unborn, so `git checkout <existing-branch>` fails and the fixture silently
+# stays on whichever branch was created last. That made every test after the
+# protected-branch case run on `main`, where the gate always allows — masking
+# any real failure in them.
+git -C "$PG" -c user.email=t@t -c user.name=t -c commit.gpgsign=false \
+  commit --allow-empty -qm init 2>/dev/null
 git -C "$PG" checkout -qb feature/gate 2>/dev/null
 mkdir -p "$PG/.claude/audit"
 printf '# charter\n' > "$PG/.claude/task-context.md"
@@ -518,6 +538,19 @@ git -C "$PG" checkout -qb main 2>/dev/null || git -C "$PG" checkout -q main 2>/d
 D="$(pg_run | pg_decision)"; pg_reset
 [ "$D" = "none" ] && ok "silent on a protected branch" || bad "gated on main ('$D')"
 git -C "$PG" checkout -q feature/gate 2>/dev/null
+
+# protected_branches from project-config.json (the gitflow SET case). Tests
+# previously only exercised the local-refs fallback, so the config path — the
+# one that actually runs in a configured repo — was unverified.
+printf '{"base_branch":"main","protected_branches":["main","develop"]}' > "$PG/.claude/project-config.json"
+{ pg_skill clarify g1; } > "$PGT"
+git -C "$PG" checkout -qb develop 2>/dev/null
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "silent on 'develop' from protected_branches config" || bad "gated on a configured protected branch ('$D')"
+git -C "$PG" checkout -q feature/gate 2>/dev/null
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "deny" ] && ok "still gates on a feature branch with that config" || bad "config made every branch protected ('$D')"
+rm -f "$PG/.claude/project-config.json"
 
 D="$(printf 'not json at all' | bash "$PGATE" 2>/dev/null | pg_decision)"
 [ "$D" = "none" ] && ok "fails open on garbage stdin" || bad "garbage stdin produced '$D' (must fail open)"

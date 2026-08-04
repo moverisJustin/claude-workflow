@@ -234,7 +234,12 @@ print(json.dumps({"hookSpecificOutput": {
 # Silent when: not a repo, no task-context.md (untracked work), no
 # ## Checkpoints section (legacy branch — vacuous pass, never retroactively
 # flunked), or the cross-review line is already resolved [x] or waived [~].
-publish_check() {
+# Echoes a reason string when the publish gate should fire, or nothing.
+# It must NOT emit JSON itself: a force push is both destructive AND a
+# publication, so two emitters would print two concatenated hook decisions —
+# malformed output that the CLI cannot parse, silently disabling BOTH guards in
+# exactly the most dangerous case.
+publish_reason() {
   PUB_CTX="$PROJECT_DIR/.claude/task-context.md"
   [ "$IN_GIT_REPO" = "true" ] || return 0
   [ -f "$PUB_CTX" ] || return 0
@@ -255,7 +260,7 @@ elif re.search(r"^\s*-\s*\[ \]\s*cross-review\b", body, re.M):
     print("open")
 ' "$PUB_CTX" 2>/dev/null)"
   if [ "$PUB_OPEN" = "open" ]; then
-    emit_ask "$PATTERN publishes this branch, but the charter cross-review checkpoint is still open (- [ ] cross-review). Run /cross-review pr, or record it waived with a reason, or confirm to publish un-reviewed."
+    printf '%s' "$PATTERN publishes this branch, but the charter cross-review checkpoint is still open (- [ ] cross-review). Run /cross-review pr, or record it waived with a reason, or confirm to publish un-reviewed."
   fi
 }
 
@@ -272,17 +277,24 @@ case "$CATEGORY" in
     exit 0
     ;;
   GIT)
+    GIT_REASON=""
     if [ "$IN_GIT_REPO" = "true" ] && [ -z "$CHECKPOINT" ]; then
-      emit_ask "Destructive git command ($PATTERN) and no safety checkpoint could be created. Confirm before proceeding."
+      GIT_REASON="Destructive git command ($PATTERN) and no safety checkpoint could be created. Confirm before proceeding."
     fi
     # A force push is destructive AND a publication. It classifies as GIT
     # (the more serious category) and so never reached publish_check, which
     # meant `git push --force` slipped past the cross-review gate that plain
     # `git push` was stopped by — the bypass was one flag wide.
-    case "$PATTERN" in *push*) publish_check ;; esac
+    case "$PATTERN" in
+      *push*) PUB_REASON="$(publish_reason)"
+              [ -n "$PUB_REASON" ] && GIT_REASON="${GIT_REASON:+$GIT_REASON  }$PUB_REASON" ;;
+    esac
+    # Exactly one decision, whatever combination of conditions applied.
+    [ -n "$GIT_REASON" ] && emit_ask "$GIT_REASON"
     ;;
   PUBLISH)
-    publish_check
+    PUB_REASON="$(publish_reason)"
+    [ -n "$PUB_REASON" ] && emit_ask "$PUB_REASON"
     ;;
 esac
 

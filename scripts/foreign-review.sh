@@ -122,7 +122,8 @@ PROMPT_FILE=""
 TIMEOUT=600
 IDLE_TIMEOUT=60
 IDLE_EXPLICIT=0
-MAX_TOKENS=0   # 0 = derive from the schema (see below)
+MAX_TOKENS=0        # 0 = "not set"; derived from the schema below
+MAX_TOKENS_EXPLICIT=0
 PROBE=0
 QUIET=0
 
@@ -145,7 +146,7 @@ while [ $# -gt 0 ]; do
     --idle-timeout) [ $# -ge 2 ] || { err "--idle-timeout needs SECS"; exit 2; }
                IDLE_TIMEOUT="$2"; IDLE_EXPLICIT=1; shift 2 ;;
     --max-tokens)   [ $# -ge 2 ] || { err "--max-tokens needs N"; exit 2; }
-               MAX_TOKENS="$2"; shift 2 ;;
+               MAX_TOKENS="$2"; MAX_TOKENS_EXPLICIT=1; shift 2 ;;
     --probe)   PROBE=1; shift ;;
     --quiet)   QUIET=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -241,6 +242,10 @@ esac
 case "$MAX_TOKENS" in
   ''|*[!0-9]*) err "--max-tokens must be a positive integer (got '$MAX_TOKENS')"; exit 2 ;;
 esac
+# An explicit 0 is still a usage error; only the UNSET default means "derive".
+if [ "$MAX_TOKENS_EXPLICIT" -eq 1 ] && [ "$MAX_TOKENS" -eq 0 ]; then
+  err "--max-tokens must be a positive integer (got '0')"; exit 2
+fi
 if [ "$MAX_TOKENS" -eq 0 ] && [ -n "$SCHEMA" ] && [ -f "$SCHEMA" ]; then
   # Derive the cap from what the schema actually permits. A flat default is a
   # trap: cross-review allows maxItems:25 rich findings, so a fixed 8000 turns
@@ -356,9 +361,12 @@ cleanup() {
     kill -KILL -- "-$CURRENT_CHILD" 2>/dev/null
   fi
   rm -f "$SEND_FILE" "$BODY_FILE" "$LOG_FILE" "$HTTP_OUT" "$HTTP_CODE_FILE"
-  # The .stream copy is only worth keeping next to a real --out; without one,
-  # RAW_FILE is a temp path and the copy would be orphaned in TMPDIR forever.
-  [ -n "${OUT_FILE:-}" ] || rm -f "${RAW_FILE:-}.stream" 2>/dev/null || true
+  # Same rule as RAW_FILE: keep it when it has content, drop an empty one. The
+  # earlier narrowing (delete unless --out) still deleted a file the error
+  # message had just told the user was preserved.
+  if [ -n "${RAW_FILE:-}" ] && [ -f "${RAW_FILE}.stream" ] && [ ! -s "${RAW_FILE}.stream" ]; then
+    rm -f "${RAW_FILE}.stream"
+  fi
   if [ -n "${RAW_FILE:-}" ] && [ -f "$RAW_FILE" ] && [ ! -s "$RAW_FILE" ]; then
     rm -f "$RAW_FILE"
   fi

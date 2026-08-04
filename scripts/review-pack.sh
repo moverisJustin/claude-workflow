@@ -77,6 +77,7 @@ SPEC_ARG=""
 BUDGET=400000
 OUT_FILE=""
 EXCLUDES=""
+DROPPED_LIST=""
 QUIET=0
 
 while [ $# -gt 0 ]; do
@@ -172,6 +173,11 @@ if [ -n "$EXCLUDES" ]; then
   OLDIFS="$IFS"
   IFS='
 '
+  # set -f is load-bearing: `for g in $EXCLUDES` is unquoted so the shell applies
+  # PATHNAME EXPANSION to the globs themselves before they are ever used as
+  # patterns. A literal '*' expanded to the CWD file list and matched nothing;
+  # '.env*' only worked by luck, because nothing in CWD matched it.
+  set -f
   for f in $CHANGED; do
     skip=0
     for g in $EXCLUDES; do
@@ -186,13 +192,21 @@ if [ -n "$EXCLUDES" ]; then
     done
     if [ "$skip" -eq 1 ]; then
       DROPPED=$((DROPPED + 1))
+      DROPPED_LIST="$DROPPED_LIST$f
+"
     else
       KEPT="$KEPT$f
 "
     fi
   done
+  set +f
   IFS="$OLDIFS"
   CHANGED="$(printf '%s' "$KEPT")"
+  # Everything filtered out is NOT the same as an empty branch. Without this the
+  # pack reads as "no changed files" and a reviewer concludes the diff is empty.
+  if [ -z "$CHANGED" ] && [ "$DROPPED" -gt 0 ]; then
+    loud "EXCLUDED: all $DROPPED changed file(s) were excluded — pack has NO diff content"
+  fi
   [ "$DROPPED" -gt 0 ] && loud "excluded $DROPPED file(s) from the pack per --exclude"
 fi
 
@@ -311,6 +325,22 @@ fi
 # Binary detection via numstat: binary files report '-<TAB>-<TAB>path'.
 BINARIES="$(GIT diff --no-renames --numstat "$BASE...HEAD" 2>/dev/null | awk -F'\t' '$1 == "-" && $2 == "-" { print $3 }')"
 is_binary() { [ -n "$BINARIES" ] && printf '%s\n' "$BINARIES" | grep -qxF "$1"; }
+
+# DECLARE the exclusions in the pack, not just on stderr. A reviewer that cannot
+# see what was withheld reports the withheld thing as missing — this exact
+# blindness produced false "no test coverage anywhere in the pack" findings in
+# two consecutive reviews, because the test file had been excluded. Same
+# loud-marker convention as SPEC: and TRUNCATED:.
+if [ "${DROPPED:-0}" -gt 0 ]; then
+  {
+    printf '\nEXCLUDED: %s file(s) withheld from this pack by --exclude.\n' "$DROPPED"
+    printf 'These files ARE part of the change under review. Their absence is NOT\n'
+    printf 'evidence of missing code, tests, or coverage — do not report it as such:\n'
+    printf '%s' "$DROPPED_LIST" | sed 's/^/  - /'
+    printf '\n'
+  } >> "$TMP"
+  loud "EXCLUDED: $DROPPED file(s) declared in the pack"
+fi
 
 printf '\n## Changed files (full)\n\n' >> "$TMP"
 inlined=0
