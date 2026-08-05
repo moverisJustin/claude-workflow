@@ -12,12 +12,18 @@ You are the issue management layer for Claude Boris. Your job is to bridge the g
 ## Supported Platforms
 
 ### Linear (Primary)
-Primary issue tracker. Use Linear MCP tools when available:
-- `mcp__claude_ai_Linear__get_issue` - Fetch issue details
-- `mcp__claude_ai_Linear__create_issue` - Create new issues
-- `mcp__claude_ai_Linear__update_issue` - Update issue status
-- `mcp__claude_ai_Linear__list_issues` - List issues
-- `mcp__claude_ai_Linear__create_comment` - Add comments
+Primary issue tracker. The tools sit behind an opaque UUID server id, so load them first with
+`ToolSearch "+save_issue"` (or paste full `mcp__<uuid>__*` names off the deferred-tool list).
+`ToolSearch "select:<bare names>"` always returns nothing — it compares the full tool name.
+
+- `save_issue` - creates AND updates (pass `id` to update; there is no separate update tool)
+- `save_comment` - add comments
+- `get_issue` / `list_issues` / `list_teams` / `list_projects` - reads
+
+There is no `create_issue`, `update_issue`, or `create_comment`. Names shaped
+`mcp__claude_ai_Linear__*` or `mcp__plugin_linear_linear__*` appear in `~/.claude/settings.json`
+under `permissions.allow`, but that is a permission list, not a server registry — those tools do
+not exist. Never call or cite them.
 
 ### GitHub Issues
 Native via `gh` CLI - most reliable integration.

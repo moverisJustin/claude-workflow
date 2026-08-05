@@ -15,10 +15,16 @@ Every session begins with:
 
 ## Connected Tools (Linear, Slack, Figma, Gmail, Calendar, Drive)
 These are connected as **claude.ai account connectors** and they work. Assume they are present.
-- Their tools load under **opaque UUID server ids** — `mcp__<uuid>__save_issue`, not `mcp__linear__save_issue`. The vendor name appears NOWHERE in the tool name, so `ToolSearch "linear"` returning nothing means nothing.
-- The session-start banner listing `plugin:linear:linear` (or `plugin:slack:slack`) as "requires authentication" is a **different server** from the account connector. It is never grounds for saying a connector is unavailable.
-- Locate tools by exact name or capability: `ToolSearch "select:save_issue,list_teams,list_issues"`, plus a scan of the deferred-tool list for `mcp__<uuid>__*` suffixes. That list fills in **incrementally** — re-run the check before acting on any earlier miss.
-- **Never** tell the user a connector is unreachable, ask them to re-authorize, ask them to paste a token, or go hunting for an API key. If an exact-name `select:` search truly comes up empty this turn, say so once in a sentence naming the query, then continue with other evidence. Do not relitigate when the user says it is connected — they can see the settings pane and you cannot.
+- Their tools load under an **opaque UUID server id** — Linear is `mcp__1454a9ef-f670-467d-a8f8-b5992bc8dcd0__save_issue`, not `mcp__linear__save_issue`. The vendor name appears NOWHERE in the tool name, so `ToolSearch "linear"` returning nothing means nothing.
+- **How to load them** (all three verified 2026-08-05):
+  - `ToolSearch "+save_issue"` — the `+term` form matches on tool name and needs no UUID. Start here.
+  - To batch, copy `mcp__<uuid>__*` names verbatim off the deferred-tool list in the system reminder into `select:`.
+  - **`select:` with BARE names cannot match.** It compares the *full* tool name, so `select:save_issue,list_teams,list_issues` returns nothing while every tool works fine. A bare-name miss is evidence of nothing — never report one as a connector problem.
+- Real Linear tool names: `save_issue` (creates AND updates), `save_comment`, `list_issues`, `list_teams`, `list_projects`, `get_issue`. There is no `create_issue`, `update_issue`, or `create_comment`.
+- `permissions.allow` in `~/.claude/settings.json` is a permission list, **not** a server registry. Names appearing there (`mcp__claude_ai_Linear__*`, `mcp__plugin_linear_linear__*`) are dead. Never infer routing or availability from a config file — probe with ToolSearch.
+- The session-start banner listing `plugin:linear:linear` (or `plugin:slack:slack`) as "requires authentication" is a **different server** from the account connector. It is never grounds for saying a connector is unavailable, and never a reason to skip the search.
+- When a corrected query succeeds after an earlier miss, **do not say the tools "just populated."** They were listed in the first system-reminder of the session; the earlier query was malformed. Say that instead.
+- **Never** tell the user a connector is unreachable, ask them to re-authorize, ask them to paste a token, or go hunting for an API key. Do not relitigate when the user says it is connected — they can see the settings pane and you cannot. If `+name` AND a UUID-prefixed `select:` both come up empty in the same turn, say so once naming both queries, then continue with other evidence; a bare-name miss never qualifies.
 
 # Quick Reference (Boris v3)
 
