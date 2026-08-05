@@ -132,6 +132,7 @@ Retrieve with `memory-context.sh --grep '<keyword>'`. Full text:
 - A shipped-but-never-run producer is indistinguishable from one that was never written
 
 **Claude Code harness & agent infrastructure**
+- An always-on instruction file is a context tax — measure it before adding to it
 - Lesson sync to the public repo is opt-in
 - Don't declare a Workflow adversarial review "clean" from a partial journal read — wait for ...
 - A backgrounded process gets /dev/null on stdin — piping into a watchdog wrapper silently de...
