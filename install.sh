@@ -343,25 +343,54 @@ echo "  Installed $SCRIPT_COUNT hook scripts"
 
 # --- Phase 6.3: Install rules ---
 echo "--- Phase 6.3: Install rules ---"
-mkdir -p "$CLAUDE_DIR/rules"
+mkdir -p "$CLAUDE_DIR/rules" "$CLAUDE_DIR/lessons"
+
+# v3.1 MIGRATION — must run BEFORE the rules/ copy loop below.
+#
+# Through v3.0 the whole lesson corpus lived at rules/learned-patterns.md, which the
+# harness auto-loads: ~100KB into every session in every project. v3.1 keeps a curated
+# hot core there and moves the corpus to lessons/, retrieved on demand.
+#
+# The copy loop below now overwrites rules/learned-patterns.md unconditionally, so a
+# pre-3.1 machine would lose its private lessons unless they are moved out FIRST.
+# Detect by CONTENT, not by version stamp: the v3.1 file carries the index marker and
+# a pre-3.1 corpus never does.
+V31_MARKER='## Deferred corpus — heading index'
+OLD_LP="$CLAUDE_DIR/rules/learned-patterns.md"
+if [ -f "$OLD_LP" ] && ! grep -qF "$V31_MARKER" "$OLD_LP"; then
+  if [ -f "$CLAUDE_DIR/lessons/learned-patterns.md" ]; then
+    # Both exist and rules/ is still a pre-3.1 corpus: merge rather than clobber.
+    if LOCAL_FILE="$CLAUDE_DIR/lessons/learned-patterns.md" REPO_FILE="$OLD_LP" \
+       "$SCRIPT_DIR/sync-lessons.sh" >/dev/null 2>&1; then
+      echo "  Merged pre-3.1 rules/learned-patterns.md into lessons/ (no lessons lost)"
+    else
+      echo "  ERROR: could not merge pre-3.1 lessons. Aborting before overwrite." >&2
+      echo "  Your lessons are untouched at $OLD_LP — re-run after resolving." >&2
+      exit 1
+    fi
+  else
+    mv "$OLD_LP" "$CLAUDE_DIR/lessons/learned-patterns.md"
+    echo "  Moved pre-3.1 lesson corpus to lessons/learned-patterns.md ($(wc -c < "$CLAUDE_DIR/lessons/learned-patterns.md" | tr -d ' ') bytes out of always-on context)"
+  fi
+fi
+
 RULES_COUNT=0
 for f in "$SCRIPT_DIR/rules/"*.md; do
   [ -f "$f" ] || continue
   base=$(basename "$f")
-  if [ "$base" = "learned-patterns.md" ]; then
-    # The lessons file is the sync target and accumulates the machine's own
-    # (private) lessons — seed it only when absent, never overwrite.
-    if [ ! -f "$CLAUDE_DIR/rules/$base" ]; then
-      cp "$f" "$CLAUDE_DIR/rules/$base"
-      RULES_COUNT=$((RULES_COUNT + 1))
-      echo "  Seeded rules/learned-patterns.md from repo"
-    fi
-  else
-    cp "$f" "$CLAUDE_DIR/rules/$base"
-    RULES_COUNT=$((RULES_COUNT + 1))
-  fi
+  cp "$f" "$CLAUDE_DIR/rules/$base"
+  RULES_COUNT=$((RULES_COUNT + 1))
 done
 echo "  Installed $RULES_COUNT rules file(s) to ~/.claude/rules/"
+
+# Seed the corpus on a fresh machine only — it accumulates private lessons, so it is
+# never overwritten once it exists.
+if [ ! -f "$CLAUDE_DIR/lessons/learned-patterns.md" ] \
+   && [ -f "$SCRIPT_DIR/lessons/learned-patterns.md" ]; then
+  cp "$SCRIPT_DIR/lessons/learned-patterns.md" "$CLAUDE_DIR/lessons/learned-patterns.md"
+  echo "  Seeded lessons/learned-patterns.md from repo (deferred corpus)"
+fi
+
 
 # --- Phase 6.5: Remove retired context templates from old installs ---
 # The ROUTER context-router and pattern-index templates are retired (Boris v3):
@@ -378,7 +407,7 @@ fi
 # --- Phase 7: Install CLAUDE.md + migrate lessons to the rules file ---
 echo "--- Phase 7: CLAUDE.md + lesson migration ---"
 
-# Boris v3: lessons live in ~/.claude/rules/learned-patterns.md, not CLAUDE.md.
+# Boris v3.1: lessons live in ~/.claude/lessons/learned-patterns.md (deferred), not CLAUDE.md.
 # The version stamp is an HTML comment ("boris-version: 3") because users edit
 # prose headings; the stamp is the one line they're told not to remove.
 
@@ -398,7 +427,11 @@ render_claude_md() {
     /^```/ { fence = !fence }
     /^# / && !fence {
       keep = 1
-      if ($0 ~ /^# (Session Boot|User Preferences|Quick Reference|Workflow Orchestration|Memory Bank|Core Principles|Learned Patterns|Rules)/) keep = 0
+      # Retired headings stay listed forever: an old machine still carries the
+      # section, and dropping it from this list turns template content into
+      # "user custom" content that gets appended on every re-run.
+      #   Quick Reference       -> retired in v3.1, replaced by Orchestration defaults
+      if ($0 ~ /^# (Session Boot|User Preferences|Orchestration defaults|Quick Reference|Workflow Orchestration|Memory Bank|Core Principles|Learned Patterns|Rules)/) keep = 0
     }
     keep { print }
   ' "$1" > "$CARRYOVER"
@@ -431,10 +464,11 @@ if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ! grep -q "boris-version: 3" "$CLAUDE_DIR/C
   cp "$CLAUDE_DIR/CLAUDE.md" "$SNAPSHOT"
   MIGRATION_OK=true
   if grep -q '^# Learned Patterns' "$SNAPSHOT" 2>/dev/null; then
-    [ -f "$CLAUDE_DIR/rules/learned-patterns.md" ] || printf '# Learned Patterns\n' > "$CLAUDE_DIR/rules/learned-patterns.md"
-    if LOCAL_FILE="$CLAUDE_DIR/rules/learned-patterns.md" REPO_FILE="$SNAPSHOT" \
+    mkdir -p "$CLAUDE_DIR/lessons"
+    [ -f "$CLAUDE_DIR/lessons/learned-patterns.md" ] || printf '# Learned Patterns\n' > "$CLAUDE_DIR/lessons/learned-patterns.md"
+    if LOCAL_FILE="$CLAUDE_DIR/lessons/learned-patterns.md" REPO_FILE="$SNAPSHOT" \
        "$SCRIPT_DIR/sync-lessons.sh" >/dev/null 2>&1; then
-      echo "  Migrated Learned Patterns from old CLAUDE.md into rules/learned-patterns.md"
+      echo "  Migrated Learned Patterns from old CLAUDE.md into lessons/learned-patterns.md"
     else
       MIGRATION_OK=false
     fi
@@ -447,9 +481,15 @@ if [ -f "$CLAUDE_DIR/CLAUDE.md" ] && ! grep -q "boris-version: 3" "$CLAUDE_DIR/C
   else
     echo "  ERROR: lesson migration FAILED — your existing CLAUDE.md was left unchanged."
     echo "  No lessons were lost. Fix the issue (run ./sync-lessons.sh manually to see the"
-    echo "  error with LOCAL_FILE=$CLAUDE_DIR/rules/learned-patterns.md) and re-run install.sh."
+    echo "  error with LOCAL_FILE=$CLAUDE_DIR/lessons/learned-patterns.md) and re-run install.sh."
   fi
   rm -f "$SNAPSHOT"
+
+# Index LAST: Phase 7 may have just migrated lessons into the corpus, and a stale index
+# makes deferred lessons invisible.
+if [ -x "$SCRIPT_DIR/scripts/reindex-lessons.sh" ]; then
+  "$SCRIPT_DIR/scripts/reindex-lessons.sh" || true
+fi
 elif [ ! -f "$CLAUDE_DIR/CLAUDE.md" ]; then
   cp "$SCRIPT_DIR/CLAUDE.md" "$CLAUDE_DIR/CLAUDE.md"
   echo "  Installed CLAUDE.md (fresh install)"
@@ -489,9 +529,9 @@ echo "  - $AGENT_COUNT agents"
 echo "  - $SKILL_COUNT skills (invoked as /name — commands are fully migrated to skills)"
 echo "  - $WF_COUNT workflow script(s)"
 echo "  - $SCRIPT_COUNT hook scripts"
-echo "  - rules/ (git-safety, workflow, learned-patterns — the lesson-capture target)"
+echo "  - rules/ (git-safety, workflow, documentation-channels, learned-patterns hot core + index)"
 echo "  - settings.json (merged with hooks)"
-echo "  - CLAUDE.md (slim v3 core; lessons live in rules/learned-patterns.md)"
+echo "  - CLAUDE.md (slim v3 core; lessons deferred to ~/.claude/lessons/learned-patterns.md)"
 echo ""
 echo "Backup at: $BACKUP_DIR"
 echo ""
@@ -502,4 +542,4 @@ echo "  3. Run /memory-init in any project to set up Memory Bank"
 echo "  4. Run /session-start to begin a session"
 echo ""
 echo "To sync lessons across machines (only <!-- shareable --> lessons reach the public repo):"
-echo "  ./sync-lessons.sh && git add rules/learned-patterns.md && git commit -m 'sync lessons' && git push"
+echo "  ./sync-lessons.sh && git add lessons/learned-patterns.md && git commit -m 'sync lessons' && git push"

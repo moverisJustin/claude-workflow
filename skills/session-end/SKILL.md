@@ -29,7 +29,7 @@ git diff --stat
   `.claude/memory/decisionLog.md`.
 - **New project-specific convention or a correction worth keeping** → add it to
   `.claude/memory/conventions.md` (format: `### short title` + what/why/instead).
-  If it's a *universal* lesson, put it in `~/.claude/rules/learned-patterns.md`
+  If it's a *universal* lesson, put it in `~/.claude/lessons/learned-patterns.md`
   instead (see `/update-claude-md` for routing), and tag `<!-- shareable -->`
   only if it's safe to publish.
 - **A validated cross-model finding** — a foreign reviewer (Codex, Kimi) caught
@@ -120,3 +120,8 @@ Drift: [X/100]
 
 Resume with /session-start.
 ```
+
+After appending a lesson to the deferred corpus, regenerate the index so it stays
+discoverable: `~/.claude/scripts/reindex-lessons.sh` (idempotent). Promote a lesson
+into the always-on hot core in `~/.claude/rules/learned-patterns.md` only if it applies
+regardless of stack and fails silently.

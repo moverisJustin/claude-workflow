@@ -86,7 +86,7 @@ native equivalent; session state does.
 
 **conventions.md** — project-specific conventions and lessons (the
 lesson-capture target for THIS repo; universal lessons go to
-`~/.claude/rules/learned-patterns.md` instead):
+`~/.claude/lessons/learned-patterns.md` instead):
 ```markdown
 # Conventions & Lessons
 

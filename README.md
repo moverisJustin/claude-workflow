@@ -46,7 +46,7 @@ chmod +x install.sh sync-lessons.sh uninstall.sh
 ./install.sh
 ```
 
-The installer backs up your existing `~/.claude/` config, copies agents/skills/workflows/hooks/rules, removes files retired by newer versions, migrates lessons out of a pre-v3 CLAUDE.md into `~/.claude/rules/learned-patterns.md`, merges settings (preserving your machine-specific paths and MCP permissions), and syncs Learned Patterns.
+The installer backs up your existing `~/.claude/` config, copies agents/skills/workflows/hooks/rules, removes files retired by newer versions, migrates lessons out of a pre-v3 CLAUDE.md into `~/.claude/lessons/learned-patterns.md`, merges settings (preserving your machine-specific paths and MCP permissions), and syncs Learned Patterns.
 
 Then in any Claude Code session:
 
@@ -166,7 +166,7 @@ Nothing assumes `main`. `scripts/resolve-base-branch.sh` works out each repo's r
 This matters more than it sounds: a survey of one org's 55 active repos found `main` (43), `master` (6), and `develop`+`main` gitflow (6). Hardcoding `main` silently branches off the wrong base, or fails outright in a `master` repo. Run `resolve-base-branch.sh --explain` to see the evidence behind the answer.
 
 ### Learned Patterns
-When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns go to your private `~/.claude/rules/learned-patterns.md` and stay on your machine by default. Sharing to this **public** repo is opt-in: `sync-lessons.sh` only promotes a pattern whose block carries a `<!-- shareable -->` marker, so private/org-specific notes never leak. Shared patterns then sync back to every machine via git. Over time, Claude stops making the mistakes your team has already caught.
+When you correct Claude ("don't mock the database in tests", "always check column names before writing queries"), the correction gets saved as a Learned Pattern. Project-specific patterns stay in `.claude/memory/conventions.md`. Universal patterns go to your private `~/.claude/lessons/learned-patterns.md` and stay on your machine by default. Sharing to this **public** repo is opt-in: `sync-lessons.sh` only promotes a pattern whose block carries a `<!-- shareable -->` marker, so private/org-specific notes never leak. Shared patterns then sync back to every machine via git. Over time, Claude stops making the mistakes your team has already caught.
 
 ### Task Context
 Feature branches carry `.claude/task-context.md` with the objective, plan, key decisions, current progress, and the Loops ledger (Linear / BSpec / Handoff / Forge). Created by `/task-branch`, auto-loaded by `/session-start`, removed when the branch merges (the resolved ledger survives in the PR body). This means anyone (or any machine) can pick up a branch cold and Claude has full context.
@@ -268,15 +268,15 @@ The SessionStart hook also detects new projects (no `.claude/project-config.json
 - **Add skills**: Create `skills/<name>/SKILL.md` with frontmatter (`description`, optional `disable-model-invocation`, `allowed-tools`, `argument-hint`); invoke as `/name`. Supporting files can live in the skill's directory.
 - **Add rules**: Drop always-on policy files in `~/.claude/rules/*.md` (project-level: `.claude/rules/`; add `paths:` frontmatter to scope a rule to matching files)
 - **Machine-specific settings**: Edit `~/.claude/settings.json` directly for paths, plugins, MCP permissions. These are preserved across `install.sh` runs.
-- **New lessons**: Just work with Claude -- lessons are added to your private `~/.claude/rules/learned-patterns.md` during sessions (`/update-claude-md` routes them). To publish one to this public repo, add a `<!-- shareable -->` marker under its `### ` heading, then run `sync-lessons.sh` (untagged lessons stay local)
+- **New lessons**: Just work with Claude -- lessons are added to your private `~/.claude/lessons/learned-patterns.md` during sessions (`/update-claude-md` routes them). To publish one to this public repo, add a `<!-- shareable -->` marker under its `### ` heading, then run `sync-lessons.sh` (untagged lessons stay local)
 
 ## Sync Lessons Across Machines
 
-Learned Patterns are universal lessons that accumulate as Claude makes mistakes and you correct them. They persist across all projects and live in your private `~/.claude/rules/learned-patterns.md` (Boris v3 moved them out of CLAUDE.md to keep it under the ~200-line adherence budget; `install.sh` migrates old machines automatically).
+Learned Patterns are universal lessons that accumulate as Claude makes mistakes and you correct them. They persist across all projects and live in your private `~/.claude/lessons/learned-patterns.md` (Boris v3 moved them out of CLAUDE.md to keep it under the ~200-line adherence budget; `install.sh` migrates old machines automatically).
 
 Promotion to this **public** repo is **opt-in**. A lesson is pushed to the repo's `rules/learned-patterns.md` only if its block contains a `<!-- shareable -->` marker; everything else stays on your machine. This keeps private/org-specific notes (production hosts, internal tooling, client names) out of the public repo by default.
 
-**Mark a lesson shareable** -- add the marker on the line under its heading in `~/.claude/rules/learned-patterns.md`:
+**Mark a lesson shareable** -- add the marker on the line under its heading in `~/.claude/lessons/learned-patterns.md`:
 ```markdown
 ### Always run migrations inside a transaction
 <!-- shareable -->
@@ -287,7 +287,7 @@ Wrap schema changes in BEGIN/COMMIT so a failed migration rolls back cleanly.
 ```bash
 cd ~/Documents/claude-workflow
 ./sync-lessons.sh   # promotes only <!-- shareable --> lessons; reports what it kept local
-git add rules/learned-patterns.md && git commit -m "sync lessons" && git push
+git add lessons/learned-patterns.md && git commit -m "sync lessons" && git push
 ```
 
 **On another machine:**

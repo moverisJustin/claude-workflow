@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Bidirectional Lesson Sync
 # Merges "Learned Patterns" between the machine-local rules file
-# (~/.claude/rules/learned-patterns.md) and the repo's rules/learned-patterns.md.
+# (~/.claude/lessons/learned-patterns.md) and the repo's lessons/learned-patterns.md.
 # (Boris v3: lessons moved out of CLAUDE.md into a dedicated rules file —
 #  install.sh migrates a machine's old CLAUDE.md lessons on upgrade.)
 # - Local -> repo: OPT-IN. A local lesson is promoted to the (public) repo ONLY if its
@@ -17,8 +17,8 @@ set -euo pipefail
 # and by install.sh's one-time migration).
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOCAL_FILE="${LOCAL_FILE:-$HOME/.claude/rules/learned-patterns.md}"
-REPO_FILE="${REPO_FILE:-$SCRIPT_DIR/rules/learned-patterns.md}"
+LOCAL_FILE="${LOCAL_FILE:-$HOME/.claude/lessons/learned-patterns.md}"
+REPO_FILE="${REPO_FILE:-$SCRIPT_DIR/lessons/learned-patterns.md}"
 
 # A local lesson is promoted to the repo only if its block contains this marker.
 SHAREABLE_MARKER='<!-- shareable -->'
@@ -195,5 +195,5 @@ fi
 if [ $REPO_ADDED -gt 0 ]; then
   echo ""
   echo "Don't forget to commit and push the repo changes:"
-  echo "  git add rules/learned-patterns.md && git commit -m 'sync lessons' && git push"
+  echo "  git add lessons/learned-patterns.md && git commit -m 'sync lessons' && git push"
 fi

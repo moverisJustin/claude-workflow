@@ -52,7 +52,7 @@
 ## Self-Improvement Loop
 - After ANY correction from the user — or a validated cross-model finding (a foreign reviewer caught something real that Claude confirmed): write the pattern to `.claude/memory/conventions.md`.
 - Foreign models never write memory files — Claude reconciles, Claude writes. Foreign lessons are proposals until validated.
-- Universal lessons (workflow patterns, cross-project pitfalls) also go to the machine-global Learned Patterns file at `~/.claude/rules/learned-patterns.md`; project-specific ones stay in conventions.md.
+- Universal lessons (workflow patterns, cross-project pitfalls) also go to the machine-global Learned Patterns file at `~/.claude/lessons/learned-patterns.md`; project-specific ones stay in conventions.md.
 - Publishing to the public workflow repo is OPT-IN: `sync-lessons.sh` promotes a lesson only if its block carries a `<!-- shareable -->` marker (placed under its `### ` heading). Untagged lessons never leave the machine.
 - Never re-propose approaches conventions.md documents as ruled out.
 
