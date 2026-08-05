@@ -81,16 +81,26 @@ for f in "$SCRIPT_DIR/workflows/"*.js; do
   fi
 done
 
-# Rules: remove the repo-shipped rule files, but KEEP learned-patterns.md —
-# it accumulates the machine's own private lessons and is not replaceable.
-for r in git-safety.md workflow.md; do
+# Rules: remove the repo-shipped rule files. Since v3.1 the private lesson corpus
+# lives in ~/.claude/lessons/, so rules/learned-patterns.md is now fully
+# repo-shipped (curated hot core + generated index) and safe to remove — but ONLY
+# once the corpus exists, otherwise a pre-3.1 machine would lose its lessons here.
+for r in git-safety.md workflow.md documentation-channels.md; do
   if [ -f "$CLAUDE_DIR/rules/$r" ]; then
     rm -f "$CLAUDE_DIR/rules/$r"
     echo "  Removed rules/$r"
   fi
 done
 if [ -f "$CLAUDE_DIR/rules/learned-patterns.md" ]; then
-  echo "  Kept rules/learned-patterns.md (your accumulated lessons — delete manually if desired)"
+  if [ -f "$CLAUDE_DIR/lessons/learned-patterns.md" ]; then
+    rm -f "$CLAUDE_DIR/rules/learned-patterns.md"
+    echo "  Removed rules/learned-patterns.md (hot core + index; repo-shipped)"
+  else
+    echo "  Kept rules/learned-patterns.md (pre-3.1 layout — it still holds your lessons)"
+  fi
+fi
+if [ -f "$CLAUDE_DIR/lessons/learned-patterns.md" ]; then
+  echo "  Kept lessons/learned-patterns.md (your accumulated lessons — delete manually if desired)"
 fi
 
 # Remove workflow-installed hook scripts and context templates.

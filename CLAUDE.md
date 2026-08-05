@@ -26,48 +26,23 @@ These are connected as **claude.ai account connectors** and they work. Assume th
 - When a corrected query succeeds after an earlier miss, **do not say the tools "just populated."** They were listed in the first system-reminder of the session; the earlier query was malformed. Say that instead.
 - **Never** tell the user a connector is unreachable, ask them to re-authorize, ask them to paste a token, or go hunting for an API key. Do not relitigate when the user says it is connected — they can see the settings pane and you cannot. If `+name` AND a UUID-prefixed `select:` both come up empty in the same turn, say so once naming both queries, then continue with other evidence; a bare-name miss never qualifies.
 
-# Quick Reference (Boris v3)
+# Orchestration defaults
 
-```bash
-# Orchestration
-/boris <task>        # Plan (plan mode) -> delegate -> verify -> ship; fan-out via boris-build Workflow. DEFAULT for non-trivial tasks (auto-invoked)
-/clarify             # Question checkpoint — auto-runs at the START of every planning phase, and on any gap found mid-execution
-/anythingelse        # Wildcard checkpoint — auto-runs at the end of every planning phase
-/loops               # One board of everything open: ledger, delegated tasks/forks, PRs, worktrees, gates
-/forge               # Shared team context (optional) — teammate wip/contracts, publish yours
-/session-start       # Load Memory Bank, orient to project
-/session-end         # Save context for next session
+Skills self-describe — the harness already lists every skill with its description, so
+this file does not restate them. What is NOT obvious from that list:
 
-# Verification & Quality
-/checks              # Stack-detected gates (tests/types/lint/format/build) + Stop-hook verify gate
-/verify              # Native: run the app, observe behavior
-/code-review <level> # Native: review the diff (--comment, --fix; "ultra" for cloud review)
-/plan-review         # Foreign-model review of the plan inside plan mode; auto-offered above the complexity bar
-/cross-review [code|design|pr] # Adversarial review by a different model family; "design" catches AI-design tells, "pr" fans out to routed backends (Codex + Kimi)
-/security-review     # Native: security review of the branch
-/simplify            # Native: simplification pass on changed code
+- **`/boris` is the default** for any non-trivial dev task. Auto-invoke it when the user
+  starts describing work to build, fix, or change; they should never need to type it.
+  Trivial fixes and pure questions skip the ceremony (say so).
+- `/clarify` then `/anythingelse` run at every planning phase, in that order.
+- `/loops` is the board of everything still in flight. `/session-start` and `/session-end`
+  bracket the session.
+- Recovery routing: `/rewind` (Esc-Esc) for Claude's edits; `git reset --soft HEAD^` for a
+  bad commit; `git tag -l 'auto-checkpoint/*'` for files a bash command destroyed.
 
-# Git
-/task-branch <name>  # Feature branch + committed task context
-/task-done           # Verify, PR, task-context cleanup
-/commit-push-pr      # Full git workflow with PR
-/quick-commit        # Fast local commit
-/rewind              # Native: restore Claude's edits (Esc-Esc). Bad COMMIT: git reset --soft HEAD^
-
-# Context & Memory
-/memory-init         # Initialize Memory Bank for a project
-/handoff             # Cognitive briefing (mental model, failed approaches, resume prompt)
-/drift-check         # Validate Memory Bank against the codebase
-
-# Issues & Learning
-/fix-issue <id>      # End-to-end issue resolution
-/ci-loop             # Push, watch CI in the background (non-blocking), fix, repeat
-/update-claude-md    # Capture lessons from recent work
-/bspec-doc           # Author a spec/PRD/architecture/decision doc in BSpec format, then validate offline
-/first-principles    # Break down complex problems
-```
-
-Modes are native and harness-enforced: plan mode (Shift+Tab or `/plan`) for read-only design/review; default/acceptEdits for implementation; the audit hooks log every command and file-write to `.claude/audit/`.
+Modes are native and harness-enforced: plan mode (Shift+Tab or `/plan`) for read-only
+design/review; default/acceptEdits for implementation; the audit hooks log every command
+and file-write to `.claude/audit/`.
 
 # Rules
 
@@ -75,7 +50,11 @@ Always-on rules live in `~/.claude/rules/` (installed from this repo's `rules/`)
 - `git-safety.md` — branch strategy, push-target verification, signed commits, PR review policy, recovery routing
 - `workflow.md` — plan-first, delegation, verify-before-done, self-improvement loop, compaction recovery
 - `documentation-channels.md` — one documentation contract for every task: Linear tracking (find/create → In Progress → comment → Done), BSpec for all saved specs/decisions, Forge for shared team context (optional; published continuously as work happens), explicit handoffs; enforced via the task-context Loops ledger
-- `learned-patterns.md` — accumulated cross-project lessons. This is the lesson-capture target and the `sync-lessons.sh` sync point (public-repo promotion is opt-in via `<!-- shareable -->`)
+- `learned-patterns.md` — the always-on **hot core** (10 rules that apply to every session) plus a
+  heading index of the deferred corpus at `~/.claude/lessons/learned-patterns.md`, which is NOT
+  auto-loaded. Retrieve deferred lessons with `memory-context.sh --grep '<keyword>'`. The corpus is
+  the lesson-capture and `sync-lessons.sh` target (public-repo promotion is opt-in via `<!-- shareable -->`);
+  `scripts/reindex-lessons.sh` regenerates the index after an append.
 
 # Memory Bank (Persistent Context)
 

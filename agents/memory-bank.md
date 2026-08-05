@@ -24,7 +24,7 @@ context router. Those are retired.
 
 Plus `.claude/project-config.json` (git preference, description). Branch task
 state lives in the committed `.claude/task-context.md` (owned by task-branch /
-task-done), and universal lessons live in `~/.claude/rules/learned-patterns.md`
+task-done), and universal lessons live in `~/.claude/lessons/learned-patterns.md`
 — neither is your responsibility to maintain here.
 
 ### projectContext.md
@@ -50,7 +50,7 @@ Accepted / Superseded by [link]
 Project-specific conventions and lessons: code style beyond linting, file
 naming, component/testing patterns, and mistakes to avoid — each as a short
 `### title` + what/why/instead. Universal, cross-project lessons do NOT go here;
-route those to `~/.claude/rules/learned-patterns.md`.
+route those to `~/.claude/lessons/learned-patterns.md`.
 
 ## Drift Detection
 

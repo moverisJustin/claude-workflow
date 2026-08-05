@@ -33,7 +33,7 @@ echo "=== test-install.sh ==="
 # reporting success (Phase 6.3 skips seeding, sync used to crash on the empty
 # section, || true hid it, CLAUDE.md was replaced, lessons gone).
 mkdir -p "$CD/rules"
-printf '# Learned Patterns\n' > "$CD/rules/learned-patterns.md"
+printf '# Learned Patterns\n' > "$CD/lessons/learned-patterns.md"
 
 cat > "$CD/CLAUDE.md" <<'EOF'
 # Session Boot (MANDATORY)
@@ -84,7 +84,7 @@ if grep -q "boris-version: 3" "$CD/CLAUDE.md"; then ok "CLAUDE.md replaced with 
 LINES=$(wc -l < "$CD/CLAUDE.md" | tr -d ' ')
 if [ "$LINES" -lt 150 ]; then ok "installed CLAUDE.md is slim ($LINES lines < 150)"; else bad "installed CLAUDE.md too big ($LINES lines)"; fi
 if ! grep -q '^# Learned Patterns' "$CD/CLAUDE.md"; then ok "lessons no longer live in CLAUDE.md"; else bad "CLAUDE.md still carries a Learned Patterns section"; fi
-if grep -q "fly secrets private machine lesson" "$CD/rules/learned-patterns.md" 2>/dev/null; then
+if grep -q "fly secrets private machine lesson" "$CD/lessons/learned-patterns.md" 2>/dev/null; then
   ok "private lesson migrated into a PRE-EXISTING heading-only rules file"
 else
   bad "private lesson LOST in migration (empty-section regression)"
@@ -94,7 +94,7 @@ if grep -q "# My Custom Company Standards" "$CD/CLAUDE.md" && grep -q "Internal 
 else
   bad "user's custom section silently destroyed"
 fi
-if grep -q "### Em-dashes are an LLM writing tell" "$CD/rules/learned-patterns.md" 2>/dev/null; then
+if grep -q "### Em-dashes are an LLM writing tell" "$CD/lessons/learned-patterns.md" 2>/dev/null; then
   ok "repo shared lessons synced down into the machine rules file"
 else
   bad "repo lessons did not sync down"
@@ -169,7 +169,7 @@ fi
 if ! HOME="$FAKE_HOME" SKIP_SIGNING_SETUP=1 BORIS_INSTALL_NO_SELF_UPDATE=1 bash "$REPO_DIR/install.sh" > "$TMP/install2.log" 2>&1; then
   echo "FAIL: second install.sh run exited non-zero"; tail -20 "$TMP/install2.log"; exit 1
 fi
-N=$(grep -cF "### fly secrets private machine lesson" "$CD/rules/learned-patterns.md" || true)
+N=$(grep -cF "### fly secrets private machine lesson" "$CD/lessons/learned-patterns.md" || true)
 if [ "$N" -eq 1 ]; then ok "second run idempotent (private lesson count still 1)"; else bad "second run duplicated lessons (count=$N)"; fi
 if grep -q "already at Boris v3" "$TMP/install2.log"; then ok "second run detects v3 CLAUDE.md"; else bad "second run re-migrated CLAUDE.md"; fi
 if [ "$(cat "$REPO_DIR/rules/learned-patterns.md")" = "$REPO_LESSONS_BEFORE" ]; then

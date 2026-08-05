@@ -86,7 +86,7 @@ GREP_PAT=""
 QUIET=0
 OUT_FILE=""
 CLIP=0
-LEARNED_PATTERNS_FILE="${LEARNED_PATTERNS_FILE:-$HOME/.claude/rules/learned-patterns.md}"
+LEARNED_PATTERNS_FILE="${LEARNED_PATTERNS_FILE:-$HOME/.claude/lessons/learned-patterns.md}"
 
 while [ $# -gt 0 ]; do
   case "$1" in

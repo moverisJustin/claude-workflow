@@ -53,7 +53,7 @@ learning to where it loads correctly:
 | Learning type | Destination |
 |---|---|
 | Project-specific (repo quirks, local tooling, this codebase's conventions) | `.claude/memory/conventions.md` (project Memory Bank) |
-| Universal (workflow patterns, cross-project pitfalls) | `~/.claude/rules/learned-patterns.md` under `# Learned Patterns` |
+| Universal (workflow patterns, cross-project pitfalls) | `~/.claude/lessons/learned-patterns.md` under `# Learned Patterns` |
 | Always-true project facts (build commands, layout) | the project's `CLAUDE.md` — keep it under ~150 lines |
 
 **Lesson format** (heading-based — dedup and sync key on the `### ` title):
@@ -69,3 +69,8 @@ Publishing a universal lesson to the public workflow repo is OPT-IN: add a
 Untagged lessons never leave the machine.
 
 Report what was added/updated and where.
+
+After appending a lesson to the deferred corpus, regenerate the index so it stays
+discoverable: `~/.claude/scripts/reindex-lessons.sh` (idempotent). Promote a lesson
+into the always-on hot core in `~/.claude/rules/learned-patterns.md` only if it applies
+regardless of stack and fails silently.

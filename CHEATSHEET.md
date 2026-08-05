@@ -237,7 +237,7 @@ so "never work on main" isn't enough. One org's 55 repos split `main` (43),
 
 Lessons promote upward:
 1. **Project-specific** → `.claude/memory/conventions.md` (stays in project)
-2. **Universal** → `~/.claude/rules/learned-patterns.md` (applies everywhere, stays local by default)
+2. **Universal** → `~/.claude/lessons/learned-patterns.md` (applies everywhere, stays local by default)
 
 Sharing to the **public** repo is **opt-in**: `sync-lessons.sh` promotes a lesson only if its
 block carries a `<!-- shareable -->` marker (on the line under its `### ` heading). Untagged
@@ -247,6 +247,6 @@ Sync across machines:
 ```bash
 cd ~/Documents/claude-workflow
 ./sync-lessons.sh   # only <!-- shareable --> lessons promote; rest kept local
-git add rules/learned-patterns.md && git commit -m "sync lessons" && git push
+git add lessons/learned-patterns.md && git commit -m "sync lessons" && git push
 ```
 Privacy guard test: `./test-sync-lessons.sh`
