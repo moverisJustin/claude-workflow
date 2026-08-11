@@ -86,10 +86,10 @@ None.
 - [ ] Run the full verification suite
 
 ## Loops
-- **Linear**: OPEN
-- **BSpec**: OPEN
+- **Linear**: MOV-3119 (In Progress)
+- **BSpec**: specs/DEC-writing-contract-v1.0.0.md
 - **Handoff**: none
-- **Forge**: OPEN
+- **Forge**: n/a — no forge repo configured for this project (bridge reported none)
 
 ## Decisions
 | Date | Decision | Rationale |

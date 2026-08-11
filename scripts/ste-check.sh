@@ -96,6 +96,16 @@ IRREGULAR_PP = {
     "thought", "understood", "won", "let", "split",
 }
 
+# Words ending in -ed/-en that are not past participles. The passive and
+# present-perfect tests look for "<copula> <word>ed|en", which otherwise fires on
+# "are open" and "is even". A three-character minimum stem kills the short ones
+# ("red", "ten", "men", "then", "open", "even"); this list covers the rest.
+NOT_PARTICIPLES = {
+    "open", "even", "seven", "often", "golden", "sudden", "wooden", "garden",
+    "kitchen", "citizen", "oxygen", "hyphen", "listen", "happen", "sharpen",
+    "hundred", "sacred", "naked", "wicked", "rugged", "biased",
+}
+
 # Words that end in -ing but are not gerunds. Without this, "Nothing." trips the
 # gerund-opener check, and "Nothing." is the correct answer to a Brief's
 # "What you must decide" field.
@@ -411,7 +421,9 @@ def check_block(block, kind, terms, findings, offset, path):
             if gm and gm.group(1).lower() not in NOT_GERUNDS:
                 add("gerund-opener", "warn", idx,
                     "gerund opener: %s" % sent[:60], suggest_degerund(sent))
-            m = re.search(r"\b(have|has)\s+(\w+(?:ed|en))\b", sent, re.I)
+            m = re.search(r"\b(have|has)\s+(\w{3,}(?:ed|en))\b", sent, re.I)
+            if m and m.group(2).lower() in NOT_PARTICIPLES:
+                m = None
             if not m:
                 m = re.search(r"\b(have|has)\s+(%s)\b" % "|".join(sorted(IRREGULAR_PP)),
                               sent, re.I)
@@ -419,9 +431,9 @@ def check_block(block, kind, terms, findings, offset, path):
                 add("present-perfect", "warn", idx,
                     "present perfect: '%s %s'" % (m.group(1), m.group(2)),
                     suggest_simple_past(sent))
-            pm = re.search(r"\b(?:is|are|was|were|be|been|being)\s+(\w+(?:ed|en))\b",
+            pm = re.search(r"\b(?:is|are|was|were|be|been|being)\s+(\w{3,}(?:ed|en))\b",
                            sent, re.I)
-            if pm and pm.group(1).lower() not in ("need", "used"):
+            if pm and pm.group(1).lower() not in NOT_PARTICIPLES:
                 add("passive-voice", "warn", idx,
                     "passive: '%s'" % pm.group(0),
                     "name the actor: who does the '%s'?" % pm.group(1).lower())

@@ -289,6 +289,37 @@ OUT="$(bash "$CHECK" --quiet "$F" 2>&1)"
 { ! echo "$OUT" | grep -q 'WARNINGS'; } && echo "$OUT" | grep -q 'ste-check:' \
   && ok "--quiet hides warnings, keeps the summary" || no "--quiet: $OUT"
 
+# 20b. REGRESSION: an -en/-ed ADJECTIVE after a copula is not passive voice.
+#      "are open" tripped the check while writing this branch's own DEC doc.
+#      Short words ("is red", "are ten") matched too, via \w+ed / \w+en.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** Two assumptions are open.
+**Why.** The count is seven and the door is red.
+**What changes.** The list is even.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'passive-voice' \
+  && no "adjective after a copula flagged as passive: $OUT" \
+  || ok "-en/-ed adjectives are not passive voice"
+
+# 20c. A genuine passive is still caught after that fix.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** The file is created by the script.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'passive-voice' \
+  && ok "a real passive is still caught" || no "real passive missed: $OUT"
+
 # 21. --stdin reads the caller's stdin, not the heredoc that carries the program.
 #     `python3 -` consumes stdin for the program itself, so the wrapper has to
 #     capture it first. Without that, every --stdin run reported brief-missing.
