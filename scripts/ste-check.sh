@@ -109,6 +109,11 @@ NOT_PARTICIPLES = {
     "open", "even", "seven", "often", "golden", "sudden", "wooden", "garden",
     "kitchen", "citizen", "oxygen", "hyphen", "listen", "happen", "sharpen",
     "hundred", "sacred", "naked", "wicked", "rugged", "biased",
+    # `un-` adjectives with no matching verb: "the assumptions are unchanged"
+    # is a state, not something anyone did.
+    "unchanged", "unrelated", "unexpected", "unlimited", "unfinished",
+    "unresolved", "unverified", "unwanted", "unaffected", "untouched",
+    "unsupported", "undocumented", "unused", "unopened", "unread",
 }
 
 # Words that end in -ing but are not gerunds. Without this, "Nothing." trips the
