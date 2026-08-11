@@ -573,6 +573,32 @@ mv "$STE_REAL.bak" "$STE_REAL"
 [ "$D" = "none" ] && ok "missing ste-check.sh fails open" || bad "missing checker blocked the plan ('$D')"
 pg_reset
 
+# REGRESSION: a checker that CANNOT RUN must fail open, not deny.
+# `exit 1` means either "the Brief has errors" or "bash could not run the script"
+# — a heredoc with no writable temp dir, a killed interpreter, a half-installed
+# file. Treating the second as a finding denied a VALID plan and listed the very
+# fields it already had. Surfaced when a sandboxed Codex review could not create
+# temp files. The gate now requires ste-check's summary line as proof it ran.
+pg_reset
+GATE_COPY="$(mktemp -d)"
+cp "$PGATE" "$GATE_COPY/hook-plan-gate.sh"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$GATE_COPY/ste-check.sh"
+chmod +x "$GATE_COPY/ste-check.sh"
+D="$(pg_payload "$PG" "$PGT" "$PG_GOOD_PLAN" \
+  | bash "$GATE_COPY/hook-plan-gate.sh" 2>/dev/null | pg_decision)"
+[ "$D" = "none" ] && ok "a checker that cannot run fails open" \
+  || bad "unrunnable checker denied a valid plan ('$D')"
+
+# ...but a checker that DID run and found errors still denies.
+printf '#!/usr/bin/env bash\necho "ERRORS"\necho "ste-check: 1 file(s), 1 error(s), 0 warning(s)"\nexit 1\n' \
+  > "$GATE_COPY/ste-check.sh"
+D="$(pg_payload "$PG" "$PGT" "$PG_GOOD_PLAN" \
+  | bash "$GATE_COPY/hook-plan-gate.sh" 2>/dev/null | pg_decision)"
+[ "$D" = "deny" ] && ok "a checker that ran and found errors still denies" \
+  || bad "real findings no longer deny ('$D')"
+rm -rf "$GATE_COPY"
+pg_reset
+
 # Escape-hatch state must not leak between sessions.
 printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"
 pg_reset

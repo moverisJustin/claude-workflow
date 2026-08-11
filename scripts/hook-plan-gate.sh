@@ -308,6 +308,22 @@ except Exception: print("")
     if [ -n "$PLAN_TEXT" ]; then
       BRIEF_OUT="$(printf '%s' "$PLAN_TEXT" | bash "$STE" --stdin 'the plan' --quiet 2>/dev/null)"
       BRIEF_RC=$?
+      # Exit 1 means EITHER "the Brief has errors" OR "bash could not run the
+      # script at all" — a heredoc that cannot write a temp file, a killed
+      # interpreter, a truncated install. Both look identical from the exit code,
+      # and treating the second as a finding DENIES a perfectly good plan with a
+      # reason listing fields the plan already has. That is fail-CLOSED inside a
+      # gate whose contract (line 26) is fail-open on every error.
+      #
+      # So require POSITIVE EVIDENCE that the checker ran: its summary line,
+      # which ste-check prints on every completed run, findings or not. No
+      # summary means no verdict, and no verdict means allow.
+      # Found when a sandboxed Codex review could not create temp files and every
+      # ste-check invocation returned a bare exit 1.
+      case "$BRIEF_OUT" in
+        *"ste-check:"*) : ;;                 # it ran; trust the verdict
+        *)              BRIEF_RC=0 ;;        # it did not run; do not block work
+      esac
       if [ "$BRIEF_RC" -eq 1 ]; then
         mkdir -p "$AUDIT_DIR" 2>/dev/null || true
         [ -f "$AUDIT_DIR/.gitignore" ] || echo '*' > "$AUDIT_DIR/.gitignore" 2>/dev/null || true

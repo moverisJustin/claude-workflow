@@ -54,10 +54,24 @@ charter, a `specs/` doc, a plan — run the writing-contract check over those
 files and treat it like any other gate:
 
 ```bash
-bash ~/.claude/scripts/ste-check.sh --allow-missing \
-  $(git diff --name-only "$(bash ~/.claude/scripts/resolve-base-branch.sh --base)"...HEAD \
-    -- '*.md' | tr '\n' ' ')
+BASE="$(bash ~/.claude/scripts/resolve-base-branch.sh --base)"
+CHANGED="$(git diff --name-only "$BASE" -- '*.md')"
+[ -n "$CHANGED" ] && printf '%s\n' "$CHANGED" | tr '\n' '\0' \
+  | xargs -0 bash ~/.claude/scripts/ste-check.sh --allow-missing
 ```
+
+Three details, each of which broke this command in testing:
+
+- **`"$BASE"`, not `"$BASE"...HEAD`.** Three-dot compares two *commits*, so it
+  cannot see uncommitted work — and `/checks` runs before you commit. The
+  three-dot form silently skipped every file you were actually editing.
+- **`xargs -0`, not an unquoted `$CHANGED`.** Unquoted expansion word-splits in
+  bash and does NOT in zsh, the default shell on macOS. In zsh the whole list
+  arrives as one argument and the gate exits 2 with
+  `no such path: <every file joined>`.
+- **The `[ -n ... ]` guard.** `xargs` with empty input still runs the command
+  once, which trips the usage error and fails the gate on a diff with no
+  markdown in it.
 
 `--allow-missing` is deliberate here: a changed README or a lesson file has no
 `## Brief` and should not be forced to grow one. The files that MUST have a

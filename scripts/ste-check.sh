@@ -210,11 +210,22 @@ def sections(lines):
         end = heads[n + 1][1] if n + 1 < len(heads) else len(lines)
         yield title, start + 1, end
 
-def get_section(lines, name):
+def get_sections(lines, name):
+    """Every section with this heading, as (start_index, body_lines).
+
+    Plural on purpose. Returning only the first match meant a second `## Brief`
+    — easy to produce when a PR body is assembled from parts — was never
+    checked, so a banned phrase or a missing field in it passed clean.
+    """
+    out = []
     for title, s, e in sections(lines):
         if title.lower() == name.lower():
-            return lines[s:e]
-    return None
+            out.append((s, lines[s:e]))
+    return out
+
+def get_section(lines, name):
+    got = get_sections(lines, name)
+    return got[0][1] if got else None
 
 # ---------------------------------------------------------------------------
 # Prose extraction from a block: drop fences, tables, headings; unwrap the bold
@@ -516,11 +527,11 @@ if not use_stdin:
             sys.stderr.write("ste-check: cannot read %s: %s\n" % (path, exc))
 
 for path, lines in sources:
-    brief = get_section(lines, "Brief")
-    decision = get_section(lines, "Open decision")
+    briefs = get_sections(lines, "Brief")
+    decisions = get_sections(lines, "Open decision")
     terms = read_terms(lines)
 
-    if brief is None and decision is None:
+    if not briefs and not decisions:
         if allow_missing:
             skipped += 1
             continue
@@ -533,14 +544,11 @@ for path, lines in sources:
         continue
 
     checked += 1
-    if brief is not None:
-        start = next(s for t, s, _e in sections(lines) if t.lower() == "brief")
+    for start, brief in briefs:
         check_block(brief, "brief", terms, findings, start, path)
-    if decision is not None:
+    for start, decision in decisions:
         body = "\n".join(decision).strip()
         if body and body.lower() not in ("none.", "none", "n/a"):
-            start = next(s for t, s, _e in sections(lines)
-                         if t.lower() == "open decision")
             check_block(decision, "decision", terms, findings, start, path)
 
 errors = [f for f in findings if f["sev"] == "error"]

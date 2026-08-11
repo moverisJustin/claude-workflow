@@ -320,6 +320,34 @@ OUT="$(bash "$CHECK" "$F" 2>&1)"
 echo "$OUT" | grep -q 'passive-voice' \
   && ok "a real passive is still caught" || no "real passive missed: $OUT"
 
+# 20d. REGRESSION: a SECOND `## Brief` in one file must also be checked.
+#      get_section returned only the first match, so a banned phrase or a
+#      missing field in a later Brief passed clean. A PR body assembled from
+#      parts is the realistic way to end up with two.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** A thing.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+
+## Body
+Text.
+
+## Brief
+**What this is.** We leverage the cache here.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'banned-phrase'; } \
+  && ok "a second ## Brief block is checked too" \
+  || no "second Brief went unchecked (rc=$RC): $OUT"
+
 # 21. --stdin reads the caller's stdin, not the heredoc that carries the program.
 #     `python3 -` consumes stdin for the program itself, so the wrapper has to
 #     capture it first. Without that, every --stdin run reported brief-missing.
