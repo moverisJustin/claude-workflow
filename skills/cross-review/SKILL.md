@@ -32,7 +32,8 @@ codex --version
   then re-run. Do NOT fall back to reviewing with Claude and calling it a
   cross-review.
 - Present → confirm the flags you're about to use exist (`codex exec --help`).
-  Known-good surface on 0.144.x: `codex exec review --base <branch>`,
+  Known-good surface on 0.144.x: `codex exec review --base <branch>` with NO
+  prompt (see below), and
   `codex exec [-i <image>...] [--output-schema <file>] [-s read-only] "<prompt>"`.
   If a flag is gone, adapt to what the installed binary actually offers.
 
@@ -61,20 +62,44 @@ instructions.
 ## 1a. Code mode (default)
 
 Lead the review prompt with the memory pack so Codex reviews with the project's
-conventions and ruled-out decisions in view:
+conventions and ruled-out decisions in view.
 
-```bash
-codex exec review --base <base-branch> \
-  "$(cat /tmp/cross-review-memory.md)
+**`codex exec review --base <branch>` cannot take a prompt.** On 0.144.x the two
+are mutually exclusive and the binary refuses outright:
 
-Review the diff against the base. Honor the project memory above: do NOT raise
-findings that merely restate an established convention or a ruled-out decision."
+```
+error: the argument '--base <BRANCH>' cannot be used with '[PROMPT]'
 ```
 
-If the installed binary rejects a prompt argument alongside `review`, fall back
-to `codex exec review --base <base-branch>` and fold the pack's key constraints
-into a focus prompt instead. For security-only or single-subsystem focus, add it
-to the same prompt argument. Capture the full output.
+Its usage line prints `codex exec review --base <BRANCH> [PROMPT]`, which reads
+as though both are allowed. They are not, and `-` (prompt-on-stdin) is still a
+prompt, so that fails the same way. Any recipe combining them has never worked.
+Verified against codex-cli 0.144.1 on 2026-08-11.
+
+Use plain `codex exec`, which takes a prompt and lets you hand over the memory
+pack, the focus, and the diff in one place:
+
+```bash
+git diff <base-branch>...HEAD > <scratch>/branch.diff
+{ cat /tmp/cross-review-memory.md
+  cat <scratch>/focus-prompt.md
+  printf '\n=====  THE DIFF  =====\n\n'
+  cat <scratch>/branch.diff
+} > <scratch>/codex-prompt.md
+
+codex exec -s read-only - < <scratch>/codex-prompt.md
+```
+
+Capture the full output. Expect it to take several minutes on a large diff, so
+run it in the background rather than blocking the turn.
+
+**Codex runs sandboxed, and the sandbox blocks temp-file writes.** Any repo
+script it executes that uses the house `python3 - <<'PY'` heredoc pattern fails
+with `cannot create temp file for here document: Operation not permitted` and
+exits 1. Treat every "script X exits 1 / is broken" observation from inside that
+sandbox as a sandbox artifact until you re-run the script yourself outside it.
+The accident is still useful: it is free fault injection, and it is how a
+fail-closed bug in `hook-plan-gate.sh` was found.
 
 ## 1b. Design mode
 
