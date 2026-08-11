@@ -387,13 +387,28 @@ mkdir -p "$PG/.claude/audit"
 printf '# charter\n' > "$PG/.claude/task-context.md"
 PGT="$PG/t.jsonl"
 
+# The gate has TWO requirements: the planning checkpoints, and a `## Brief` in
+# the plan (ste-check.sh). Every fixture that asserts "allow" therefore carries a
+# conformant Brief, so each test still isolates the thing it is testing. PG_PLAN
+# is overridden per-test to exercise the Brief gate itself.
+PG_GOOD_PLAN='# Plan
+
+## Brief
+**What this is.** A test plan.
+**Why.** The gate needs a conformant plan to allow.
+**What changes.** One thing changes.
+**What you must decide.** Nothing.
+**Risk.** None.
+'
+PG_PLAN="$PG_GOOD_PLAN"
+
 pg_payload() {
-  D="$1" T="$2" python3 -c '
+  D="$1" T="$2" P="${3:-$PG_PLAN}" python3 -c '
 import json, os
 print(json.dumps({
     "session_id": "test", "hook_event_name": "PreToolUse",
     "tool_name": "ExitPlanMode", "cwd": os.environ["D"],
-    "transcript_path": os.environ["T"], "tool_input": {"plan": "x"},
+    "transcript_path": os.environ["T"], "tool_input": {"plan": os.environ["P"]},
 }))'
 }
 pg_run() { pg_payload "$PG" "$PGT" | bash "$PGATE" 2>/dev/null; }
@@ -496,15 +511,78 @@ D="$(pg_run | pg_decision)"; pg_reset
 [ "$D" = "none" ] && ok "advisory-only gap does not deny (no stray separator)" || bad "advisory-only gap denied ('$D')"
 printf '# charter\n## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' > "$PG/.claude/task-context.md"
 
+# --- the Brief gate (rules/writing.md via ste-check.sh) ----------------------
+# The plan text arrives inline as tool_input.plan — verified against a live
+# transcript, which carries both `plan` and `planFilePath` even though the
+# published ExitPlanMode schema documents neither.
+{ pg_skill clarify b1; pg_skill anythingelse b2; } > "$PGT"
+
+pg_reset
+D="$(pg_payload "$PG" "$PGT" "$PG_GOOD_PLAN" | bash "$PGATE" 2>/dev/null | pg_decision)"
+[ "$D" = "none" ] && ok "checkpoints run + conformant Brief → allow" || bad "conformant plan denied ('$D')"
+
+pg_reset
+OUT="$(pg_payload "$PG" "$PGT" '# Plan
+
+## Body
+No Brief anywhere in this plan.
+' | bash "$PGATE" 2>/dev/null)"
+D="$(printf '%s' "$OUT" | pg_decision)"
+[ "$D" = "deny" ] && ok "plan with no Brief is denied" || bad "missing Brief allowed ('$D')"
+printf '%s' "$OUT" | grep -q 'brief-missing' \
+  && ok "denial names the ste-check finding" || bad "denial did not carry the finding"
+printf '%s' "$OUT" | grep -q 'What you must decide' \
+  && ok "denial shows the Brief fields to fill in" || bad "denial did not show the fields"
+
+pg_reset
+OUT="$(pg_payload "$PG" "$PGT" '# Plan
+
+## Brief
+**What this is.** This sentence is deliberately enormous and it simply keeps going and going well past any limit a reader could hold in their head at one time.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+' | bash "$PGATE" 2>/dev/null)"
+D="$(printf '%s' "$OUT" | pg_decision)"
+[ "$D" = "deny" ] && ok "plan with an over-long Brief sentence is denied" || bad "long sentence allowed ('$D')"
+
+# Warnings are heuristics and must NEVER block a plan.
+pg_reset
+D="$(pg_payload "$PG" "$PGT" '# Plan
+
+## Brief
+**What this is.** A thing — with an em-dash.
+**Why.** The file was created by the script.
+**What changes.** I have added the file.
+**What you must decide.** Nothing.
+**Risk.** Low.
+' | bash "$PGATE" 2>/dev/null | pg_decision)"
+[ "$D" = "none" ] && ok "Brief warnings alone never deny" || bad "warnings denied the plan ('$D')"
+
+# Fail-open: an absent ste-check.sh must not block plan approval.
+pg_reset
+STE_REAL="$(dirname "$PGATE")/ste-check.sh"
+mv "$STE_REAL" "$STE_REAL.bak"
+D="$(pg_payload "$PG" "$PGT" '# Plan
+
+## Body
+No Brief at all.
+' | bash "$PGATE" 2>/dev/null | pg_decision)"
+mv "$STE_REAL.bak" "$STE_REAL"
+[ "$D" = "none" ] && ok "missing ste-check.sh fails open" || bad "missing checker blocked the plan ('$D')"
+pg_reset
+
 # Escape-hatch state must not leak between sessions.
 printf '{"type":"assistant","message":{"content":[]}}\n' > "$PGT"
 pg_reset
 pg_run >/dev/null; pg_run >/dev/null; pg_run >/dev/null   # exhaust for session "test"
-D="$(D="$PG" T="$PGT" python3 -c '
+D="$(D="$PG" T="$PGT" P="$PG_PLAN" python3 -c '
 import json, os
 print(json.dumps({"session_id": "a-different-session", "hook_event_name": "PreToolUse",
                   "tool_name": "ExitPlanMode", "cwd": os.environ["D"],
-                  "transcript_path": os.environ["T"], "tool_input": {"plan": "x"}}))' \
+                  "transcript_path": os.environ["T"],
+                  "tool_input": {"plan": os.environ["P"]}}))' \
   | bash "$PGATE" 2>/dev/null | pg_decision)"
 [ "$D" = "deny" ] && ok "denial counter is per-session (fresh session still gates)" || bad "counter leaked across sessions ('$D')"
 pg_reset

@@ -64,6 +64,13 @@ Create `.claude/task-context.md`:
 ```markdown
 # Task Context
 
+## Brief
+**What this is.** [one sentence]
+**Why.** [the problem, one or two sentences]
+**What changes.** [three to six bullets]
+**What you must decide.** [open questions, or "Nothing."]
+**Risk.** [what could go wrong]
+
 ## Branch
 **Name**: [branch name]
 **Created**: [YYYY-MM-DD]
@@ -88,6 +95,12 @@ Create `.claude/task-context.md`:
 - [ ] wildcard: [the actual suggestion, and why it was folded in or dropped]
 - [ ] plan-review: [backends + verdict]   # waive as: - [~] plan-review: waived — below complexity bar
 - [ ] cross-review: [backends + verdict]  # waive as: - [~] cross-review: waived — <reason>
+
+## Terms
+- [no coined names yet — every name this task invents lands here with a definition]
+
+## Open decision
+None.
 
 ## Plan
 - [ ] [To be defined]
@@ -116,11 +129,26 @@ Create `.claude/task-context.md`:
 [Context that helps someone picking this up cold]
 ```
 
-The first four sections — Objective / Non-goals / Acceptance / Assumptions —
-are the **task charter**: the authority on this task's goals and scope, which
-every review (native or foreign) judges the work against. Keep it cheap: one
-line each is fine. Never leave placeholders — fill them from the user's
-description, or ask before committing.
+`## Brief` is what a human reads first, so it is written to the contract in
+`~/.claude/rules/writing.md`: 25-word sentences, active voice, no coined name
+without a definition. `scripts/ste-check.sh` enforces it at `/task-done` and at
+plan approval. Everything below the Brief stays as technical as it needs to be.
+
+Objective / Non-goals / Acceptance / Assumptions are the **task charter**: the
+authority on this task's goals and scope, which every review (native or foreign)
+judges the work against. Keep it cheap: one line each is fine. Never leave
+placeholders — fill them from the user's description, or ask before committing.
+
+`## Terms` is the coinage register. **Any name this task invents — a component,
+a phase, a concept — gets one line here the first time it is used**, and is then
+used unchanged. Renaming mid-branch, or using a synonym, is how a reader loses
+the thread. This is ASD-STE100's technical-noun mechanism (rules 1.5 and 1.12)
+applied to our domain.
+
+`## Open decision` holds the live decision brief whenever Claude is waiting on
+an answer, and `None.` otherwise. It exists because the user often reads cold
+after an alert, by which time a question asked in chat has scrolled away. When
+the user answers, the entry moves to `## Decisions` with their answer.
 
 Acceptance syntax (exact forms — the `/task-done` gate greps them):
 - `- [ ]` open

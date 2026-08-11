@@ -449,6 +449,20 @@ check_charter() {
     fi
   fi
 
+  # A live '## Open decision' means Claude is waiting on the user and the answer
+  # has not landed. Surfaced as INFO so /session-start and /session-end name it
+  # instead of the user rediscovering it. 'None.' (the template default) and an
+  # absent section are both silent — the section postdates most task-contexts,
+  # so its absence is a vacuous pass, never a finding.
+  if charter_has_heading "Open decision" "$tc"; then
+    local od_body od_line
+    od_body=$(charter_section "Open decision" "$tc" | grep -vE '^[[:space:]]*$' || true)
+    if [ -n "$od_body" ] && ! printf '%s\n' "$od_body" | grep -qiE '^(none\.?|n/a)$'; then
+      od_line=$(grep -n -m1 '^## Open decision' "$tc" | cut -d: -f1 || true)
+      add_finding "INFO" "task-context.md" "${od_line:-0}" "an open decision is waiting on the user"
+    fi
+  fi
+
   # Acceptance progress: - [ ] open, - [x] done, - [~] waived: <reason>
   # (the exact forms the task-done gate greps).
   if charter_has_heading "Acceptance" "$tc"; then

@@ -88,6 +88,15 @@ Signing: [only warn if not configured]
 [1-2 sentences on where things stand and the obvious next step]
 ```
 
+**Waiting on you** — if `## Open decision` in `.claude/task-context.md` is
+anything other than `None.`, print it verbatim under the block above, before
+the closing sentences. A session that resumes with an unanswered question and
+does not surface it has lost the question. Omit the section entirely when there
+is nothing open.
+
+Write the closing sentences to `~/.claude/rules/writing.md`: short sentences,
+active voice, and no name this project invented that the user has not seen.
+
 Then confirm direction: continue the task-context plan (on a branch), start a
 new task branch (`/task-branch <name>`), or ask what to work on.
 

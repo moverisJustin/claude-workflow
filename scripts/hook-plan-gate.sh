@@ -17,6 +17,14 @@
 #     permission_mode, tool_name, tool_input, tool_use_id. It does NOT carry
 #     agent_id, so there is no agent-based subagent guard here — none is needed,
 #     because subagents do not have the ExitPlanMode tool at all.
+#   - tool_input for ExitPlanMode carries `plan` (the full plan text, inline) and
+#     `planFilePath`. The published tool schema documents NEITHER; this was read
+#     off a live transcript. The Brief check below uses the inline text, so it
+#     needs no path resolution and cannot race an unlanded write.
+#
+# TWO THINGS ARE GATED HERE, for the same reason: the planning checkpoints, and
+# the plan's `## Brief` block. A plan the user cannot read is not a plan they can
+# approve. Both deny; neither is advisory. Warnings from ste-check never deny.
 #
 # EVIDENCE IS THE TRANSCRIPT, NOT A SELF-REPORT. An earlier design read a
 # checkpoint block out of .claude/task-context.md. That is unwritable during
@@ -275,6 +283,60 @@ case "$MISSING" in
   *ADVISORY:*) ADVISORY_MISSING="${MISSING#*ADVISORY:}" ;;
   *)           ADVISORY_MISSING="" ;;
 esac
+
+# --- the Brief check ---------------------------------------------------------
+# The plan is the first thing the user reads, so it is the first thing that has
+# to be readable. rules/writing.md requires a `## Brief` block; ste-check.sh
+# enforces it.
+#
+# The plan text arrives INLINE. tool_input for ExitPlanMode carries both `plan`
+# and `planFilePath` (verified against a live transcript, not inferred from the
+# tool schema — the schema documents neither). Checking the inline text beats
+# reading planFilePath: no path resolution, and no race with a write that has
+# not landed yet.
+#
+# Only ERRORS deny. Warnings are heuristics and must never block a plan.
+# Fail-open at every step, like everything else in this gate.
+if [ -z "$REQUIRED_MISSING" ]; then
+  STE="$(dirname "$0")/ste-check.sh"
+  if [ -x "$STE" ] || [ -f "$STE" ]; then
+    PLAN_TEXT="$(printf '%s' "$PAYLOAD" | python3 -c '
+import json,sys
+try: print(json.load(sys.stdin).get("tool_input",{}).get("plan","") or "")
+except Exception: print("")
+' 2>/dev/null)" || PLAN_TEXT=""
+    if [ -n "$PLAN_TEXT" ]; then
+      BRIEF_OUT="$(printf '%s' "$PLAN_TEXT" | bash "$STE" --stdin 'the plan' --quiet 2>/dev/null)"
+      BRIEF_RC=$?
+      if [ "$BRIEF_RC" -eq 1 ]; then
+        mkdir -p "$AUDIT_DIR" 2>/dev/null || true
+        [ -f "$AUDIT_DIR/.gitignore" ] || echo '*' > "$AUDIT_DIR/.gitignore" 2>/dev/null || true
+        echo "$SESSION_ID:$((DENIALS + 1))" > "$COUNTER" 2>/dev/null || true
+        REMAINING=$((GATE_MAX_DENIALS - DENIALS - 1))
+        BRIEF_OUT="$BRIEF_OUT" REMAINING="$REMAINING" python3 -c '
+import json, os
+print(json.dumps({"hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": (
+        "The plan does not meet the writing contract (~/.claude/rules/writing.md).\n"
+        "A human reads this before anything else, so it opens with a `## Brief`:\n\n"
+        "  **What this is.** One sentence.\n"
+        "  **Why.** The problem, one or two sentences.\n"
+        "  **What changes.** Three to six bullets.\n"
+        "  **What you must decide.** The open questions, or \"Nothing.\"\n"
+        "  **Risk.** What could go wrong.\n\n"
+        + os.environ["BRIEF_OUT"] +
+        "\n\nFix the plan file, then call ExitPlanMode again. "
+        "(Gate disarms after " + os.environ["REMAINING"] + " more denial(s) if it is wrong.)"
+    ),
+}}))
+' 2>/dev/null || allow_through
+        exit 0
+      fi
+    fi
+  fi
+fi
 
 # Advisory-only gaps never deny.
 [ -n "$REQUIRED_MISSING" ] || { rm -f "$COUNTER" 2>/dev/null || true; allow_through; }

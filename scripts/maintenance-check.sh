@@ -88,6 +88,10 @@ VENDORED=$(ls "$REPO_DIR/agents/community/"*.md 2>/dev/null | wc -l | tr -d ' ')
 ACTIVE=$(count_active_manifest)
 SKILLS=$(ls -d "$REPO_DIR/skills/"*/ 2>/dev/null | wc -l | tr -d ' ')
 HOOKS=$(ls "$REPO_DIR/scripts/"hook-*.sh 2>/dev/null | wc -l | tr -d ' ')
+# Rules were unaudited until writing.md landed and the README kept claiming 4.
+# install.sh globs rules/*.md, so a new file installs silently and only the
+# README goes stale — exactly the drift this script exists to catch.
+RULES=$(ls "$REPO_DIR/rules/"*.md 2>/dev/null | wc -l | tr -d ' ')
 
 R="$REPO_DIR/README.md"; C="$REPO_DIR/CHEATSHEET.md"
 
@@ -95,6 +99,7 @@ $QUIET || echo "-- README doc-count audit --"
 report "core agents"        "$CORE"     "$(doc_num "$R" 'Core agents')"          "README"
 report "skills"             "$SKILLS"   "$(doc_num "$R" 'Skills')"               "README"
 report "hook scripts"       "$HOOKS"    "$(doc_num "$R" 'Hook scripts')"         "README"
+report "rules"              "$RULES"    "$(doc_num "$R" 'Rules')"                "README"
 report "community active"   "$ACTIVE"   "$(doc_num_nth "$R" 'Community agents' 1)" "README"
 report "community vendored" "$VENDORED" "$(doc_num_nth "$R" 'Community agents' 2)" "README"
 
@@ -114,7 +119,11 @@ if [ -f "$TB" ]; then
   # drift-check.sh's required-heading loop: adding it there would WARN on every
   # task-context.md written before the section existed. New branches are born
   # with it; old ones are backfilled opportunistically, never punished.
-  for H in "Objective" "Non-goals" "Acceptance" "Assumptions" "Checkpoints"; do
+  # Brief / Terms / Open decision are guarded here for the same reason as
+  # Checkpoints: they gate at the template so new branches are born with them,
+  # while older task-context files stay a vacuous pass rather than a defect.
+  for H in "Brief" "Objective" "Non-goals" "Acceptance" "Assumptions" \
+           "Checkpoints" "Terms" "Open decision"; do
     if grep -qE "^## ${H}([[:space:]]|\$)" "$TB"; then
       $QUIET || echo "  OK    task-branch template has '## $H'"
     else

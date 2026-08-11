@@ -77,6 +77,41 @@ noisy false positive trains you to ignore the real ones.
   Only ask what genuinely lives in the user's head.
 - **Never ask for approval here.** "Is the plan okay?" is `ExitPlanMode`'s job.
 
+## Lead every ask with a decision brief
+
+**Assume the reader is cold.** They were not watching the messages go by; they
+came back on an alert. A question that says "should I use A or B?" makes them
+scroll to reconstruct why the question exists, or ask you to repeat it. Both
+cost more than writing the context down once.
+
+So the `AskUserQuestion` call is preceded by a **decision brief** in the message
+body. Six fields, all of them, written to `~/.claude/rules/writing.md`:
+
+```markdown
+**What I need.** The question, one sentence.
+**Why it is blocked.** What stops until you answer.
+**What I found.** Two to four bullets. Facts only, including what you checked
+                  yourself so the reader knows it is not a question.
+**Options.** Each one with its cost and what it gives up.
+**What I recommend.** One sentence, with the reason.
+**If you say nothing.** The default you take, or "I stop here."
+```
+
+Three rules that make the brief work:
+
+- **Self-contained.** No "as discussed above", no pronoun pointing at something
+  off screen. Restate the thing itself, even if you wrote it ten minutes ago.
+- **Name nothing you have not defined.** If the brief uses a term this task
+  invented, define it inline and add it to `## Terms` in the charter.
+- **Write it to disk as you speak it.** Put the brief in `## Open decision` in
+  `.claude/task-context.md`. Chat scrolls; the file does not, and `/loops`,
+  `/session-start`, the PR body, and every foreign-review pack already read it.
+  Move it to `## Decisions` with the answer once you have one.
+
+`**If you say nothing**` is the field that earns its place. It tells the reader
+what happens if they skip the question, which is the only thing that makes
+skipping it safe.
+
 ## Declare the result out loud
 
 Silence is not a pass. Every checkpoint ends in one of two statements:

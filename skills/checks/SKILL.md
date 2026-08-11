@@ -49,6 +49,21 @@ escape hatch caps the blast radius).
 Run each applicable gate ONE AT A TIME and capture real results. Do not
 mask failures with `|| true` — a gate that fails must surface its output.
 
+**Prose is a gate too.** If the branch touched any file a human reads — the
+charter, a `specs/` doc, a plan — run the writing-contract check over those
+files and treat it like any other gate:
+
+```bash
+bash ~/.claude/scripts/ste-check.sh --allow-missing \
+  $(git diff --name-only "$(bash ~/.claude/scripts/resolve-base-branch.sh --base)"...HEAD \
+    -- '*.md' | tr '\n' ' ')
+```
+
+`--allow-missing` is deliberate here: a changed README or a lesson file has no
+`## Brief` and should not be forced to grow one. The files that MUST have a
+Brief are gated where they are authored, in `/task-done` and the plan gate.
+Skip this gate entirely when the diff touches no markdown.
+
 ## 4. Iterate until green
 
 - If a gate fails: fix the root cause, re-run that gate, then re-run the

@@ -77,15 +77,32 @@ unsure, ask the user.
 2. **Pick the type + a kebab name** → `specs/<TYPE>-<name>-v1.0.0.md`.
 3. **Write the file**: the frontmatter above with *every* required field filled
    (`id`, `title`, `type`, `status`, `version`; plus `owner`, `domain`,
-   `created`, `updated`), then a substantive Markdown body. Wire
-   `related`/`depends_on`/`enables` to existing docs' real ids where relevant.
-4. **Validate** (fix-loop until it passes):
+   `created`, `updated`), then **`## Brief` as the first section**, then a
+   substantive Markdown body. Wire `related`/`depends_on`/`enables` to existing
+   docs' real ids where relevant.
+
+   ```markdown
+   ## Brief
+   **What this is.** [one sentence]
+   **Why.** [the problem, one or two sentences]
+   **What changes.** [three to six bullets]
+   **What you must decide.** [open questions, or "Nothing."]
+   **Risk.** [what could go wrong]
+   ```
+
+   A spec is read by people who were not in the room. The Brief is what they
+   read first and often all they read, so it is written to the contract in
+   `~/.claude/rules/writing.md`. The body below it carries the full technical
+   detail and is exempt from the contract.
+4. **Validate** (fix-loop until both pass):
    ```bash
    bash ~/.claude/scripts/bspec-validate.sh specs/<TYPE>-<name>-v1.0.0.md
+   bash ~/.claude/scripts/ste-check.sh    specs/<TYPE>-<name>-v1.0.0.md
    ```
-   Fall back to `bash .claude/scripts/bspec-validate.sh …` if the global script
-   isn't present. Fix every `ERROR` and re-run (up to ~3 passes). `WARN` lines
-   are advisory (e.g. a missing `owner`) — address if easy.
+   Fall back to `bash .claude/scripts/…` if the global scripts aren't present.
+   `bspec-validate` checks the frontmatter; `ste-check` checks the Brief and
+   never reads the body. Fix every `ERROR` from either and re-run (up to ~3
+   passes). `WARN` lines are advisory — address if easy.
 5. **If no validator script exists at all**, still write the doc in this format,
    then tell the user it wasn't machine-validated (their install is incomplete —
    re-run `install.sh`).

@@ -149,6 +149,27 @@ A charter with **no** `## Checkpoints` section passes vacuously — older branch
 predate it, and the requirement gates at the `/task-branch` template so new work
 is born with it rather than old work being retroactively flunked.
 
+### 2.6d. Brief Gate
+
+Everything a human reads on the way out of this branch — the charter, the PR
+body, the Linear comment — leads with a `## Brief`. Run the checker over the
+charter now:
+
+```bash
+bash ~/.claude/scripts/ste-check.sh .claude/task-context.md
+```
+
+Errors block. Fix the prose, do not delete the block. Warnings are heuristics:
+read them, act on the ones that are right, ignore the rest. The contract and the
+five fields are in `~/.claude/rules/writing.md`.
+
+A `task-context.md` with **no** `## Brief` passes vacuously here for older
+branches, so pass `--allow-missing` when the branch predates the section. New
+branches are born with it from the `/task-branch` template.
+
+The same check runs again in step 6 on the PR body before it is submitted, since
+the PR body is what a reviewer actually reads.
+
 ### 2.7. External Review Gate
 
 After `/checks` is green and before any PR commit, offer decorrelated
@@ -217,10 +238,23 @@ git remote -v
 # Push branch
 git push -u origin HEAD
 
+# Check the PR body against the writing contract BEFORE it is submitted. The
+# body is the artifact a reviewer actually reads, and step 5 already deleted
+# task-context.md, so this is the last place the Brief can be fixed cheaply.
+# Write the intended body to a scratch file, check it, then submit that file.
+bash ~/.claude/scripts/ste-check.sh "$SCRATCH/pr-body.md"
+
 # Create PR
 gh pr create \
   --title "[type](scope): [description from objective]" \
-  --body "## Summary
+  --body "## Brief
+**What this is.** [one sentence]
+**Why.** [the problem, one or two sentences]
+**What changes.** [three to six bullets]
+**What you must decide.** [what the reviewer must rule on, or \"Nothing.\"]
+**Risk.** [what could go wrong]
+
+## Summary
 [From task-context.md objective and completion summary]
 
 ## Charter

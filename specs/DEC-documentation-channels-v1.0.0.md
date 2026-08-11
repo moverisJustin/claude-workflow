@@ -12,6 +12,19 @@ updated: 2026-07-11
 
 # Unified Documentation Channels (Linear + BSpec Loops Ledger)
 
+## Brief
+**What this is.** One documentation contract for every task, whatever started it.
+**Why.** Each entry point documented work its own way, so things fell through the gaps.
+**What changes.**
+- Linear tracks every task. Find the issue first; create one only if none exists.
+- BSpec holds every saved spec and decision. Never freeform markdown.
+- Forge carries shared team context, and is optional.
+- A handoff means an assignment plus a context comment, never a verbal one.
+- The Loops ledger in the branch task-context tracks all four.
+
+**What you must decide.** Nothing. This records a decision already taken.
+**Risk.** Anyone can waive a ledger entry to clear a gate. A waiver needs a reason, and a reviewer reads it.
+
 ## Overview
 
 Decision record for adopting a single documentation contract across the Claude
