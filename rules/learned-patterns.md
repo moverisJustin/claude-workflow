@@ -20,13 +20,11 @@ regardless of stack, fails **silently**, and you would not have known to go look
 
 ## The hot core
 
-### Write plainly — em-dashes and corporate register are LLM tells
-Use em-dashes sparingly in ALL deliverable prose (specs, PRDs, READMEs, handoffs, commit
-bodies, chat). Prefer commas, parentheses, colons, or a restructured sentence. High
-em-dash density is a known machine-writing tell. Same family: never "decisive", "smoking
-gun", "let me be clear", "to be honest"; no constant hedging; no tables for their own
-sake. Be direct about data flow — write "source: X → destination: Y", never "copy from X
-to Y". Justin has corrected all three of these by name.
+### Write plainly — the contract lives in `rules/writing.md`
+Sparse em-dashes, no corporate register, and direct data flow ("source: X → destination: Y",
+never "copy from X to Y") are all rules in `~/.claude/rules/writing.md`, which also defines the
+Brief block and the decision-brief form. Single source: read it there, not here. Justin has
+corrected the em-dash, corporate-register, and data-flow habits by name.
 
 ### Never re-propose an approach the record has ruled out
 If `conventions.md`, a decision log, or a memory file documents an approach as infeasible

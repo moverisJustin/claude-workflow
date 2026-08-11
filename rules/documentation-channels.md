@@ -118,13 +118,24 @@ that isn't closed OR explicitly waived is a defect.
    lives) — never a verbal "someone should…". When a forge repo exists, the
    handoff is also published there so the next session sees it at startup.
 
+## Every channel opens with a Brief
+
+Anything a human reads — a Linear issue or comment, a PR body, a BSpec doc, a
+handoff, a Forge entry, a plan — opens with the `## Brief` block defined in
+`writing.md`, then carries its normal technical detail below. Any ask for a
+decision uses the six-field decision brief from `/clarify`, and is written to
+`## Open decision` in `.claude/task-context.md` at the same time it is spoken.
+`scripts/ste-check.sh` enforces the block; it never reads the body.
+
 ## The Task Charter
 
-`.claude/task-context.md` opens with the **task charter** — `## Objective`
-(what + why), `## Non-goals` (scope fence), `## Acceptance` (checkable
-criteria), `## Assumptions` (what was taken as true without asking). It is
-committed and branch-scoped, and it survives the branch in the PR body's
-`## Charter` section.
+`.claude/task-context.md` opens with `## Brief`, then the **task charter** —
+`## Objective` (what + why), `## Non-goals` (scope fence), `## Acceptance`
+(checkable criteria), `## Assumptions` (what was taken as true without asking).
+It also carries `## Terms`, the register of every name this task coined, and
+`## Open decision`, the live question if there is one. It is committed and
+branch-scoped, and it survives the branch in the PR body's `## Brief` and
+`## Charter` sections.
 
 Precedence:
 

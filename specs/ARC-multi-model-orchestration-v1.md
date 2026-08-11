@@ -14,6 +14,19 @@ related:
 
 # Multi-Model Orchestration (Task Charter, Plan Gate, PR Review Fan-Out)
 
+## Brief
+**What this is.** A record of how Claude hands work to rival model families for review, and what blocks a plan at approval.
+**Why.** One model reviewing its own work shares its own blind spots. A second family sees what the first cannot.
+**What changes.**
+- Claude plans and orchestrates. Codex and Kimi only review; they never write.
+- Review runs at two points: before you approve a plan, and before a PR opens.
+- Claude checks every foreign finding against the code before you read it.
+- Claude reports a missing backend, and never quietly stands in for it.
+- The task charter is the frame every reviewer judges the work against.
+
+**What you must decide.** Nothing. This records a decision already taken.
+**Risk.** A foreign reviewer sees no project context, so it reports things you ruled out long ago. The memory pack exists to prevent that.
+
 ## Overview
 
 Architecture record for evolving the Boris workflow into a multi-model

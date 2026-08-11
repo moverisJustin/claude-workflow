@@ -19,6 +19,25 @@ Gather git state by running these commands (skip any that fail — the working d
 
 Generate a structured cognitive briefing that captures not just WHAT happened, but HOW you were THINKING. This is the difference between handing someone a changelog and handing them your brain.
 
+### 0. Brief
+
+A handoff is read cold by definition, so it opens with the Brief block from
+`~/.claude/rules/writing.md`. The sections below are for whoever picks the work
+up; this one is for whoever only wants to know where things stand.
+
+```markdown
+## Brief
+**What this is.** [one sentence]
+**Why.** [the problem, one or two sentences]
+**What changes.** [three to six bullets — what moved this session]
+**What you must decide.** [what is waiting on a human, or "Nothing."]
+**Risk.** [what could go wrong if this sits]
+```
+
+If the session ended waiting on an answer, the `## Open decision` brief from
+`.claude/task-context.md` goes here verbatim rather than being summarized. It
+is already written to the contract, and paraphrasing it loses the options.
+
 ### 1. Resume Prompt
 
 Write a single paragraph (3-5 sentences) that a fresh Claude session could read to instantly reconstruct the full mental model. This is the most important part. It should answer:

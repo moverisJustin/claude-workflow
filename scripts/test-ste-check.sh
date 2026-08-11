@@ -1,0 +1,338 @@
+#!/usr/bin/env bash
+# test-ste-check.sh — regression tests for scripts/ste-check.sh
+#
+# ste-check IS the enforcement layer behind rules/writing.md, so a silent
+# regression turns the writing contract back into a suggestion. Two of these
+# cases exist because the checker false-positived on its own branch charter:
+# the five field lines of a correct Brief merged into one 11-sentence
+# "paragraph", and "Nothing." tripped the gerund-opener check.
+#
+# Pure bash 3.2, no deps beyond python3.
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CHECK="$SCRIPT_DIR/ste-check.sh"
+PASS=0; FAIL=0
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+ok() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
+no() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
+
+N=0
+newfile() { N=$((N + 1)); F="$TMP/c$N.md"; }
+
+# A Brief that must always pass. Every failing case below is this, minus one thing.
+clean_brief() {
+  cat > "$1" <<'EOF'
+# Doc
+
+## Brief
+**What this is.** A checker for the writing contract.
+**Why.** Prose that nothing checks is a suggestion, not a contract.
+**What changes.** The gate rejects a Brief with a long sentence.
+**What you must decide.** Nothing.
+**Risk.** The checker could be noisy.
+
+## Body
+Anything at all goes here. This sentence is deliberately very long indeed, running well past
+the twenty five word limit that the contract sets, because the body is exempt from the rule.
+EOF
+}
+
+echo "ste-check regression tests"
+
+# 1. A clean Brief passes, and the technical body is NOT checked.
+newfile; clean_brief "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '0 error(s), 0 warning(s)'; } \
+  && ok "clean Brief passes and the body is exempt" \
+  || no "clean Brief passes (rc=$RC): $OUT"
+
+# 2. REGRESSION: the five field lines must not merge into one paragraph.
+#    Before the fix this reported '11 sentences in one paragraph'.
+newfile; clean_brief "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'paragraph-too-long' \
+  && no "regression: correct Brief fields merged into a paragraph" \
+  || ok "Brief field lines are discrete, not one paragraph"
+
+# 3. REGRESSION: 'Nothing.' is not a gerund opener.
+newfile; clean_brief "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'gerund-opener' \
+  && no "regression: 'Nothing.' flagged as a gerund opener" \
+  || ok "'Nothing.' is not treated as a gerund"
+
+# 4. ERROR: missing Brief block.
+newfile
+printf '# Doc\n\n## Body\nText.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'brief-missing'; } \
+  && ok "missing Brief block is an error" || no "missing Brief (rc=$RC): $OUT"
+
+# 5. --allow-missing skips a file with no Brief instead of failing.
+OUT="$(bash "$CHECK" --allow-missing "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && echo "$OUT" | grep -q 'skipped'; } \
+  && ok "--allow-missing skips a Brief-less file" \
+  || no "--allow-missing (rc=$RC): $OUT"
+
+# 6. ERROR: a required field is absent.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** A thing.
+**Why.** A reason.
+**What changes.** One bullet.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q "field-missing"; } \
+  && ok "absent Brief field is an error" || no "field-missing (rc=$RC): $OUT"
+
+# 7. ERROR: sentence over 25 words, and the finding carries a split suggestion.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** This one sentence runs on for a very long time indeed, and it keeps going
+well past the limit that the writing contract sets for any sentence in a Brief block.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'sentence-too-long'; } \
+  && ok "over-long sentence is an error" || no "sentence-too-long (rc=$RC): $OUT"
+echo "$OUT" | grep -q -- '->' \
+  && ok "over-long sentence carries a suggested rewrite" \
+  || no "no suggestion printed for sentence-too-long"
+
+# 8. ERROR: paragraph over 6 sentences (real prose, not field lines).
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** A thing.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+
+One. Two. Three. Four. Five. Six. Seven.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'paragraph-too-long'; } \
+  && ok "seven-sentence paragraph is an error" \
+  || no "paragraph-too-long (rc=$RC): $OUT"
+
+# 9. ERROR: a do-not-use phrase, with its substitute in the suggestion.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** We leverage the cache.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'banned-phrase'; } \
+  && ok "do-not-use phrase is an error" || no "banned-phrase (rc=$RC): $OUT"
+echo "$OUT" | grep -q "use 'use'" \
+  && ok "banned phrase suggests its substitute" || no "no substitute suggested"
+
+# 10. ERROR: unfilled template text, but a checkbox is not template text.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** [describe the thing]
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+- [ ] this checkbox must not count as a placeholder
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && [ "$(echo "$OUT" | grep -c 'placeholder')" -eq 1 ]; } \
+  && ok "placeholder is an error, checkbox is not" \
+  || no "placeholder (rc=$RC): $OUT"
+
+# 11. WARN: em-dash, passive voice, present perfect, off-screen reference.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** A thing — with an em-dash.
+**Why.** The file was created by the script.
+**What changes.** I have added the file.
+**What you must decide.** As discussed above, nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "warnings alone do not fail the run" || no "warnings failed (rc=$RC)"
+for w in em-dash passive-voice present-perfect not-self-contained; do
+  echo "$OUT" | grep -q "$w" && ok "warns: $w" || no "missing warning: $w"
+done
+
+# 12. WARN: a coined name absent from ## Terms, and none when it is registered.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** The Widget Registry holds it.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+
+## Terms
+- **Other Thing** - something else
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'unregistered-term' \
+  && ok "unregistered coined name warns" || no "no unregistered-term warning"
+
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** The Widget Registry holds it.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+
+## Terms
+- **Widget Registry** - the store of widgets
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'unregistered-term' \
+  && no "registered term still warned" || ok "registered term does not warn"
+
+# 13. No ## Terms section at all is a vacuous pass, never a defect.
+newfile; clean_brief "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'unregistered-term' \
+  && no "file without ## Terms produced a term warning" \
+  || ok "absent ## Terms is a vacuous pass"
+
+# 14. An `## Open decision` of 'None.' is not checked as a decision brief.
+newfile
+clean_brief "$F"; printf '\n## Open decision\nNone.\n' >> "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && ! echo "$OUT" | grep -q 'What I need'; } \
+  && ok "'Open decision: None.' is not checked" \
+  || no "None. was checked as a decision brief (rc=$RC): $OUT"
+
+# 15. A real Open decision must carry all six decision-brief fields.
+newfile
+clean_brief "$F"
+cat >> "$F" <<'EOF'
+
+## Open decision
+**What I need.** Pick a cache backend.
+**Why it is blocked.** The writer cannot ship until you pick one.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'If you say nothing'; } \
+  && ok "incomplete decision brief is an error" \
+  || no "decision-brief fields (rc=$RC): $OUT"
+
+# 16. Fence awareness: a '## ' inside a fenced block is not a heading.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** A thing.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+
+```markdown
+## Body
+This fenced sentence is far longer than twenty five words and it must not be checked at all,
+because a heading inside a fence is not a heading and this text is not part of the Brief.
+```
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "fenced content is not parsed as prose or headings" \
+  || no "fence handling (rc=$RC): $OUT"
+
+# 17. --warn-only never fails, even with errors present.
+newfile
+printf '# Doc\n\n## Body\nText.\n' > "$F"
+OUT="$(bash "$CHECK" --warn-only "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && echo "$OUT" | grep -q 'not failing'; } \
+  && ok "--warn-only reports errors without failing" \
+  || no "--warn-only (rc=$RC): $OUT"
+
+# 18. Bad usage exits 2.
+OUT="$(bash "$CHECK" 2>&1)"; RC=$?
+[ "$RC" -eq 2 ] && ok "no target exits 2" || no "no target (rc=$RC)"
+OUT="$(bash "$CHECK" --nope "$F" 2>&1)"; RC=$?
+[ "$RC" -eq 2 ] && ok "unknown option exits 2" || no "unknown option (rc=$RC)"
+
+# 19. A directory target checks every *.md under it.
+newfile; D="$TMP/dir"; mkdir -p "$D"; clean_brief "$D/a.md"; clean_brief "$D/b.md"
+OUT="$(bash "$CHECK" "$D" 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '2 file(s)'; } \
+  && ok "directory target sweeps every *.md" || no "directory sweep (rc=$RC): $OUT"
+
+# 20. --quiet suppresses warnings but keeps errors and the summary.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** A thing — with an em-dash.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" --quiet "$F" 2>&1)"
+{ ! echo "$OUT" | grep -q 'WARNINGS'; } && echo "$OUT" | grep -q 'ste-check:' \
+  && ok "--quiet hides warnings, keeps the summary" || no "--quiet: $OUT"
+
+# 20b. REGRESSION: an -en/-ed ADJECTIVE after a copula is not passive voice.
+#      "are open" tripped the check while writing this branch's own DEC doc.
+#      Short words ("is red", "are ten") matched too, via \w+ed / \w+en.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** Two assumptions are open.
+**Why.** The count is seven and the door is red.
+**What changes.** The list is even.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'passive-voice' \
+  && no "adjective after a copula flagged as passive: $OUT" \
+  || ok "-en/-ed adjectives are not passive voice"
+
+# 20c. A genuine passive is still caught after that fix.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** The file is created by the script.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'passive-voice' \
+  && ok "a real passive is still caught" || no "real passive missed: $OUT"
+
+# 21. --stdin reads the caller's stdin, not the heredoc that carries the program.
+#     `python3 -` consumes stdin for the program itself, so the wrapper has to
+#     capture it first. Without that, every --stdin run reported brief-missing.
+newfile; clean_brief "$F"
+OUT="$(bash "$CHECK" --stdin '<plan>' < "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && ! echo "$OUT" | grep -q 'brief-missing'; } \
+  && ok "--stdin reads piped markdown" || no "--stdin (rc=$RC): $OUT"
+
+# 22. --stdin still reports a genuine fault, and labels it with the given name.
+OUT="$(printf '# x\n\n## Body\ntext\n' | bash "$CHECK" --stdin '<plan>' 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q '<plan>:1'; } \
+  && ok "--stdin reports faults under its label" || no "--stdin fault (rc=$RC): $OUT"
+
+echo ""
+echo "ste-check tests: $PASS passed, $FAIL failed"
+[ "$FAIL" -eq 0 ]

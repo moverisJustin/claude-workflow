@@ -116,10 +116,20 @@ Task context: [updated on <branch> / N/A (on main)]
 Linear: [ISSUE-ID — progress comment added | n/a]
 Forge: [what was published + pushed | n/a — no forge repo]
 Open loops: [list any ledger entries still OPEN, or "none"]
+Waiting on you: [the `## Open decision` question in one line, or "nothing"]
 Drift: [X/100]
 
 Resume with /session-start.
 ```
+
+Then two or three sentences on what moved and what is next, written to
+`~/.claude/rules/writing.md`. This is the last thing the user reads before
+walking away, and often the first thing they read coming back, so it is
+self-contained: no "as discussed above", and no name they have not seen before.
+
+If `## Open decision` is live, leave it in `.claude/task-context.md`. Do not
+clear it to make the report look clean — the next session surfaces it at
+`/session-start`, which is the whole point of writing it down.
 
 After appending a lesson to the deferred corpus, regenerate the index so it stays
 discoverable: `~/.claude/scripts/reindex-lessons.sh` (idempotent). Promote a lesson

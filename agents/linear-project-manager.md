@@ -58,6 +58,13 @@ When creating issues, use this structure:
 Example: "Add OAuth login flow for Google SSO"
 
 **Description**:
+## Brief
+**What this is.** [one sentence]
+**Why.** [the problem, one or two sentences]
+**What changes.** [three to six bullets]
+**What you must decide.** [open questions, or "Nothing."]
+**Risk.** [what could go wrong]
+
 ## Context
 [Why this needs to be done - the problem or opportunity]
 
@@ -74,6 +81,18 @@ Example: "Add OAuth login flow for Google SSO"
 ## Out of Scope
 [What this issue intentionally does NOT cover]
 ```
+
+`## Brief` is the block a human reads before deciding whether to open the issue
+at all. Write it to the contract in `~/.claude/rules/writing.md`: 25-word
+sentences, active voice, and no name the issue itself invented without a
+definition. Everything below it stays as technical as it needs to be. When the
+task has a charter, the Brief comes straight from `.claude/task-context.md`.
+
+**Comments follow the same rule.** A progress or outcome comment leads with one
+or two plain sentences saying what moved and what is next, then the detail. A
+comment that asks the reader for something uses the six-field decision brief
+from `/clarify`, including `**If you say nothing.**` — the reader is not in the
+session and cannot infer the default.
 
 ## Status Update Template
 

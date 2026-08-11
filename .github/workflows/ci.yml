@@ -45,3 +45,9 @@ jobs:
 
       - name: BSpec validator tests
         run: /bin/bash ./scripts/test-bspec-validate.sh
+
+      - name: Writing-contract checker tests
+        run: /bin/bash ./scripts/test-ste-check.sh
+
+      - name: Specs meet the writing contract
+        run: /bin/bash ./scripts/ste-check.sh specs/

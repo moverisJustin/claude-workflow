@@ -192,3 +192,15 @@ lesson-promotion rules (opt-in `<!-- shareable -->` for the public repo).
 ## Communication
 Be direct and plain. Present the plan, report progress at load-bearing
 moments, lead the final summary with the outcome.
+
+Three of those are read cold, so they follow `~/.claude/rules/writing.md`:
+
+- **The plan** opens with `## Brief`. The plan gate denies approval without it.
+- **Any ask for a decision** uses the six-field decision brief from `/clarify`,
+  and lands in `## Open decision` in the charter as it is spoken.
+- **The end-of-turn summary** states the outcome first, in short active
+  sentences, and defines any name this task invented.
+
+Progress narration in between is plain but unconstrained. The technical body of
+every document is exempt — the contract binds the block on top, not the detail
+below it.

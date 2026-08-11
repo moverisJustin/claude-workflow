@@ -54,5 +54,11 @@ Linear: MOV-118 In Progress, no branch activity 6d  ← stale?
 Next: [the single most important loop to close now]
 ```
 
+**A question waiting on the user is an open loop.** If `## Open decision` in
+`.claude/task-context.md` is anything but `None.`, print it verbatim above the
+board, under the heading `Waiting on you`. Do not summarize it: it is already
+written as a decision brief with the options and the default, and paraphrasing
+drops exactly the parts needed to answer.
+
 End with **one** recommended next action, not a lecture. If everything is
 closed, say exactly that: "No open loops."

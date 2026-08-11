@@ -102,6 +102,11 @@ in progress / next, teammate impact, and an ETA. No one-liners — Forge's
 writing standard is that a teammate's AI can act on the entry without asking a
 clarifying question.
 
+**A teammate is the coldest reader there is**, so every published entry opens
+with the charter's `## Brief` verbatim, then carries the detail above. Write
+anything you add to `~/.claude/rules/writing.md`, and define any name this
+branch invented — a teammate has no access to your `## Terms` register.
+
 `publish plans` for an approved or amended plan. `publish decisions` and
 `publish lessons` are the opt-in ones; ask before using them, since that content
 already lives in the Memory Bank.
