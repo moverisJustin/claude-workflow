@@ -1,10 +1,12 @@
 # Writing
 
-Every artifact a human reads opens with a **Brief**: a short block in plain English. The
+Everything a human reads opens with a **Brief**: a short block in plain English. The
 technical body below it does not change, so other AI instances lose nothing.
 
-**Binds**: the `## Brief` block, every request for a decision, the end-of-turn summary.
-**Does not bind**: progress narration, the technical body of any document, code.
+**Brief goes on**: plans, BSpec docs, PR bodies, handoffs, `task-context.md`.
+**Not on**: Linear, Forge. They have their own structures. Write those plainly anyway.
+**The rules bind**: the Brief, every ask for a decision, the end-of-turn summary. Nothing
+else. Not progress narration, not the body of any document, not code.
 
 ## The two blocks
 
@@ -46,18 +48,18 @@ say what would settle it.
 
 ## Do not use
 
-leverage, utilize, robust, seamless, comprehensive, delve, facilitate, in order to, it is
-worth noting, crucially, moreover, furthermore, deep dive, circle back, streamline, myriad,
-plethora, unlock, empower, elevate, at the end of the day, decisive, smoking gun, let me be
-clear, to be honest. No hedging chains, no tables for their own sake, no praise, no
-restating what the reader just said.
+leverage, utilize, utilise, robust, seamless, comprehensive, delve, facilitate, in order to,
+it is worth noting, it is important to note, crucially, moreover, furthermore, deep dive,
+circle back, streamline, myriad, plethora, unlock, empower, elevate, a testament to, at the
+end of the day, decisive, smoking gun, let me be clear, to be honest. Contractions count.
+No hedging chains, no tables for their own sake, no praise, no restating the reader.
 
-`scripts/ste-check.sh` enforces this over the Brief block. Six checks block, the rest warn.
+`scripts/ste-check.sh` enforces this over the Brief. Six checks block, the rest warn.
 
 ## Provenance
 
-Our rules, informed by ASD-STE100 Simplified Technical English, Issue 9 (2025-01-15). Rule
-numbers cite the source; your own copy is free from asd-ste100.org. No rule text or
-dictionary content is reproduced: ASD bars reproduction without written authority and its
-usage grant does not cover us. **We do not claim conformance** — that needs the ~900-word
-approved dictionary, which we neither ship nor check.
+Our rules, informed by ASD-STE100 Simplified Technical English, Issue 9 (2025-01-15). The
+rule numbers cite the source; your own copy is free from asd-ste100.org. No rule text or
+dictionary content is reproduced here, because ASD bars reproduction without written
+authority and its usage grant does not cover us. **We do not claim conformance**, which
+would need the ~900-word approved dictionary that we neither ship nor check.

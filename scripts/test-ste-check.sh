@@ -320,6 +320,34 @@ OUT="$(bash "$CHECK" "$F" 2>&1)"
 echo "$OUT" | grep -q 'passive-voice' \
   && ok "a real passive is still caught" || no "real passive missed: $OUT"
 
+# 20d. REGRESSION: a SECOND `## Brief` in one file must also be checked.
+#      get_section returned only the first match, so a banned phrase or a
+#      missing field in a later Brief passed clean. A PR body assembled from
+#      parts is the realistic way to end up with two.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** A thing.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+
+## Body
+Text.
+
+## Brief
+**What this is.** We leverage the cache here.
+**Why.** A reason.
+**What changes.** One bullet.
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'banned-phrase'; } \
+  && ok "a second ## Brief block is checked too" \
+  || no "second Brief went unchecked (rc=$RC): $OUT"
+
 # 21. --stdin reads the caller's stdin, not the heredoc that carries the program.
 #     `python3 -` consumes stdin for the program itself, so the wrapper has to
 #     capture it first. Without that, every --stdin run reported brief-missing.
@@ -332,6 +360,135 @@ OUT="$(bash "$CHECK" --stdin '<plan>' < "$F" 2>&1)"; RC=$?
 OUT="$(printf '# x\n\n## Body\ntext\n' | bash "$CHECK" --stdin '<plan>' 2>&1)"; RC=$?
 { [ "$RC" -eq 1 ] && echo "$OUT" | grep -q '<plan>:1'; } \
   && ok "--stdin reports faults under its label" || no "--stdin fault (rc=$RC): $OUT"
+
+# ---------------------------------------------------------------------------
+# Findings from the Codex adversarial review of the merged #39. Every one was
+# reproduced against bd256f1 before it was fixed; each case below is that
+# reproduction, inverted.
+# ---------------------------------------------------------------------------
+
+# C1. `## Open decision` must not suppress brief-missing.
+newfile; printf '## Open decision\nNone.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'brief-missing'; } \
+  && ok "an Open-decision-only file still reports brief-missing" \
+  || no "C1 (rc=$RC): $OUT"
+
+# C2. One prose sentence naming every field does NOT satisfy the fields.
+newfile
+printf '## Brief\nWhat this is, why, what changes, what you must decide, and risk.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'field-missing'; } \
+  && ok "prose naming the fields does not satisfy them" || no "C2 (rc=$RC): $OUT"
+
+# C3. Five bare labels with no content are errors, not a pass.
+newfile
+printf '## Brief\n**What this is.**\n**Why.**\n**What changes.**\n**What you must decide.**\n**Risk.**\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'no content'; } \
+  && ok "empty Brief labels are errors" || no "C3 (rc=$RC): $OUT"
+
+# C3b. A label heading a bullet list IS content.
+newfile
+cat > "$F" <<'EOF'
+## Brief
+**What this is.** A thing.
+**Why.** A reason.
+**What changes.**
+- first
+- second
+- third
+**What you must decide.** Nothing.
+**Risk.** Low.
+EOF
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "a label heading a bullet list counts as content" \
+  || no "C3b (rc=$RC): $OUT"
+
+# C4. A four-backtick fence must not close on a three-backtick example inside it.
+newfile
+printf '# x\n\n````\n```\n````\n\n## Brief\n**What this is.** A.\n**Why.** R.\n**What changes.** B.\n**What you must decide.** Nothing.\n**Risk.** Low.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && ! echo "$OUT" | grep -q 'brief-missing'; } \
+  && ok "nested fences of different lengths track correctly" || no "C4 (rc=$RC): $OUT"
+
+# C5. A list marker is not a word: a 25-word bullet is 25, not 26.
+newfile
+printf '## Brief\n**What this is.** A.\n**Why.** R.\n**What changes.**\n- one two three four five six seven eight nine ten one two three four five six seven eight nine ten aa bb cc dd ee\n**What you must decide.** Nothing.\n**Risk.** Low.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "the list marker is not counted as a word" || no "C5 (rc=$RC): $OUT"
+
+# C5b. ...and a gerund opener in a bullet is still caught.
+newfile
+printf '## Brief\n**What this is.** A.\n**Why.** R.\n**What changes.**\n- Adding the file fixes the bug.\n- second\n- third\n**What you must decide.** Nothing.\n**Risk.** Low.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"
+echo "$OUT" | grep -q 'gerund-opener' \
+  && ok "a gerund opener inside a bullet is still caught" || no "C5b: $OUT"
+
+# C6. Reference-style links are not placeholders.
+newfile
+printf '## Brief\n**What this is.** A [Migration Guide][guide].\n**Why.** R.\n**What changes.** B.\n**What you must decide.** Nothing.\n**Risk.** Low.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "reference-style links are not placeholders" || no "C6 (rc=$RC): $OUT"
+
+# C7. A banned word inside a code span is code, not prose.
+newfile
+printf '## Brief\n**What this is.** The API keeps `utilize()` for compatibility.\n**Why.** R.\n**What changes.** B.\n**What you must decide.** Nothing.\n**Risk.** Low.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "a banned word in a code span does not block" || no "C7 (rc=$RC): $OUT"
+
+# C7b. ...but the same word in prose still blocks.
+newfile
+printf '## Brief\n**What this is.** We utilize the cache.\n**Why.** R.\n**What changes.** B.\n**What you must decide.** Nothing.\n**Risk.** Low.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+{ [ "$RC" -eq 1 ] && echo "$OUT" | grep -q 'banned-phrase'; } \
+  && ok "a banned word in prose still blocks" || no "C7b (rc=$RC): $OUT"
+
+# C8. A sentence boundary after a closing quote is a boundary.
+newfile
+printf '## Brief\n**What this is.** The user said "Stop." The plan then does one two three four five six seven eight nine ten eleven twelve.\n**Why.** R.\n**What changes.** B.\n**What you must decide.** Nothing.\n**Risk.** Low.\n' > "$F"
+OUT="$(bash "$CHECK" "$F" 2>&1)"; RC=$?
+[ "$RC" -eq 0 ] && ok "a closing quote does not merge two sentences" || no "C8 (rc=$RC): $OUT"
+
+# C9. Irregular passives and intervening adverbs are caught.
+for s in 'The cache was built by the installer.' 'The file was already created by the script.'; do
+  newfile
+  printf '## Brief\n**What this is.** %s\n**Why.** R.\n**What changes.** B.\n**What you must decide.** Nothing.\n**Risk.** Low.\n' "$s" > "$F"
+  echo "$(bash "$CHECK" "$F" 2>&1)" | grep -q 'passive-voice' \
+    && ok "passive caught: ${s:0:34}..." || no "passive missed: $s"
+done
+
+# C10. The blocking word list must not exceed the documented contract.
+DRIFT="$(python3 - <<'PY'
+import re
+src = open("scripts/ste-check.sh").read()
+ban = re.search(r'^BANNED = \{(.*?)^\}', src, re.S | re.M).group(1)
+keys = set(re.findall(r'"([^"]+)":', ban))
+# writing.md is line-wrapped, so collapse whitespace before comparing.
+doc = re.sub(r"\s+", " ", open("rules/writing.md").read().lower())
+
+def listed(k):
+    k = k.lower()
+    if k in doc:
+        return True
+    # The contract says "Contractions count", so a contracted form is covered
+    # by its expansion rather than needing its own entry.
+    expanded = k.replace("it's", "it is").replace("n't", " not")
+    return expanded in doc
+
+print(" ".join(sorted(k for k in keys if not listed(k))))
+PY
+)"
+[ -z "$DRIFT" ] && ok "every blocking phrase appears in rules/writing.md" \
+  || no "blocking phrases absent from the contract: $DRIFT"
+
+# C11. --stdin must match the flag exactly, not as a substring of a filename.
+newfile; clean_brief "$F"
+SPACED="$TMP/a --stdin b.md"; cp "$F" "$SPACED"
+OUT="$(bash "$CHECK" "$SPACED" < /dev/null 2>&1)"; RC=$?
+{ [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '1 file(s)'; } \
+  && ok "a filename containing ' --stdin ' is a path, not the flag" \
+  || no "C11 (rc=$RC): $OUT"
 
 echo ""
 echo "ste-check tests: $PASS passed, $FAIL failed"

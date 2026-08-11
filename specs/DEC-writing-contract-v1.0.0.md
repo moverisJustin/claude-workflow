@@ -26,8 +26,8 @@ related:
 - An open question goes in `## Open decision`, because chat scrolls and files do not.
 - `scripts/ste-check.sh` blocks 6 faults and warns on 6 more.
 
-**What you must decide.** Two assumptions are open: whether the Brief belongs in channels other people read, and whether the context cost is acceptable.
-**Risk.** A noisy checker teaches you to ignore it. Only the Brief block is read, and only six checks block.
+**What you must decide.** Nothing. Justin settled both open assumptions on 2026-08-11.
+**Risk.** A noisy checker teaches you to ignore it. The checker reads only the Brief block, and only six checks block.
 
 ## Context
 
@@ -106,9 +106,17 @@ summaries.
 
 ## Consequences
 
-**Cost.** Always-on context grew from 39,158 to 43,021 bytes, a net add of 3,863
-(+9.9%). `rules/` installs machine-wide, so every project pays it. The original
-estimate was ~1,000 bytes; the overrun is recorded as an open assumption.
+**Cost, accepted.** Always-on context grew from 39,158 to 43,215 bytes, a net
+add of 4,057 (+10.4%). `rules/` installs machine-wide, so every project pays it.
+The original estimate was ~1,000 bytes. Justin accepted the cost on 2026-08-11
+after seeing the measured figure.
+
+**Scope, narrowed.** Justin ruled on 2026-08-11 that Linear and Forge do NOT
+take a Brief. Both already carry their own structure, and Linear is a tracking
+channel rather than something he reads to orient. The block goes on plans, BSpec
+docs, PR bodies, handoffs, and `task-context.md`. Note that removing those two
+did not reduce the always-on cost: `agents/` and `skills/` load on demand, and
+only `CLAUDE.md` plus `rules/*.md` are always resident.
 
 **The checker reads only the Brief.** This is what keeps false positives low
 enough that findings stay worth reading, and it is what lets the technical body

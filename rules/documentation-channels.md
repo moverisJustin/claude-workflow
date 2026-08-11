@@ -118,13 +118,13 @@ that isn't closed OR explicitly waived is a defect.
    lives) — never a verbal "someone should…". When a forge repo exists, the
    handoff is also published there so the next session sees it at startup.
 
-## Every channel opens with a Brief
+## Where the Brief goes
 
-Anything a human reads — a Linear issue or comment, a PR body, a BSpec doc, a
-handoff, a Forge entry, a plan — opens with the `## Brief` block defined in
-`writing.md`, then carries its normal technical detail below. Any ask for a
-decision uses the six-field decision brief from `/clarify`, and is written to
-`## Open decision` in `.claude/task-context.md` at the same time it is spoken.
+A plan, PR body, BSpec doc, handoff, and the charter open with the `## Brief`
+block from `writing.md`, then carry their normal detail below. **Linear and
+Forge do not** — they have their own structures, and Justin ruled the block out
+there. Any ask for a decision uses the six-field decision brief and lands in
+`## Open decision` in `.claude/task-context.md` as it is spoken.
 `scripts/ste-check.sh` enforces the block; it never reads the body.
 
 ## The Task Charter
