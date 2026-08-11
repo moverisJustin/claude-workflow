@@ -464,8 +464,19 @@ import re
 src = open("scripts/ste-check.sh").read()
 ban = re.search(r'^BANNED = \{(.*?)^\}', src, re.S | re.M).group(1)
 keys = set(re.findall(r'"([^"]+)":', ban))
+# writing.md is line-wrapped, so collapse whitespace before comparing.
 doc = re.sub(r"\s+", " ", open("rules/writing.md").read().lower())
-print(" ".join(sorted(k for k in keys if k.lower() not in doc)))
+
+def listed(k):
+    k = k.lower()
+    if k in doc:
+        return True
+    # The contract says "Contractions count", so a contracted form is covered
+    # by its expansion rather than needing its own entry.
+    expanded = k.replace("it's", "it is").replace("n't", " not")
+    return expanded in doc
+
+print(" ".join(sorted(k for k in keys if not listed(k))))
 PY
 )"
 [ -z "$DRIFT" ] && ok "every blocking phrase appears in rules/writing.md" \
