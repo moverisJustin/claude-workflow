@@ -27,7 +27,7 @@ related:
 - `scripts/ste-check.sh` blocks 6 faults and warns on 6 more.
 
 **What you must decide.** Two assumptions are open: whether the Brief belongs in channels other people read, and whether the context cost is acceptable.
-**Risk.** A noisy checker teaches you to ignore it. Only the Brief block is read, and only six checks block.
+**Risk.** A noisy checker teaches you to ignore it. The checker reads only the Brief block, and only six checks block.
 
 ## Context
 

@@ -46,10 +46,11 @@ say what would settle it.
 
 ## Do not use
 
-leverage, utilize, robust, seamless, comprehensive, delve, facilitate, in order to, it is
-worth noting, crucially, moreover, furthermore, deep dive, circle back, streamline, myriad,
-plethora, unlock, empower, elevate, at the end of the day, decisive, smoking gun, let me be
-clear, to be honest. No hedging chains, no tables for their own sake, no praise, no
+leverage, utilize (or utilise), robust, seamless, comprehensive, delve, facilitate, in order
+to, it is worth noting, it is important to note, crucially, moreover, furthermore, deep dive,
+circle back, streamline, myriad, plethora, unlock, empower, elevate, a testament to, at the
+end of the day, decisive, smoking gun, let me be clear, to be honest. Contractions of these
+count ("it's worth noting"). No hedging chains, no tables for their own sake, no praise, no
 restating what the reader just said.
 
 `scripts/ste-check.sh` enforces this over the Brief block. Six checks block, the rest warn.

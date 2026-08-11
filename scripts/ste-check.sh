@@ -41,10 +41,15 @@ set -euo pipefail
 # can never read the caller's stdin itself. Capture it here, before the heredoc
 # redirect applies, and hand it over in the environment. Plans are a few KB; this
 # is well inside ARG_MAX.
+#
+# Match the flag EXACTLY, argument by argument. `case " $* " in *" --stdin "*)`
+# flattens every argument into one string, so an ordinary filename containing
+# the literal " --stdin " drained the caller's stdin — and from a terminal that
+# hangs forever instead of checking the file.
 STE_STDIN=""
-case " $* " in
-  *" --stdin "*) STE_STDIN="$(cat)" ;;
-esac
+for _a in "$@"; do
+  if [ "$_a" = "--stdin" ]; then STE_STDIN="$(cat)"; break; fi
+done
 export STE_STDIN
 
 exec python3 - "$@" <<'PY'
@@ -191,18 +196,38 @@ else:
 # and a column-0 '## ' inside a fence is not a heading. Same hazard the
 # markdown-splitter lesson records and drift-check.sh:399 already handles.
 # ---------------------------------------------------------------------------
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+
+def fence_toggle(state, line):
+    """CommonMark-ish fence tracking: (char, length) in, (char, length) or None out.
+
+    Normalizing every fence to three characters made a four-backtick outer fence
+    close on the three-backtick example INSIDE it. The outer closer then opened a
+    fresh fence, and a real `## Brief` after it vanished — the checker reported
+    brief-missing on a correct document. A closer must use the same character and
+    be at least as long as the opener, and markdown allows up to three spaces of
+    indentation.
+    """
+    m = FENCE_RE.match(line)
+    if not m:
+        return state
+    run = m.group(1)
+    char, length = run[0], len(run)
+    if state is None:
+        return (char, length)
+    open_char, open_len = state
+    if char == open_char and length >= open_len and not line.strip()[length:].strip():
+        return None                      # a closer carries no info string
+    return state
+
 def sections(lines):
     """Yield (heading_text, start_index, end_index) for column-0 '## ' headings."""
     fence = None
     heads = []
     for i, ln in enumerate(lines):
-        m = re.match(r"^(```+|~~~+)", ln)
-        if m:
-            tok = m.group(1)[0] * 3
-            if fence is None:
-                fence = tok
-            elif fence == tok:
-                fence = None
+        new = fence_toggle(fence, ln)
+        if new is not fence or FENCE_RE.match(ln):
+            fence = new
             continue
         if fence is None and re.match(r"^## +\S", ln):
             heads.append((ln[3:].strip(), i))
@@ -231,12 +256,18 @@ def get_section(lines, name):
 # Prose extraction from a block: drop fences, tables, headings; unwrap the bold
 # field labels so `**Why.**` does not read as a one-word sentence.
 # ---------------------------------------------------------------------------
-LABEL_RE = re.compile(r"^\s*(?:[-*]\s+)?\*\*([^*]+?)\*\*\s*")
+LABEL_RE = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)?\*\*([^*]+?)\*\*[.:]?\s*")
+LIST_RE = re.compile(r"^\s*(?:[-*+]\s+|\d+[.)]\s+)")
 
 def clean_line(ln):
     ln = LABEL_RE.sub("", ln)                       # strip a leading bold label
+    # Strip the list marker too. Left in, `-` counted as a word (a 25-word bullet
+    # reported 26) and it hid the gerund check, because the sentence then began
+    # with "-" rather than with the -ing word.
+    ln = LIST_RE.sub("", ln)
     ln = re.sub(r"`[^`]*`", "CODE", ln)             # code spans are not prose
-    ln = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", ln)  # links -> their text
+    ln = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", ln)    # inline links -> text
+    ln = re.sub(r"\[([^\]]*)\]\[[^\]]*\]", r"\1", ln)   # reference links -> text
     ln = re.sub(r"\*\*|__|\*|_", "", ln)            # remaining emphasis
     return ln.rstrip()
 
@@ -270,10 +301,8 @@ def prose_units(block):
             del current[:]
 
     for i, raw in enumerate(block):
-        m = re.match(r"^(```+|~~~+)", raw)
-        if m:
-            tok = m.group(1)[0] * 3
-            fence = tok if fence is None else (None if fence == tok else fence)
+        if FENCE_RE.match(raw):
+            fence = fence_toggle(fence, raw)
             flush_buf(); flush_para()
             continue
         if fence is not None:
@@ -283,7 +312,7 @@ def prose_units(block):
             flush_buf(); flush_para()
             continue
 
-        is_list = bool(re.match(r"^\s*(?:[-*+]\s|\d+[.)]\s)", raw))
+        is_list = bool(LIST_RE.match(raw))
         # A Brief field line (`**What this is.** ...`) is a discrete statement,
         # not part of a running paragraph. Without this, the five field lines of
         # a perfectly correct Brief merge into one 11-sentence "paragraph" and
@@ -307,6 +336,11 @@ def prose_units(block):
 
 ABBREV = {"e.g", "i.e", "etc", "vs", "cf", "no", "fig", "approx", "min", "max"}
 
+# Closing marks that may sit between the terminator and the space: 'He said
+# "Stop." Then we left.' is two sentences, not one. Treating it as one merged
+# two compliant sentences into a false sentence-too-long error.
+CLOSERS = "\"')]}”’"
+
 def split_sentences(text):
     out, buf = [], ""
     i = 0
@@ -314,12 +348,17 @@ def split_sentences(text):
         ch = text[i]
         buf += ch
         if ch in ".!?":
-            nxt = text[i + 1: i + 2]
-            prev_word = re.split(r"[\s(]", buf.strip())[-1].rstrip(".!?").lower()
+            j = i + 1
+            while j < len(text) and text[j] in CLOSERS:
+                buf += text[j]
+                j += 1
+            nxt = text[j: j + 1]
+            prev_word = re.split(r"[\s(]", buf.strip())[-1].strip(CLOSERS).rstrip(".!?").lower()
             is_decimal = ch == "." and nxt.isdigit()
             is_abbrev = ch == "." and prev_word in ABBREV
             if not is_decimal and not is_abbrev and (nxt == "" or nxt.isspace()):
                 out.append(buf.strip()); buf = ""
+            i = j - 1
         i += 1
     if buf.strip():
         out.append(buf.strip())
@@ -393,19 +432,73 @@ def check_block(block, kind, terms, findings, offset, path):
     body = "\n".join(block)
     low = body.lower()
 
+    units, paragraphs = prose_units(block)
+
     # -- field-missing (error) ------------------------------------------------
+    # Match ANCHORED bold labels with non-empty values, not substrings anywhere
+    # in the block. The substring test passed two things it should have caught:
+    # one prose sentence naming every field ("What this is, why, what changes,
+    # what you must decide, and risk.") and five bare labels with no content
+    # under them. Both are the exact shape of a Brief nobody filled in.
     want = DECISION_FIELDS if kind == "decision" else BRIEF_FIELDS
+    labelled = {}                                   # label -> (value, line_idx)
+    for i, raw in enumerate(block):
+        m = LABEL_RE.match(raw)
+        if not m:
+            continue
+        label = m.group(1).strip().rstrip(".:").lower()
+        labelled[label] = (raw[m.end():].strip(), i)
+
     for field in want:
-        if field.lower().rstrip(".") not in low:
+        key = field.lower().rstrip(".")
+        if key not in labelled:
             add("field-missing", "error", 0,
                 "Brief field missing: '%s'" % field,
                 "add a line: **%s** <one sentence>" % field)
+            continue
+        value, line_idx = labelled[key]
+        if not value:
+            # A label may legitimately head a bullet list on the lines below.
+            follows = [t for _k, t, j in units if j > line_idx][:1]
+            has_list = any(LIST_RE.match(block[j]) for j in
+                           range(line_idx + 1, min(line_idx + 8, len(block))))
+            if not has_list and not follows:
+                value = ""
+            elif has_list:
+                continue
+        if not value:
+            add("field-missing", "error", line_idx,
+                "Brief field '%s' has no content" % field,
+                "write the sentence, or delete the label")
+
+    # A "What changes." that IS a list should carry three to six items — the
+    # contract's own number. Warn, never block: the count is a style call and a
+    # blocking check on it would be tiresome.
+    if kind == "brief" and "what changes" in labelled:
+        start_i = labelled["what changes"][1]
+        n_items = 0
+        for j in range(start_i + 1, len(block)):
+            if LIST_RE.match(block[j]):
+                n_items += 1
+            elif block[j].strip() and LABEL_RE.match(block[j]):
+                break
+        if n_items and not (3 <= n_items <= 6):
+            add("what-changes-count", "warn", start_i,
+                "'What changes.' has %d bullets (the contract says three to six)"
+                % n_items,
+                "merge or split the bullets, or write it as one sentence")
 
     # -- placeholder (error) --------------------------------------------------
     for i, raw in enumerate(block):
         if re.match(r"^\s*-\s*\[[ x~]\]", raw):     # a checkbox is not a placeholder
             continue
         stripped = re.sub(r"`[^`]*`", "", raw)
+        # Resolve real markdown links FIRST. `[Migration Guide][guide]` is a
+        # valid reference link, and flagging both halves as unfilled template
+        # text blocked correct prose.
+        stripped = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", stripped)
+        stripped = re.sub(r"\[([^\]]*)\]\[[^\]]*\]", r"\1", stripped)
+        stripped = re.sub(r"^\s*\[[^\]]+\]:\s*\S+", "", stripped)   # link definition
         m = re.search(r"\[([A-Za-z][^\]]{2,})\](?!\()", stripped)
         if m:
             add("placeholder", "error", i,
@@ -416,8 +509,6 @@ def check_block(block, kind, terms, findings, offset, path):
             add("placeholder", "error", i,
                 "template text left in the Brief: <%s>" % m2.group(1)[:40],
                 "replace it with the real content, or delete the line")
-
-    units, paragraphs = prose_units(block)
 
     # -- sentence-too-long (error) + per-sentence warnings --------------------
     for kind_u, text, idx in units:
@@ -442,8 +533,16 @@ def check_block(block, kind, terms, findings, offset, path):
                 add("present-perfect", "warn", idx,
                     "present perfect: '%s %s'" % (m.group(1), m.group(2)),
                     suggest_simple_past(sent))
-            pm = re.search(r"\b(?:is|are|was|were|be|been|being)\s+(\w{3,}(?:ed|en))\b",
-                           sent, re.I)
+            # Irregular participles ("was built by the installer") and an
+            # intervening adverb ("was already built") both slipped past a
+            # pattern that only accepted an adjacent -ed/-en word.
+            # "already" is not an -ly adverb, and it is the one that shows up.
+            pm = re.search(
+                r"\b(?:is|are|was|were|be|been|being)\s+"
+                r"(?:(?:\w+ly|already|also|still|never|often|just|now|then|"
+                r"recently|previously|always)\s+)?"
+                r"(\w{3,}(?:ed|en)|%s)\b" % "|".join(sorted(IRREGULAR_PP)),
+                sent, re.I)
             if pm and pm.group(1).lower() not in NOT_PARTICIPLES:
                 add("passive-voice", "warn", idx,
                     "passive: '%s'" % pm.group(0),
@@ -459,27 +558,28 @@ def check_block(block, kind, terms, findings, offset, path):
                                                               MAX_PARA_SENTENCES),
                 "split it, or turn the list of points into a vertical list")
 
-    # -- banned-phrase (error) ------------------------------------------------
-    for phrase, better in BANNED.items():
-        for m in re.finditer(r"(?<![A-Za-z])%s(?![A-Za-z])" % re.escape(phrase), low):
-            line_idx = body.count("\n", 0, m.start())
-            add("banned-phrase", "error", line_idx,
-                "do-not-use phrase: '%s'" % phrase,
-                "use '%s'" % better)
-
-    # -- em-dash (warn) -------------------------------------------------------
-    for i, raw in enumerate(block):
-        if "—" in raw:
-            add("em-dash", "warn", i, "em-dash in the Brief",
+    # -- text scans, over SANITIZED prose only --------------------------------
+    # These ran over the raw block, which meant fenced code and inline code
+    # spans were scanned for banned phrases, placeholders and em-dashes even
+    # though prose_units already excludes them. A Brief reading "the API keeps
+    # `utilize()` for compatibility" was a BLOCKING banned-phrase error about
+    # its own subject matter. `units` is the sanitized text with fences dropped
+    # and code spans replaced, and it carries each unit's source line, so
+    # findings still point at the right place.
+    for _kind_u, text, idx in units:
+        low_u = text.lower()
+        for phrase, better in BANNED.items():
+            if re.search(r"(?<![A-Za-z])%s(?![A-Za-z])" % re.escape(phrase), low_u):
+                add("banned-phrase", "error", idx,
+                    "do-not-use phrase: '%s'" % phrase, "use '%s'" % better)
+        if "—" in text:
+            add("em-dash", "warn", idx, "em-dash in the Brief",
                 "use a period, comma, colon, or parentheses")
-
-    # -- not-self-contained (warn) -------------------------------------------
-    for phrase in NOT_SELF_CONTAINED:
-        idx = low.find(phrase)
-        if idx != -1:
-            add("not-self-contained", "warn", body.count("\n", 0, idx),
-                "points off screen: '%s'" % phrase,
-                "restate the thing itself; the reader may not have it on screen")
+        for phrase in NOT_SELF_CONTAINED:
+            if phrase in low_u:
+                add("not-self-contained", "warn", idx,
+                    "points off screen: '%s'" % phrase,
+                    "restate the thing itself; the reader may not have it on screen")
 
     # -- unregistered-term (warn) --------------------------------------------
     if terms is not None:
@@ -531,17 +631,21 @@ for path, lines in sources:
     decisions = get_sections(lines, "Open decision")
     terms = read_terms(lines)
 
-    if not briefs and not decisions:
+    # `## Brief` is judged on its OWN. Requiring both sections to be absent
+    # before reporting brief-missing meant a charter carrying only
+    # `## Open decision` / `None.` exited 0, so the /task-done gate accepted a
+    # task-context with no Brief at all.
+    if not briefs:
         if allow_missing:
-            skipped += 1
-            continue
-        findings.append({
-            "path": path, "line": 1, "id": "brief-missing", "sev": "error",
-            "msg": "no `## Brief` block",
-            "fix": "add one; the five fields are in rules/writing.md",
-        })
-        checked += 1
-        continue
+            if not decisions:
+                skipped += 1
+                continue
+        else:
+            findings.append({
+                "path": path, "line": 1, "id": "brief-missing", "sev": "error",
+                "msg": "no `## Brief` block",
+                "fix": "add one; the five fields are in rules/writing.md",
+            })
 
     checked += 1
     for start, brief in briefs:
