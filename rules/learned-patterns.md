@@ -23,8 +23,11 @@ regardless of stack, fails **silently**, and you would not have known to go look
 ### Write plainly — the contract lives in `rules/writing.md`
 Sparse em-dashes, no corporate register, and direct data flow ("source: X → destination: Y",
 never "copy from X to Y") are all rules in `~/.claude/rules/writing.md`, which also defines the
-Brief block and the decision-brief form. Single source: read it there, not here. Justin has
-corrected the em-dash, corporate-register, and data-flow habits by name.
+Brief block, the decision-brief form, and `## The chat stream`, which governs every answer
+Claude writes in the running chat. Single source: read it there, not here. Justin has
+corrected the em-dash, corporate-register, and data-flow habits by name, and named the two
+that drove the chat rules: a coined name used in place of saying what is happening, and 30
+words where 7 would do.
 
 ### Never re-propose an approach the record has ruled out
 If `conventions.md`, a decision log, or a memory file documents an approach as infeasible

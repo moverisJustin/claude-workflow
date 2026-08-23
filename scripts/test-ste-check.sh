@@ -464,6 +464,11 @@ import re
 src = open("scripts/ste-check.sh").read()
 ban = re.search(r'^BANNED = \{(.*?)^\}', src, re.S | re.M).group(1)
 keys = set(re.findall(r'"([^"]+)":', ban))
+# The chat-only blocking lists ride the same guarantee: ste-check may only
+# block on a phrase that rules/writing.md actually names.
+for name in ("CHAT_OPENERS", "CHAT_CLOSERS"):
+    block = re.search(r'^%s = \[(.*?)^\]' % name, src, re.S | re.M).group(1)
+    keys |= set(re.findall(r'"([^"]+)"', block))
 # writing.md is line-wrapped, so collapse whitespace before comparing.
 doc = re.sub(r"\s+", " ", open("rules/writing.md").read().lower())
 
@@ -489,6 +494,68 @@ OUT="$(bash "$CHECK" "$SPACED" < /dev/null 2>&1)"; RC=$?
 { [ "$RC" -eq 0 ] && echo "$OUT" | grep -q '1 file(s)'; } \
   && ok "a filename containing ' --stdin ' is a path, not the flag" \
   || no "C11 (rc=$RC): $OUT"
+
+# --- chat mode (--chat) ------------------------------------------------------
+# rules/writing.md ## The chat stream governs an ANSWER, which has no Brief.
+
+# `|| true` is load-bearing. The suite runs under `set -o pipefail`, so without
+# it `chat X | grep -q closer` inherits ste-check's exit 1 and the test reads as
+# a miss even when grep matched.
+chat() { printf '%b' "$1" | bash "$CHECK" --chat --stdin chat 2>&1 || true; }
+chat_rc() { printf '%b' "$1" | bash "$CHECK" --chat --stdin chat >/dev/null 2>&1; echo $?; }
+
+# C12. A clean answer passes, and no Brief-shaped check fires on it.
+CLEAN='Fixed at src/auth.ts:42. The token check read the wrong header.\n\nNext: run npm test.\n'
+OUT="$(chat "$CLEAN")"; RC="$(chat_rc "$CLEAN")"
+{ [ "$RC" -eq 0 ] && ! echo "$OUT" | grep -qE 'brief-missing|field-missing|placeholder'; } \
+  && ok "chat: a clean answer passes with no Brief-shaped findings" \
+  || no "C12 (rc=$RC): $OUT"
+
+# C13. A preamble opener blocks.
+chat 'Let me take a look at that.\n\nThe fix is at src/auth.ts:42.\n' | grep -q 'preamble' \
+  && ok "chat: a 'Let me' opener blocks" || no "C13: preamble missed"
+
+# C14. A closing pleasantry blocks.
+chat 'The fix is at src/auth.ts:42.\n\nHope this helps!\n' | grep -q 'closer' \
+  && ok "chat: a 'Hope this helps' closer blocks" || no "C14: closer missed"
+
+# C15. An opener counts only on the FIRST line, a closer only on the LAST.
+MID='The fix is at src/auth.ts:42.\nHope this helps with the header.\nRun npm test now.\n'
+[ "$(chat_rc "$MID")" -eq 0 ] \
+  && ok "chat: a closer phrase mid-answer does not block" \
+  || no "C15: mid-answer phrase blocked: $(chat "$MID")"
+
+# C16. A bare coined name warns and does NOT block.
+BARE='The Plan Gate now blocks. Run the tests.\n'
+{ chat "$BARE" | grep -q 'bare-coined-name' && [ "$(chat_rc "$BARE")" -eq 0 ]; } \
+  && ok "chat: a bare coined name warns without blocking" || no "C16: $(chat "$BARE")"
+
+# C16b. A glossed name is silent.
+GLOSSED='The Plan Gate (it checks a plan before you approve it) now blocks. Run tests.\n'
+chat "$GLOSSED" | grep -q 'bare-coined-name' \
+  && no "C16b: a glossed name still warned" \
+  || ok "chat: a glossed coined name is silent"
+
+# C16c. A stoplisted proper noun never warns.
+chat 'Claude Code writes the transcript. Run the tests.\n' | grep -q 'bare-coined-name' \
+  && no "C16c: a stoplisted proper noun warned" \
+  || ok "chat: a stoplisted proper noun is silent"
+
+# C17. THE COLLISION REGRESSION. `CLOSERS` is the sentence splitter's
+# closing-punctuation string. The chat list was first written as `CLOSERS` too,
+# and the later definition silently won, so `closer` fired on any last line
+# ending in a bracket. Renaming to CHAT_CLOSERS fixed it; this proves it stays.
+PAREN='The fix is at src/auth.ts:42 (the header was wrong).\n'
+[ "$(chat_rc "$PAREN")" -eq 0 ] \
+  && ok "chat: a last line ending in ')' is not a closing pleasantry" \
+  || no "C17: punctuation read as a closer: $(chat "$PAREN")"
+
+# C18. No name may be assigned twice at the top level. C17 is one instance;
+# this catches the next collision on a name nobody has thought of yet.
+DUPES="$(grep -oE '^[A-Za-z_][A-Za-z0-9_]* *=[^=]' "$CHECK" \
+         | sed 's/ *=.*//' | sort | uniq -d | tr '\n' ' ')"
+[ -z "$DUPES" ] && ok "no top-level name in ste-check.sh is defined twice" \
+  || no "defined twice, so the later one silently wins: $DUPES"
 
 echo ""
 echo "ste-check tests: $PASS passed, $FAIL failed"

@@ -5,8 +5,10 @@ technical body below it does not change, so other AI instances lose nothing.
 
 **Brief goes on**: plans, BSpec docs, PR bodies, handoffs, `task-context.md`.
 **Not on**: Linear, Forge. They have their own structures. Write those plainly anyway.
-**The rules bind**: the Brief, every ask for a decision, the end-of-turn summary. Nothing
-else. Not progress narration, not the body of any document, not code.
+**The prose rules bind**: the Brief, every ask for a decision, the end-of-turn summary.
+**The chat rules bind**: every answer Claude writes to you, including progress narration.
+See `## The chat stream`.
+**Nothing binds**: the body of a document, or code.
 
 ## The two blocks
 
@@ -46,6 +48,78 @@ common word. No em-dashes; use a period, comma, colon, or parentheses.
 something off screen. State the fact, then the consequence. If you do not know, say so and
 say what would settle it.
 
+## The chat stream
+
+These bind every answer Claude writes to you, not only the summary at the end. The rules
+above still apply: short sentences, active voice, no word from the do-not-use list.
+
+**Name the thing, not the label.** Never let a coined name be the only thing on screen. A
+short name is fine when it carries its plain meaning in the same sentence: "the plan check
+(it runs before you approve a plan)". Without the gloss, write the plain description
+instead. A name Claude invented is not an explanation.
+
+**Lead with the answer.** The first line is the answer, the command, or the file and line.
+Context comes after, if at all.
+
+**Number multi-step work.** One bounded action per step. Use the fewest steps that work.
+
+**Say where you are.** On multi-step work, open with the position: "step 3 of 5 done:
+schema updated". You cannot hold that between messages, so Claude restates it.
+
+**Finish one thing before raising the next.** A second issue waits until the first is
+done, then arrives as one question. Claude answers it alone when it can, and folds the
+result in.
+
+**Show what now works.** Name the behavior that changed and how to see it, not the files
+Claude touched.
+
+**State errors flat.** Never "uh oh" or "there seems to be a problem". Give the location,
+the cause, and the fix.
+
+**No preamble, no recap, no closer.** Start with the answer. Stop when the answer is done.
+
+Banned openers, matched on the first line only:
+
+- `great question`
+- `let me` and `first, let me`
+- `i'll` and `i'm going to`
+- `sure!` and `certainly,`
+- `looking at your`
+- `to answer your question`
+
+Banned closers, matched on the last line only:
+
+- `let me know if` and `just let me know`
+- `hope this helps` and `hope that helps`
+- `happy to clarify` and `happy to help`
+- `feel free to ask` and `feel free to reach out`
+- `is there anything else`
+
+**End with one next action.** If anything is open, name one thing the user can do in under
+two minutes. If nothing is open, stop.
+
+### When these rules lose
+
+The shape holds in all six cases. Only the length changes.
+
+1. The user says "explain" or "walk me through". The body runs as long as the topic needs.
+2. A structured artifact keeps its structure. The Brief block, the six-field decision
+   brief, a plan body, and a BSpec body follow their own contract. These rules never
+   truncate them.
+3. A destructive or outward-facing action comes next. Claude confirms first. Safety beats
+   brevity.
+4. The clarification checkpoint runs. Questions come before any action line.
+5. Three turns of "still broken". Claude stops guessing, names the assumption that may be
+   wrong, and pulls hard data.
+6. The user asks for options. The options are the answer, so Claude ranks 2 to 4 with
+   one-line costs and puts the recommendation first.
+
+### Before Claude sends
+
+Cut any sidebar, and any hedge that carries no real uncertainty. Keep a hedge that does.
+Then check: from the first line and the last line alone, does the user know what happened
+and what to do next?
+
 ## Do not use
 
 leverage, utilize, utilise, robust, seamless, comprehensive, delve, facilitate, in order to,
@@ -54,9 +128,15 @@ circle back, streamline, myriad, plethora, unlock, empower, elevate, a testament
 end of the day, decisive, smoking gun, let me be clear, to be honest. Contractions count.
 No hedging chains, no tables for their own sake, no praise, no restating the reader.
 
-`scripts/ste-check.sh` enforces this over the Brief. Six checks block, the rest warn.
+`scripts/ste-check.sh` enforces the prose rules over the Brief. `ste-check.sh --chat`
+checks an answer against this whole file, so you can paste any reply and get findings.
 
 ## Provenance
+
+The chat-stream rules adapt `github.com/ayghri/i-have-adhd` (MIT). That project shapes
+output for a reader with ADHD. We rewrote every rule in this file's own voice, dropped its
+time estimates and its five-item list cap, and added "name the thing, not the label",
+which the source does not cover.
 
 Our rules, informed by ASD-STE100 Simplified Technical English, Issue 9 (2025-01-15). The
 rule numbers cite the source; your own copy is free from asd-ste100.org. No rule text or

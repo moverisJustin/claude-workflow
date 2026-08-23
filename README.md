@@ -33,7 +33,7 @@ This workflow fixes that:
 | Skills | 24 | `/boris` (default for non-trivial tasks), `/clarify`, `/plan-review`, `/cross-review`, `/forge`, `/prime-agent`, `/loops`, `/session-start`, `/checks`, `/bspec-doc`, `/fix-issue`, `/drift-check`, `/handoff`, `/memory-migrate`, and more — same `/name` invocation, now with tool grants, argument hints, and invocation control |
 | Workflows | 1 | `boris-build.js` — deterministic multi-agent fan-out engine for large tasks (launched by `/boris`) |
 | Hook scripts | 9 | Session auto-loader, destructive ops guard, audit logger, prettier formatter, drift watcher, compaction snapshot, post-compaction recovery, verify gate, plan-approval checkpoint gate |
-| Rules | 5 | `git-safety.md`, `workflow.md` (always-on policy), `documentation-channels.md` (Linear + BSpec loop-closing contract), `writing.md` (the Brief block + decision-brief contract, enforced by `ste-check.sh`), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
+| Rules | 5 | `git-safety.md`, `workflow.md` (always-on policy), `documentation-channels.md` (Linear + BSpec loop-closing contract), `writing.md` (the Brief block + decision-brief contract, plus the chat-stream rules for every answer Claude writes; enforced by `ste-check.sh`, and `ste-check.sh --chat` for a pasted answer), `learned-patterns.md` (the lesson-capture/sync target) — installed to `~/.claude/rules/` |
 | Settings | -- | Curated permission allowlist, hardened deny list (destructive fs, pipe-to-shell, force-push to main), audit + prettier hooks |
 | Plugin (optional) | 1 | `.claude-plugin/` manifest + marketplace so teammates can `/plugin install` (namespaced commands; install.sh stays the bare-name path) |
 
