@@ -8,7 +8,8 @@
 # nothing checks is a suggestion, not a contract — the same lesson recorded at
 # scripts/hook-plan-gate.sh:5.
 #
-# SCOPE IS THE POINT: this reads ONLY the `## Brief` block and `## Open decision`.
+# SCOPE IS THE POINT: by default this reads ONLY the `## Brief` block and
+# `## Open decision`.
 # It never reads the technical body. That single decision is what keeps the
 # false-positive rate low enough that the findings stay worth reading, and it is
 # what the contract promises: plain summary on top, normal technical detail below.
@@ -28,6 +29,15 @@
 #   ste-check.sh --allow-missing <target>  a file with no Brief block is skipped
 #   ste-check.sh --quiet <target>          only print errors + the summary
 #   ste-check.sh --list-checks             print every check id and exit
+#   ste-check.sh --chat <target>           check an ANSWER, not a Brief-bearing file
+#
+# --chat checks the OTHER surface: an answer Claude wrote in the chat stream.
+# rules/writing.md governs that surface too, and it has no `## Brief` block, so
+# chat mode checks the whole input as one block and switches off every
+# Brief-shaped check. Nothing runs it automatically. Pipe an answer in when you
+# want to know whether it held the contract:
+#
+#   pbpaste | ste-check.sh --chat --stdin "last answer"
 #
 # --stdin exists for hook-plan-gate.sh: the ExitPlanMode payload carries the plan
 # text inline as tool_input.plan (verified empirically — the payload has both
@@ -83,6 +93,32 @@ BANNED = {
     "smoking gun": "the evidence", "let me be clear": "(delete)",
     "to be honest": "(delete)", "a testament to": "shows",
 }
+
+# Chat-only. Matched against the FIRST non-empty line, lowercased, ornament
+# stripped. Every phrase here must also appear in rules/writing.md; the drift
+# test in test-ste-check.sh proves it, so the checker can never block on a rule
+# the contract does not state.
+CHAT_OPENERS = [
+    "great question", "let me", "first, let me", "i'll", "i'm going to",
+    "sure!", "certainly,", "looking at your", "to answer your question",
+]
+
+# Chat-only. Matched anywhere in the LAST non-empty line. The CHAT_ prefix is
+# load-bearing: `CLOSERS` below is the sentence splitter's closing-punctuation
+# string, and a plain `CLOSERS` here was silently overwritten by it, which made
+# this check fire on any line ending in a bracket.
+CHAT_CLOSERS = [
+    "let me know if", "just let me know", "hope this helps", "hope that helps",
+    "happy to clarify", "happy to help", "feel free to ask",
+    "feel free to reach out", "is there anything else",
+]
+
+# A coined name is glossed when its own sentence says what it is. Anything here,
+# straight after the name, counts as the gloss.
+GLOSS_RE = re.compile(
+    r"^\s*(?:\(|:|,\s*(?:which|who|the|a|an)\b"
+    r"|\s*(?:is|are|was|were|means|runs|checks|holds|does|lives|reads|writes|"
+    r"fires|blocks|covers|tracks)\b)", re.I)
 
 NOT_SELF_CONTAINED = [
     "as discussed above", "as mentioned above", "as mentioned earlier",
@@ -142,17 +178,20 @@ CHECKS = [
     ("placeholder",       "error", "unfilled template text left in the block"),
     ("passive-voice",     "warn",  "passive construction; name the actor"),
     ("gerund-opener",     "warn",  "sentence opens with a gerund"),
-    ("em-dash",           "warn",  "em-dash in the Brief"),
+    ("em-dash",           "warn",  "em-dash where a period or comma belongs"),
     ("not-self-contained","warn",  "points at something off screen"),
     ("present-perfect",   "warn",  "present perfect; use the simple past"),
     ("unregistered-term", "warn",  "coined name absent from `## Terms`"),
+    ("preamble",          "error", "chat: opens with preamble, not the answer"),
+    ("closer",            "error", "chat: ends with a closing pleasantry"),
+    ("bare-coined-name",  "warn",  "chat: coined name with no plain meaning"),
 ]
 
 # ---------------------------------------------------------------------------
 # Args
 # ---------------------------------------------------------------------------
 args = sys.argv[1:]
-warn_only = quiet = allow_missing = use_stdin = False
+warn_only = quiet = allow_missing = use_stdin = chat_mode = False
 targets = []
 for a in args:
     if a == "--stdin":
@@ -163,6 +202,8 @@ for a in args:
         quiet = True
     elif a == "--allow-missing":
         allow_missing = True
+    elif a == "--chat":
+        chat_mode = True
     elif a == "--list-checks":
         for cid, sev, desc in CHECKS:
             print("%-20s %-6s %s" % (cid, sev, desc))
@@ -176,7 +217,7 @@ for a in args:
 if not targets and not use_stdin:
     sys.stderr.write(
         "usage: ste-check.sh [--stdin] [--warn-only] [--allow-missing] "
-        "[--quiet] <file-or-dir> [...]\n")
+        "[--quiet] [--chat] <file-or-dir> [...]\n")
     sys.exit(2)
 
 # path -> lines. stdin becomes a single pseudo-file keyed by its label.
@@ -427,7 +468,12 @@ def suggest_simple_past(sentence):
 # The checks
 # ---------------------------------------------------------------------------
 def check_block(block, kind, terms, findings, offset, path):
-    """kind is 'brief' or 'decision'. offset maps block index -> file line."""
+    """kind is 'brief', 'decision', or 'chat'.
+
+    offset maps block index -> file line. 'chat' means the caller handed over a
+    whole answer rather than a section of a document: every Brief-shaped check
+    switches off, and the three chat-only checks at the bottom switch on.
+    """
     def add(cid, sev, line_idx, message, suggestion):
         findings.append({
             "path": path, "line": offset + line_idx + 1, "id": cid,
@@ -445,7 +491,10 @@ def check_block(block, kind, terms, findings, offset, path):
     # one prose sentence naming every field ("What this is, why, what changes,
     # what you must decide, and risk.") and five bare labels with no content
     # under them. Both are the exact shape of a Brief nobody filled in.
-    want = DECISION_FIELDS if kind == "decision" else BRIEF_FIELDS
+    if kind == "chat":
+        want = []                                   # an answer has no fields
+    else:
+        want = DECISION_FIELDS if kind == "decision" else BRIEF_FIELDS
     labelled = {}                                   # label -> (value, line_idx)
     for i, raw in enumerate(block):
         m = LABEL_RE.match(raw)
@@ -494,7 +543,9 @@ def check_block(block, kind, terms, findings, offset, path):
                 "merge or split the bullets, or write it as one sentence")
 
     # -- placeholder (error) --------------------------------------------------
-    for i, raw in enumerate(block):
+    # Skipped in chat mode. An answer routinely carries `<stdin>`, `<path>`, and
+    # bracketed markdown, none of which is unfilled template text.
+    for i, raw in enumerate([] if kind == "chat" else block):
         if re.match(r"^\s*-\s*\[[ x~]\]", raw):     # a checkbox is not a placeholder
             continue
         stripped = re.sub(r"`[^`]*`", "", raw)
@@ -578,7 +629,7 @@ def check_block(block, kind, terms, findings, offset, path):
                 add("banned-phrase", "error", idx,
                     "do-not-use phrase: '%s'" % phrase, "use '%s'" % better)
         if "—" in text:
-            add("em-dash", "warn", idx, "em-dash in the Brief",
+            add("em-dash", "warn", idx, "em-dash where a period or comma belongs",
                 "use a period, comma, colon, or parentheses")
         for phrase in NOT_SELF_CONTAINED:
             if phrase in low_u:
@@ -607,6 +658,58 @@ def check_block(block, kind, terms, findings, offset, path):
                     "coined name not in `## Terms`: '%s'" % term,
                     "add: - **%s** - <one-sentence definition>" % term)
 
+    # -- chat-only checks -----------------------------------------------------
+    if kind == "chat":
+        non_empty = [(i, ln.strip()) for i, ln in enumerate(block) if ln.strip()]
+        if non_empty:
+            first_i, first = non_empty[0]
+            head = strip_ornament(first)
+            for phrase in CHAT_OPENERS:
+                if head.startswith(phrase):
+                    add("preamble", "error", first_i,
+                        "opens with preamble: '%s'" % first[:56],
+                        "delete the opener; the first line is the answer")
+                    break
+
+            last_i, last = non_empty[-1]
+            tail = strip_ornament(last)
+            for phrase in CHAT_CLOSERS:
+                if phrase in tail:
+                    add("closer", "error", last_i,
+                        "closing pleasantry: '%s'" % last[:56],
+                        "delete it, or replace it with one next action")
+                    break
+
+        # -- bare-coined-name (warn) -----------------------------------------
+        # KNOWN LIMIT, stated so nobody reads a clean run as a clean answer:
+        # this sees multi-word Title Case only, the same shape unregistered-term
+        # already detects. A lowercase coined name ("the gate", "the checker")
+        # is indistinguishable from ordinary prose by regex, and those are the
+        # common case. The rule in writing.md is the mechanism; this is a
+        # backstop for the loudest shape.
+        seen = set()
+        for _k, text, idx in units:
+            for sent in split_sentences(text):
+                for m in re.finditer(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b", sent):
+                    term = re.sub(
+                        r"^(?:The|A|An|This|That|These|Those|Its|Our|Your|My)\s+",
+                        "", m.group(1))
+                    if " " not in term or term in TERM_STOPLIST or term in seen:
+                        continue
+                    if GLOSS_RE.match(sent[m.end():]):
+                        continue
+                    seen.add(term)
+                    add("bare-coined-name", "warn", idx,
+                        "coined name with no plain meaning: '%s'" % term,
+                        "gloss it: '%s (it <does what>)', or write the "
+                        "description instead" % term)
+
+def strip_ornament(line):
+    """Markdown ornament off, lowercased. A bolded opener is still an opener."""
+    line = re.sub(r"^[#>\s]*", "", line)
+    line = re.sub(r"^(?:[-*+]|\d+\.)\s+", "", line)
+    return line.replace("*", "").replace("_", "").replace("`", "").strip().lower()
+
 def read_terms(lines):
     block = get_section(lines, "Terms")
     if block is None:
@@ -632,6 +735,16 @@ if not use_stdin:
             sys.stderr.write("ste-check: cannot read %s: %s\n" % (path, exc))
 
 for path, lines in sources:
+    # Chat mode reads the WHOLE input. There is no Brief to extract, no `## Terms`
+    # register to check a name against, and no reason to look for either.
+    if chat_mode:
+        if not [ln for ln in lines if ln.strip()]:
+            skipped += 1
+            continue
+        checked += 1
+        check_block(lines, "chat", None, findings, 0, path)
+        continue
+
     briefs = get_sections(lines, "Brief")
     decisions = get_sections(lines, "Open decision")
     terms = read_terms(lines)

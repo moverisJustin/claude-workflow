@@ -48,9 +48,13 @@ and file-write to `.claude/audit/`.
 
 Always-on rules live in `~/.claude/rules/` (installed from this repo's `rules/`):
 - `writing.md` — the writing contract for everything a human reads: the `## Brief` block, the
-  six-field decision brief, 15 rules derived from ASD-STE100 Issue 9, and the do-not-use list.
-  Binds the Brief, decision asks, and turn summaries; never the technical body. Enforced by
-  `scripts/ste-check.sh` at plan approval, in `/checks`, in `/task-done`, and in CI.
+  six-field decision brief, 15 rules derived from ASD-STE100 Issue 9, the do-not-use list, and
+  `## The chat stream` — the rules for every answer Claude writes to you (lead with the answer,
+  say where you are, no preamble or closer, and never let a coined name stand in for its
+  meaning). The prose rules bind the Brief, decision asks, and turn summaries; the chat rules
+  bind the running chat; neither binds the technical body. Enforced by `scripts/ste-check.sh`
+  at plan approval, in `/checks`, in `/task-done`, and in CI; `ste-check.sh --chat` checks a
+  pasted answer on demand.
 - `git-safety.md` — branch strategy, push-target verification, signed commits, PR review policy, recovery routing
 - `workflow.md` — plan-first, delegation, verify-before-done, self-improvement loop, compaction recovery
 - `documentation-channels.md` — one documentation contract for every task: Linear tracking (find/create → In Progress → comment → Done), BSpec for all saved specs/decisions, Forge for shared team context (optional; published continuously as work happens), explicit handoffs; enforced via the task-context Loops ledger
