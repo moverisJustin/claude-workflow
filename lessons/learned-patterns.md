@@ -105,3 +105,24 @@ Wrapping a CLI in a portable timeout (`( cmd ) & ... kill`) is the standard macO
 ### Never assume the base branch is `main` — resolve it per repo, and treat "protected" as a SET
 <!-- shareable -->
 Tooling that hardcodes `git checkout main` breaks on a meaningful minority of real repos. A survey of one org's 55 active repos found THREE models: `main` (43), `master` (6), and `develop`+`main` gitflow (6) — so ~20% were wrong, and in the `master` repos the checkout fails outright rather than silently branching off the wrong base. Resolve empirically: the modal `baseRefName` over recent merged PRs (`gh pr list --state merged --json baseRefName`) is the strongest signal because it reflects what the team ACTUALLY does, beating a config file that goes stale; fall back to the declared default branch, then to refs on disk. Cache the answer, but only cache a network-derived one — freezing an offline guess prevents it ever self-correcting. Two further traps: (1) **protected is plural** — in gitflow both `develop` and `main` receive PRs, so "abort if on main" misses `develop`, and every "never force-push to main/master" rule needs the same generalization; (2) **threshold the protected set** — one stacked feature-onto-feature PR would otherwise mark that feature branch protected and block work on it (require e.g. >=3 PRs AND >=10% of the sample, plus the default branch unconditionally). (claude-workflow 2026-07-31.)
+
+### A ticket id written from memory is a fabrication, and nothing in CI will catch it
+<!-- shareable -->
+
+While fixing a defect I wrote `(MOV-3131)` into a module docstring, a block comment, a test
+docstring, a provenance record, and a temp-file name. I had never looked the id up. MOV-3131
+is an unrelated Tailscale ACL issue. The real issue did not exist yet, because I created it
+later in the same session.
+
+Why it survives: a well-formed id is indistinguishable from a correct one. Linters, tests,
+link checkers and BSpec validators all check paths, symbols and document ids, and none of
+them resolve a tracker reference. The comment then becomes the authority a future reader
+trusts, and it points at the wrong investigation.
+
+The rule: never write an issue id you have not fetched in this session. Either look it up
+first, or create the issue first and use the id it returns. If neither is possible, write
+the defect description with no id rather than a plausible one; an unlabelled comment costs a
+search, a wrong label costs trust in every other citation in the file.
+
+Same shape as line-number citations (`file.py:350-354`), which rot silently on the next
+refactor and which no link checker can validate either. Prefer a symbol name.
