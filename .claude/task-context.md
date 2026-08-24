@@ -45,9 +45,11 @@ non-goal is superseded on purpose, not overlooked.
 - [x] `scripts/test-hooks.sh`: 88 passed, 0 failed. The plan gate still accepts a valid Brief.
 - [x] `scripts/maintenance-check.sh` clean. Rules count still reads 5, so the README stays true.
 - [x] `scripts/drift-check.sh` scores 99/100, unchanged.
-- [x] The installed copy at `~/.claude/rules/writing.md` carries the section, and the
-  installed `ste-check.sh` blocks a preamble. Verified against the artifact, not the
-  installer message.
+- [x] The installed copy at `~/.claude/` matches the repo. Verified by diffing every
+  installed path against its source, not by grepping for one marker string. The first
+  install went stale, because I trimmed `rules/writing.md` afterwards; a second install
+  fixed it. `rules/learned-patterns.md` is expected to differ, because its index is
+  regenerated from the machine corpus and lesson publishing is opt-in.
 - [x] Live test: an earlier answer from this session returned 2 true findings, 0 false.
 - [ ] The `--last` flag from the wildcard step is NOT built. See Assumptions.
 
@@ -88,10 +90,21 @@ non-goal is superseded on purpose, not overlooked.
   `### When these rules lose` in `rules/writing.md`.
 
 ## Open decision
-None.
+**What I need.** Your call on the always-on context overrun before PR #42 merges.
+**Why it is blocked.** Nothing blocks. I finished the work and every gate passes. Only the trim decision stays open.
+**What I found.**
+- Always-on context grew 43,215 to 47,244 bytes, a rise of 9.3%.
+- The approved plan promised about 2,300 bytes. The real number is 4,029.
+- You accepted a similar rise of 10.4% on the earlier writing branch.
+- The six escape hatches hold about 900 of those bytes.
+**Options.**
+- Accept the overrun. Cost: every project on this machine pays 4,029 bytes.
+- Cut the escape hatches. Cost: recovers 900 bytes, and the chat rules then misfire against the clarification checkpoint, plan mode, and the confirm step.
+**What I recommend.** Accept it. The hatches cost 900 bytes and stop the rules from fighting three checkpoints you rely on.
+**If you say nothing.** I accept the overrun, mark the assumption accepted, and change nothing else.
 
 ## Loops
-- **Linear**: MOV-3307 (In Progress)
+- **Linear**: MOV-3307 (In Review)
 - **BSpec**: n/a — no new durable design. This edits the contract MOV-3119 already recorded
   at `specs/DEC-writing-contract-v1.0.0.md`.
 - **Handoff**: none
