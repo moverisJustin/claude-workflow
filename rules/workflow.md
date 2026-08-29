@@ -14,6 +14,8 @@
 
 ## Plan First
 - Enter native plan mode for ANY non-trivial task (3+ steps or architectural decisions). Plan-mode approval is the gate — read-only is enforced by the harness.
+- **Ask more questions; fill every gap before planning.** At the start of every planning phase, surface the clarifying questions a sharp senior engineer/operator would ask — use `AskUserQuestion` for the decision-shaped ones — and keep asking until scope, constraints, inputs/data sources, dependencies, success criteria, and edge cases are all specified. If something is unknown, ASK; never quietly paper over it.
+- **Make NO dangerous assumptions.** Never assume anything that, if wrong, would cause data loss, wasted work, action on the wrong target (repo, branch, deploy, recipient, account), or a materially different deliverable. State every assumption explicitly and flag the risky ones for confirmation before acting. Only finalize the plan / exit plan mode once the gaps are closed or the user says to proceed with the stated assumptions.
 - Write detailed specs upfront to reduce ambiguity. Use plan mode for verification steps too, not just building.
 - Before presenting a plan that crosses the complexity bar (multi-module, architectural decisions, or financial/data-integrity/security surface), offer the external review gate (`/plan-review`). Reconciliation is Claude's job — verify each foreign finding, then fold it in or refute it; reviewer disagreements get per-item resolution questions before approval. A missing backend is reported, never silently substituted.
 - If something goes sideways mid-execution, STOP and re-plan. Don't keep pushing.
