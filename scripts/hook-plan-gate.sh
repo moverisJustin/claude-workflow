@@ -21,6 +21,9 @@
 #     `planFilePath`. The published tool schema documents NEITHER; this was read
 #     off a live transcript. The Brief check below uses the inline text, so it
 #     needs no path resolution and cannot race an unlanded write.
+#   - The CURRENT ExitPlanMode tool_use may already be in the transcript when
+#     this hook runs, with no tool_result yet. The write races the hook, so it is
+#     sometimes there and sometimes not. Read off a live transcript 2026-10-20.
 #
 # TWO THINGS ARE GATED HERE, for the same reason: the planning checkpoints, and
 # the plan's `## Brief` block. A plan the user cannot read is not a plan they can
@@ -161,18 +164,30 @@ for ln in lines:
 # several user prompts (you run /clarify, the user answers -> new prompt, you
 # plan, then exit), so prompt-scoping would false-deny nearly every time and
 # train the disarm hatch into the normal path. The window is everything since
-# the previous ExitPlanMode; this hook fires BEFORE the current call is
-# recorded, so the last one present belongs to the previous episode.
-# CRITICAL: anchor on the last SUCCESSFUL ExitPlanMode, not merely the last one
-# recorded. A DENIED ExitPlanMode is itself written to the transcript, so
+# the last APPROVED ExitPlanMode: a tool_use whose tool_result EXISTS and is not
+# an error. Both halves of that rule were learned from a live failure.
+#
+# Not an error: a DENIED ExitPlanMode is itself written to the transcript, so
 # anchoring on any occurrence made every denial reset the window and discard the
 # checkpoints already earned: deny naming /anythingelse -> user runs it -> window
 # now starts after the denial and contains only /anythingelse -> deny naming
 # /clarify. A treadmill that can only be escaped by burning the disarm hatch.
-# A denial comes back as a tool_result with is_error, so success == an
-# ExitPlanMode tool_use whose result is not an error (or has no result yet).
-epm_ids = {}          # index -> tool_use id
-epm_errors = set()
+#
+# Result exists: the CURRENT call can already be in the transcript, with no
+# result yet (see CONTRACT above). The old rule counted "no result yet" as
+# approved, so the call being gated became its own anchor, the window came up
+# empty, and plans whose checkpoints had all returned were denied. Live
+# 2026-10-20: three false denials until the disarm hatch opened. No result means
+# in flight, never approved. The tool_use_id in the payload (the call being
+# gated) is skipped too.
+#
+# One tool_use id can sit in two records: Claude Code copies messages into
+# `api-request-blob` records, after the result and in the original order.
+# Results are keyed by id, so a copy never changes a verdict. A copy of an
+# approved call can only move the anchor later, onto its own copy.
+current = payload.get("tool_use_id")
+epm_ids = {}          # index -> tool_use id (copies repeat an id)
+results = {}          # tool_use id -> True when any result for it is an error
 for i, rec in enumerate(records):
     content = (rec.get("message") or {}).get("content")
     if not isinstance(content, list):
@@ -182,13 +197,15 @@ for i, rec in enumerate(records):
             continue
         if b.get("type") == "tool_use" and b.get("name") == "ExitPlanMode":
             epm_ids[i] = b.get("id")
-        elif b.get("type") == "tool_result" and b.get("is_error"):
-            epm_errors.add(b.get("tool_use_id"))
+        elif b.get("type") == "tool_result":
+            tid = b.get("tool_use_id")
+            results[tid] = results.get(tid, False) or bool(b.get("is_error"))
 
 start = 0
 for i in sorted(epm_ids):
-    if epm_ids[i] not in epm_errors:      # this approval actually went through
-        start = i + 1
+    tid = epm_ids[i]
+    if tid and tid != current and tid in results and not results[tid]:
+        start = i + 1                     # this approval actually went through
 
 window = records[start:]
 
