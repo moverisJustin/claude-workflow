@@ -25,6 +25,12 @@ SHAREABLE_MARKER='<!-- shareable -->'
 
 # --- Helpers ---
 
+# Feed a variable to a reader with a here-string, never `echo "$x" |`. A reader
+# that stops early (awk's exit, grep -q) closes the pipe; once the text outgrows
+# the pipe buffer, echo takes SIGPIPE and pipefail returns 141. Under set -e
+# that kills the sync, and in an `if !` test it reads a match as a miss. The
+# corpus passed 130KB, so this is the normal case, not an edge case.
+
 # Extract the Learned Patterns section from a CLAUDE.md file
 # Returns everything from "# Learned Patterns" to the next "# " heading (or EOF).
 # Fence-aware: a "# comment" line inside a ``` code block is lesson content,
@@ -50,25 +56,25 @@ extract_lessons_section() {
 # substitution — an empty lessons file must be a no-op, not a crash.
 extract_lesson_titles() {
   local section="$1"
-  echo "$section" | grep "^### " | sed 's/^### //' || true
+  grep "^### " <<< "$section" | sed 's/^### //' || true
 }
 
 # Extract a full lesson block (### title + body) by title (fence-aware)
 extract_lesson_block() {
   local section="$1"
   local title="$2"
-  echo "$section" | awk -v title="### $title" '
+  awk -v title="### $title" '
     /^```/ { fence = !fence }
     !fence && $0 == title { found=1; print; next }
     found && !fence && /^### / { exit }
     found { print }
-  '
+  ' <<< "$section"
 }
 
 # Return success if a lesson block opts in to public-repo promotion (contains the marker).
 # Keeps private / org-specific lessons local by default.
 is_shareable() {
-  printf '%s\n' "$1" | grep -qiF "$SHAREABLE_MARKER"
+  grep -qiF "$SHAREABLE_MARKER" <<< "$1"
 }
 
 # Insert a lesson block INSIDE the "# Learned Patterns" section — before the
@@ -135,7 +141,7 @@ if [ -n "$LOCAL_TITLES" ]; then
   while IFS= read -r title; do
     [ -z "$title" ] && continue
     # Check if this title exists in repo
-    if ! echo "$REPO_TITLES" | grep -qxF "$title"; then
+    if ! grep -qxF "$title" <<< "$REPO_TITLES"; then
       # New lesson from local that the repo doesn't have yet
       BLOCK=$(extract_lesson_block "$LOCAL_SECTION" "$title")
       [ -z "$BLOCK" ] && continue
@@ -163,7 +169,7 @@ if [ -n "$REPO_TITLES" ]; then
   while IFS= read -r title; do
     [ -z "$title" ] && continue
     # Check if this title exists in local
-    if ! echo "$LOCAL_TITLES" | grep -qxF "$title"; then
+    if ! grep -qxF "$title" <<< "$LOCAL_TITLES"; then
       # New lesson from repo, append to local
       BLOCK=$(extract_lesson_block "$REPO_SECTION" "$title")
       if [ -n "$BLOCK" ]; then
