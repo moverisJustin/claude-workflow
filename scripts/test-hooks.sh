@@ -402,14 +402,17 @@ PG_GOOD_PLAN='# Plan
 '
 PG_PLAN="$PG_GOOD_PLAN"
 
-pg_payload() {
-  D="$1" T="$2" P="${3:-$PG_PLAN}" python3 -c '
+pg_payload() { # <cwd> <transcript> [plan] [tool_use_id]
+  D="$1" T="$2" P="${3:-$PG_PLAN}" U="${4:-}" python3 -c '
 import json, os
-print(json.dumps({
+p = {
     "session_id": "test", "hook_event_name": "PreToolUse",
     "tool_name": "ExitPlanMode", "cwd": os.environ["D"],
     "transcript_path": os.environ["T"], "tool_input": {"plan": os.environ["P"]},
-}))'
+}
+if os.environ["U"]:
+    p["tool_use_id"] = os.environ["U"]
+print(json.dumps(p))'
 }
 pg_run() { pg_payload "$PG" "$PGT" | bash "$PGATE" 2>/dev/null; }
 pg_decision() {
@@ -503,6 +506,33 @@ D="$(pg_run | pg_decision)"; pg_reset
 { pg_skill clarify t1; pg_skill anythingelse t2; pg_epm 1 false; } > "$PGT"
 D="$(pg_run | pg_decision)"; pg_reset
 [ "$D" = "deny" ] && ok "a SUCCESSFUL approval does start a new episode" || bad "successful approval did not close the episode ('$D')"
+
+# THE in-flight regression. Claude Code writes the CURRENT ExitPlanMode tool_use
+# to the transcript BEFORE this hook runs, with no tool_result yet. The old rule
+# counted "no result yet" as approved, so the call being gated became its own
+# anchor, the window came up empty, and a plan whose checkpoints had all returned
+# was denied. Live 2026-10-20: three false denials until the disarm hatch opened.
+# Fixture: an approved plan plus the `api-request-blob` copy Claude Code writes
+# after its result, both checkpoints with results, then the in-flight call
+# recorded twice with no result.
+pg_inflight() { # <id>
+  printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"ExitPlanMode","id":"e%s"}]}}\n' "$1"
+}
+{ pg_epm 1 false
+  printf '{"type":"api-request-blob","message":{"role":"assistant","content":[{"type":"tool_use","name":"ExitPlanMode","id":"e1"}]}}\n'
+  pg_skill clarify f1; pg_skill anythingelse f2
+  pg_inflight 2; pg_inflight 2; } > "$PGT"
+D="$(pg_payload "$PG" "$PGT" "$PG_PLAN" e2 | bash "$PGATE" 2>/dev/null | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "the in-flight ExitPlanMode does not anchor the episode" || bad "in-flight call emptied the window ('$D')"
+
+# No result means in flight, with or without tool_use_id in the payload.
+D="$(pg_run | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "an ExitPlanMode with no result is never an anchor" || bad "unanswered ExitPlanMode anchored the episode ('$D')"
+
+# The payload's own tool_use_id is skipped even if a clean result for it exists.
+{ pg_skill clarify f1; pg_skill anythingelse f2; pg_epm 2 false; } > "$PGT"
+D="$(pg_payload "$PG" "$PGT" "$PG_PLAN" e2 | bash "$PGATE" 2>/dev/null | pg_decision)"; pg_reset
+[ "$D" = "none" ] && ok "the call being gated is never its own anchor" || bad "current tool_use_id anchored the episode ('$D')"
 
 # Advisory-only gaps must never deny — regression on the required/advisory split.
 { pg_skill clarify t1; pg_skill anythingelse t2; } > "$PGT"
@@ -618,9 +648,11 @@ pg_reset
 printf '# charter\n## Checkpoints\n- [~] plan-review: waived — below complexity bar\n' > "$PG/.claude/task-context.md"
 
 # Evidence is scoped to the plan EPISODE: checkpoints before a previous
-# ExitPlanMode belong to that episode, not this one.
-{ pg_skill clarify 1; pg_skill anythingelse 2; printf '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"ExitPlanMode","id":"e1"}]}}\n'; } > "$PGT"
-D="$(pg_run | pg_decision)"; pg_reset
+# APPROVED ExitPlanMode belong to that episode, not this one. The previous call
+# carries its result; the current one is in flight. (This fixture once used an
+# unanswered ExitPlanMode as the previous approval, which is the in-flight bug.)
+{ pg_skill clarify 1; pg_skill anythingelse 2; pg_epm 1 false; pg_inflight 2; } > "$PGT"
+D="$(pg_payload "$PG" "$PGT" "$PG_PLAN" e2 | bash "$PGATE" 2>/dev/null | pg_decision)"; pg_reset
 [ "$D" = "deny" ] && ok "prior-episode checkpoints do not carry over" || bad "stale episode evidence counted ('$D')"
 
 # Escape hatch: a gate nobody can satisfy must stand down.
