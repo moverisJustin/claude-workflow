@@ -180,6 +180,76 @@ else
 fi
 assert_contains "$EMPTY" "### Repo-only shared pattern" "repo lessons flow into an initially empty local file"
 
+# --- Large corpus: text past the pipe buffer must sync, not die of SIGPIPE ---
+# `echo "$big" | awk '... exit'` and `echo "$big" | grep -q` stop reading
+# early. Once the text outgrows the pipe buffer (64KB plus what the reader has
+# buffered), echo takes SIGPIPE and pipefail turns the pipeline into exit 141:
+# set -e kills the sync, and an `if !` test reads a present title as missing.
+# The real corpus passed 130KB, and every install ended in "lesson sync
+# failed". The fixtures run to ~300KB so the failure is certain, not a race.
+
+# big_lessons PREFIX COUNT BODY_LINES TITLE_PAD MARKER: COUNT lessons titled
+# "### PREFIX <n>" plus TITLE_PAD bytes of padding, each with MARKER (if set)
+# and BODY_LINES 100-byte body lines.
+big_lessons() {
+  awk -v p="$1" -v n="$2" -v lines="$3" -v tpad="$4" -v marker="$5" 'BEGIN {
+    body = "Filler that pushes the lessons section past the pipe buffer, one line at a time. ..................."
+    pad = ""
+    for (k = 0; k < tpad; k++) pad = pad "x"
+    for (i = 1; i <= n; i++) {
+      print "### " p " " i (tpad > 0 ? " " pad : "")
+      if (marker != "") print marker
+      for (j = 0; j < lines; j++) print body
+      print ""
+    }
+  }'
+}
+
+# (a) A new lesson ahead of ~300KB of corpus: the block extractor stops at the
+# next heading with the rest unread. This is the crash install.sh hit.
+BIG_A_LOCAL="$TMP/big-a-local.md"
+BIG_A_REPO="$TMP/big-a-repo.md"
+{
+  printf '# Learned Patterns\n\n### Shareable lesson ahead of a large corpus\n<!-- shareable -->\nNew, and first in the section.\n\n'
+  big_lessons "Large private pattern" 1 3000 0 ""
+} > "$BIG_A_LOCAL"
+printf '# Learned Patterns\n' > "$BIG_A_REPO"
+if LOCAL_FILE="$BIG_A_LOCAL" REPO_FILE="$BIG_A_REPO" bash "$SYNC" > "$TMP/out5.log" 2>&1; then
+  echo "  PASS: ~300KB local section: sync exits 0"; pass=$((pass + 1))
+else
+  echo "  FAIL: ~300KB local section crashed the sync (exit $?)"; fail=$((fail + 1))
+fi
+assert_contains "$BIG_A_REPO" "### Shareable lesson ahead of a large corpus" "lesson ahead of a large corpus promoted to repo"
+assert_absent   "$BIG_A_REPO" "### Large private pattern 1" "large untagged lesson kept local"
+
+# (b) One shareable lesson over 64KB: the marker check stops at the marker.
+# Before the fix this did not crash: it held the lesson back without a word.
+BIG_B_LOCAL="$TMP/big-b-local.md"
+BIG_B_REPO="$TMP/big-b-repo.md"
+{ printf '# Learned Patterns\n\n'; big_lessons "Large shareable pattern" 1 3000 0 "<!-- shareable -->"; } > "$BIG_B_LOCAL"
+printf '# Learned Patterns\n' > "$BIG_B_REPO"
+LOCAL_FILE="$BIG_B_LOCAL" REPO_FILE="$BIG_B_REPO" bash "$SYNC" > "$TMP/out6.log" 2>&1 || {
+  echo "  FAIL: large shareable lesson sync exited non-zero"; fail=$((fail + 1));
+}
+assert_contains "$BIG_B_REPO" "### Large shareable pattern 1" "shareable lesson over 64KB promoted to repo"
+
+# (c) Title lists over 64KB in both files: the dedup check stops at the first
+# match. 1KB headings keep the lesson count, and so the run time, low. Every
+# lesson is shareable and already in both files, so a title misread as missing
+# shows up as a duplicate.
+BIG_C_LOCAL="$TMP/big-c-local.md"
+BIG_C_REPO="$TMP/big-c-repo.md"
+{ printf '# Learned Patterns\n\n'; big_lessons "Long-title pattern" 300 1 1000 "<!-- shareable -->"; } > "$BIG_C_LOCAL"
+cp "$BIG_C_LOCAL" "$BIG_C_REPO"
+BIG_C_TITLE="$(grep -m1 '^### Long-title pattern 1 ' "$BIG_C_LOCAL")"
+if LOCAL_FILE="$BIG_C_LOCAL" REPO_FILE="$BIG_C_REPO" bash "$SYNC" > "$TMP/out7.log" 2>&1; then
+  echo "  PASS: ~300KB title lists: sync exits 0"; pass=$((pass + 1))
+else
+  echo "  FAIL: ~300KB title lists crashed the sync (exit $?)"; fail=$((fail + 1))
+fi
+assert_count "$BIG_C_REPO"  "$BIG_C_TITLE" 1 "present title not re-promoted when the repo title list is over 64KB"
+assert_count "$BIG_C_LOCAL" "$BIG_C_TITLE" 1 "present title not re-pulled when the local title list is over 64KB"
+
 echo ""
 echo "Passed: $pass  Failed: $fail"
 if [ "$fail" -ne 0 ]; then
